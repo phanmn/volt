@@ -117,7 +117,14 @@ defmodule Volt.MixProject do
         "Production Build": [Volt.Builder, Volt.ChunkGraph, Volt.Preload],
         "Tailwind CSS": [Volt.Tailwind],
         "CSS": [Volt.CSS.Modules],
-        "Plugins": [Volt.Plugin, Volt.Plugin.Vue, Volt.Plugin.Svelte, Volt.Plugin.React, Volt.PluginRunner],
+        "Plugins": [
+          Volt.Plugin,
+          Volt.Plugin.Vue,
+          Volt.Plugin.Svelte,
+          Volt.Plugin.React,
+          Volt.Plugin.Solid,
+          Volt.PluginRunner
+        ],
         "JavaScript": [Volt.JS.Runtime, Volt.JS.GlobImport, Volt.JS.PackageResolver, Volt.Env, Volt.Assets],
         "Formatting": [Volt.Formatter],
         "Mix Tasks": [Mix.Tasks.Volt.Build, Mix.Tasks.Volt.Dev, Mix.Tasks.Volt.Lint, Mix.Tasks.Volt.Js.Format, Mix.Tasks.Volt.Js.Check, Mix.Tasks.Volt.Install]
