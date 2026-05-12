@@ -1,15 +1,18 @@
 # Changelog
 
-## Unreleased
+## 0.10.3
 
 ### Changed
 
-- Upgraded `npm_ex` to 0.7.1 and QuickBEAM to 0.10.10.
-- Runtime npm installs now record and validate npm_ex lockfile security policy.
+- Upgraded `npm_ex` to 0.7.1 and QuickBEAM to 0.10.11.
+- Runtime npm installs now record and validate npm_ex lockfile security policy, including registry allowlists, registry redirect policy, and transitive exotic dependency policy.
+- QuickBEAM now hides vendored C symbols in the native library to avoid collisions with other NIFs.
 
-### Fixed
+### Security
 
-- Runtime npm installs now warn when ignored lifecycle scripts are present.
+- Runtime npm installs continue to ignore package lifecycle hooks and now warn when packages declare ignored install scripts.
+- `npm_ex` now blocks direct git/file/URL dependencies unless explicitly allowlisted and blocks transitive exotic dependency specs from registry metadata by default.
+- `npm_ex` now skips package versions with blocked transitive exotic dependencies during resolution, so safe matching versions can still be selected.
 
 ## 0.10.2
 
