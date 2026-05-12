@@ -1,6 +1,8 @@
 defmodule Volt.JS.Runtime.Installer do
   @moduledoc false
 
+  require Logger
+
   @spec install!(map(), keyword()) :: %{install_dir: String.t(), node_modules: String.t()}
   def install!(packages, opts \\ []) when is_map(packages) do
     Application.ensure_all_started(:req)
@@ -32,7 +34,8 @@ defmodule Volt.JS.Runtime.Installer do
         {_nested, flat} = Map.pop(resolved, :nested, %{})
         lockfile = build_lockfile(flat)
         NPM.Lockfile.write(lockfile, lockfile_path)
-        NPM.Linker.link(lockfile, node_modules)
+        NPM.Install.Linker.link(lockfile, node_modules)
+        warn_ignored_install_scripts(lockfile)
 
       {:error, message} ->
         raise "NPM package resolution failed:\n#{message}"
@@ -50,20 +53,34 @@ defmodule Volt.JS.Runtime.Installer do
          integrity: info.dist.integrity,
          tarball: info.dist.tarball,
          dependencies: info.dependencies,
-         optional_dependencies: info.optional_dependencies
+         optional_dependencies: info.optional_dependencies,
+         has_install_script: info.has_install_script
        }}
     end
   end
 
-  defp install_intact?(lockfile_path, node_modules) do
-    case NPM.Lockfile.read(lockfile_path) do
-      {:ok, lockfile} when lockfile != %{} ->
-        Enum.all?(lockfile, fn {name, _} ->
-          File.exists?(Path.join([node_modules, name, "package.json"]))
-        end)
+  defp warn_ignored_install_scripts(lockfile) do
+    packages =
+      lockfile
+      |> Enum.filter(fn {_name, entry} -> Map.get(entry, :has_install_script, false) end)
+      |> Enum.map_join(", ", fn {name, entry} -> "#{name}@#{entry.version}" end)
 
-      _ ->
-        false
+    if packages != "" do
+      Logger.warning(
+        "Volt ignored npm lifecycle scripts for #{packages}; npm_ex does not run install hooks"
+      )
+    end
+  end
+
+  defp install_intact?(lockfile_path, node_modules) do
+    with {:ok, policy} <- NPM.Lockfile.read_policy(lockfile_path),
+         true <- NPM.Lockfile.policy_matches?(policy),
+         {:ok, lockfile} when lockfile != %{} <- NPM.Lockfile.read(lockfile_path) do
+      Enum.all?(lockfile, fn {name, _} ->
+        File.exists?(Path.join([node_modules, name, "package.json"]))
+      end)
+    else
+      _ -> false
     end
   end
 
@@ -82,7 +99,7 @@ defmodule Volt.JS.Runtime.Installer do
   defp default_install_dir(id) do
     root =
       System.get_env("VOLT_JS_RUNTIME_DIR") ||
-        Path.join(NPM.Cache.dir(), "volt-js-runtimes")
+        Path.join(NPM.Config.cache_dir(), "volt-js-runtimes")
 
     Path.join(root, id)
   end

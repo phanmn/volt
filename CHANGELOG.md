@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Upgraded `npm_ex` to 0.7.1 and QuickBEAM to 0.10.10.
+- Runtime npm installs now record and validate npm_ex lockfile security policy.
+
+### Fixed
+
+- Runtime npm installs now warn when ignored lifecycle scripts are present.
+
 ## 0.10.2
 
 ### Changed

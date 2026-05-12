@@ -1,6 +1,7 @@
 defmodule Volt.Tailwind.Loader do
   @moduledoc "Handles Tailwind module loading, prebundling CJS graphs via OXC, and stylesheet resolution."
 
+  alias Volt.JS.SpecifierRewriter
   alias Volt.Tailwind.Resolver
 
   @tailwind_install_spec "^4.2.2"
@@ -104,69 +105,7 @@ defmodule Volt.Tailwind.Loader do
   end
 
   defp rewrite_bundle_source(source, abs_path, runtime_node_modules) do
-    case OXC.parse(source, Path.basename(abs_path)) do
-      {:ok, ast} ->
-        {patches, resolved_paths} = collect_specifier_patches(ast, abs_path, runtime_node_modules)
-        {:ok, OXC.patch_string(source, patches), resolved_paths}
-
-      {:error, errors} ->
-        {:error, {:parse_error, abs_path, errors}}
-    end
-  end
-
-  defp collect_specifier_patches(ast, abs_path, runtime_node_modules) do
-    {_ast, {patches, paths}} =
-      OXC.postwalk(ast, {[], []}, fn
-        %{type: type, source: %{value: specifier, start: s, end: e}}, acc
-        when type in [:import_declaration, :export_all_declaration, :export_named_declaration] ->
-          {nil, accumulate_patch(specifier, s, e, abs_path, runtime_node_modules, acc)}
-
-        %{
-          type: :import_expression,
-          source: %{type: :literal, value: specifier, start: s, end: e}
-        } = node,
-        acc
-        when is_binary(specifier) ->
-          {node, accumulate_patch(specifier, s, e, abs_path, runtime_node_modules, acc)}
-
-        %{
-          type: :call_expression,
-          callee: %{type: :identifier, name: "require"},
-          arguments: [%{value: specifier, start: s, end: e}]
-        },
-        acc
-        when is_binary(specifier) ->
-          {nil, accumulate_patch(specifier, s, e, abs_path, runtime_node_modules, acc)}
-
-        node, acc ->
-          {node, acc}
-      end)
-
-    {Enum.reverse(patches), Enum.reverse(paths)}
-  end
-
-  defp accumulate_patch(
-         specifier,
-         start_pos,
-         end_pos,
-         abs_path,
-         runtime_node_modules,
-         {patches, paths}
-       ) do
-    case bundle_specifier(specifier, abs_path, runtime_node_modules) do
-      :skip ->
-        {patches, paths}
-
-      {:ok, nil, resolved_path} ->
-        {patches, [resolved_path | paths]}
-
-      {:ok, replacement, resolved_path} ->
-        patch = %{start: start_pos, end: end_pos, change: inspect(replacement)}
-        {[patch | patches], [resolved_path | paths]}
-
-      {:error, _} ->
-        {patches, paths}
-    end
+    SpecifierRewriter.rewrite(source, abs_path, runtime_node_modules, &bundle_specifier/3)
   end
 
   defp bundle_specifier(specifier, abs_path, runtime_node_modules) do
