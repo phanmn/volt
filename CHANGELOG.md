@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.10.4
+
+### Fixed
+
+- CSS files imported from JavaScript (`import './style.css'`) are now served as JavaScript modules that inject styles at runtime, matching Vite's behavior. Previously the dev server returned `text/css`, which browsers rejected as an invalid ES module MIME type.
+- CSS Modules (`.module.css`) are now served as JavaScript in the dev server regardless of how they are requested, fixing silent failures when importing CSS modules from JS.
+- CSS import specifiers in JS are rewritten to `?import` URLs so the dev server can distinguish stylesheet requests from JS module imports and serve each with the correct content type.
+
+### Added
+
+- `updateStyle` and `removeStyle` helpers in the HMR client for injecting and removing `<style>` tags by module ID.
+- HMR style updates now refresh injected CSS import modules in addition to `<link>` stylesheet tags.
+
 ## 0.10.3
 
 ### Changed

@@ -141,18 +141,38 @@ defmodule Volt.DevServer do
 
   defp serve_compiled(conn, file_path, relative, config) do
     mtime = Volt.Format.file_mtime(file_path)
-    content_type = content_type_for(file_path)
+    css_import? = css_import_request?(conn, file_path)
+    content_type = content_type_for(file_path, css_import?)
+    cache_key = cache_key_for(file_path, css_import?)
 
-    case Volt.Cache.get(file_path, mtime) do
+    case Volt.Cache.get(cache_key, mtime) do
       %{code: code} = entry ->
         send_compiled(conn, code, entry[:sourcemap], content_type)
 
       nil ->
-        compile_and_serve(conn, file_path, relative, mtime, content_type, config)
+        compile_and_serve(
+          conn,
+          file_path,
+          relative,
+          mtime,
+          content_type,
+          cache_key,
+          css_import?,
+          config
+        )
     end
   end
 
-  defp compile_and_serve(conn, file_path, relative, mtime, content_type, config) do
+  defp compile_and_serve(
+         conn,
+         file_path,
+         relative,
+         mtime,
+         content_type,
+         cache_key,
+         css_import?,
+         config
+       ) do
     source = File.read!(file_path)
 
     pipeline_opts = [
@@ -168,8 +188,7 @@ defmodule Volt.DevServer do
     case Volt.Pipeline.compile(file_path, source, pipeline_opts) do
       {:ok, result} ->
         mod_url = Path.join(config.prefix, relative)
-        code = maybe_inject_hmr_preamble(result.code, mod_url, content_type)
-        code = maybe_inject_dev_console_forwarder(code, content_type)
+        code = code_for_request(result, mod_url, content_type, css_import?)
 
         entry = %{
           code: code,
@@ -179,7 +198,7 @@ defmodule Volt.DevServer do
           content_type: content_type
         }
 
-        Volt.Cache.put(file_path, mtime, entry)
+        Volt.Cache.put(cache_key, mtime, entry)
         send_compiled(conn, code, result.sourcemap, content_type)
 
       {:error, errors} ->
@@ -216,12 +235,53 @@ defmodule Volt.DevServer do
     |> Plug.Conn.halt()
   end
 
-  defp content_type_for(path) do
-    case Path.extname(path) do
-      ".css" -> "text/css"
-      ".json" -> "application/javascript"
+  defp content_type_for(path, css_import?) do
+    case {Path.extname(path), css_import?} do
+      {".css", false} -> "text/css"
       _ -> "application/javascript"
     end
+  end
+
+  defp css_import_request?(conn, file_path) do
+    Path.extname(file_path) == ".css" and
+      (Volt.CSS.Modules.css_module?(file_path) or conn.query_string == "import" or
+         String.starts_with?(conn.query_string, "import&"))
+  end
+
+  defp cache_key_for(file_path, true), do: file_path <> "?import"
+  defp cache_key_for(file_path, false), do: file_path
+
+  defp code_for_request(result, mod_url, content_type, true) do
+    result
+    |> css_import_module(mod_url)
+    |> maybe_inject_hmr_preamble(mod_url <> "?import", content_type)
+    |> maybe_inject_dev_console_forwarder(content_type)
+  end
+
+  defp code_for_request(result, mod_url, content_type, false) do
+    result.code
+    |> maybe_inject_hmr_preamble(mod_url, content_type)
+    |> maybe_inject_dev_console_forwarder(content_type)
+  end
+
+  defp css_import_module(%{code: code, css: nil}, mod_url) do
+    css_update_module(mod_url, code, "")
+  end
+
+  defp css_import_module(%{code: code, css: css}, mod_url) do
+    css_update_module(mod_url, css, code)
+  end
+
+  defp css_update_module(mod_url, css, exports) do
+    """
+    import { updateStyle as __volt_updateStyle, removeStyle as __volt_removeStyle } from "/@volt/client.js";
+    const __volt_id = #{inspect(mod_url)};
+    const __volt_css = #{inspect(css)};
+    __volt_updateStyle(__volt_id, __volt_css);
+    import.meta.hot.accept();
+    import.meta.hot.dispose(() => __volt_removeStyle(__volt_id));
+    #{exports}
+    """
   end
 
   # ── Import rewriting ──────────────────────────────────────────────
@@ -260,7 +320,7 @@ defmodule Volt.DevServer do
     if String.starts_with?(resolved, config.root) do
       resolved = resolve_with_extension(resolved, config.plugins)
       relative = Path.relative_to(resolved, config.root)
-      {:rewrite, Path.join(config.prefix, relative)}
+      {:rewrite, dev_url_for(config.prefix, relative, resolved)}
     else
       :keep
     end
@@ -270,7 +330,7 @@ defmodule Volt.DevServer do
     if String.starts_with?(resolved, config.root) do
       resolved = resolve_with_extension(resolved, config.plugins)
       relative = Path.relative_to(resolved, config.root)
-      {:rewrite, Path.join(config.prefix, relative)}
+      {:rewrite, dev_url_for(config.prefix, relative, resolved)}
     else
       :keep
     end
@@ -279,6 +339,16 @@ defmodule Volt.DevServer do
   defp rewrite_bare(specifier, config) do
     specifier = Volt.PluginRunner.prebundle_alias(config.plugins, specifier)
     {:rewrite, Volt.JS.Vendor.vendor_url(specifier)}
+  end
+
+  defp dev_url_for(prefix, relative, resolved) do
+    url = Path.join(prefix, relative)
+
+    if Path.extname(resolved) == ".css" do
+      url <> "?import"
+    else
+      url
+    end
   end
 
   defp resolve_with_extension(path, plugins) do

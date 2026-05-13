@@ -189,7 +189,23 @@ async function applyHMRUpdate(boundary: string, timestamp: number) {
   }
 }
 
-function updateStyles(path: string) {
+export function updateStyle(id: string, css: string) {
+  let style = document.querySelector<HTMLStyleElement>(`style[data-volt-id="${id}"]`)
+
+  if (!style) {
+    style = document.createElement('style')
+    style.setAttribute('data-volt-id', id)
+    document.head.appendChild(style)
+  }
+
+  style.textContent = css
+}
+
+export function removeStyle(id: string) {
+  document.querySelector<HTMLStyleElement>(`style[data-volt-id="${id}"]`)?.remove()
+}
+
+async function updateStyles(path: string) {
   const links = document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]')
   let updated = false
 
@@ -200,6 +216,18 @@ function updateStyles(path: string) {
       const url = new URL(link.href)
       url.searchParams.set('t', Date.now().toString())
       link.href = url.toString()
+      updated = true
+    }
+  }
+
+  const styles = document.querySelectorAll<HTMLStyleElement>('style[data-volt-id]')
+
+  for (const style of styles) {
+    const id = style.getAttribute('data-volt-id')
+
+    if (id && (id.includes(path) || path.includes(id.replace(/^\//, '')))) {
+      const url = `${id}?import&t=${Date.now()}`
+      await import(/* @vite-ignore */ url)
       updated = true
     }
   }
