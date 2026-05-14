@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Solid JSX/TSX support via `Volt.Plugin.Solid`. Runs `babel-preset-solid` through QuickBEAM — no Node.js required. Enable with `plugins: [Volt.Plugin.Solid]` in Volt config.
+- Solid example app under `examples/solid`.
+
+### Changed
+
+- Upgraded QuickBEAM to 0.10.12.
+
+### Fixed
+
+- Tailwind plugins using `fs.readFileSync(path).toString()` (like `heroicons.js`) now produce correct UTF-8 strings instead of comma-separated ASCII char codes. Root cause was in QuickBEAM's `fs.readFileSync` returning raw `Uint8Array` instead of `Buffer`.
+
 ## 0.10.4
 
 ### Fixed
