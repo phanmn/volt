@@ -32,9 +32,27 @@ declare const TAILWIND_DEFAULT_BASE: string
 
 const fs = (
   globalThis as typeof globalThis & {
-    fs: { readFileSync: (path: string, encoding: string) => string }
+    fs: { readFileSync: (path: string, encoding?: string) => string | Uint8Array }
   }
 ).fs
+
+const _Buffer = (
+  globalThis as typeof globalThis & {
+    Buffer?: { from(arr: Uint8Array): Uint8Array }
+  }
+).Buffer
+
+if (_Buffer && fs) {
+  const _origReadFileSync = fs.readFileSync
+  fs.readFileSync = function readFileSync(
+    path: string,
+    encoding?: string
+  ): string | Uint8Array {
+    const result = _origReadFileSync(path, encoding)
+    if (typeof result !== 'string') return _Buffer.from(result)
+    return result
+  } as typeof fs.readFileSync
+}
 
 const path = (
   globalThis as typeof globalThis & {
