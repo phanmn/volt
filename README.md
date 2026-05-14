@@ -79,7 +79,7 @@ Tree-shaking, minification, code splitting, content-hashed filenames, and source
 
 ## Framework support
 
-Vue SFCs with scoped CSS, React JSX with the automatic runtime, and Svelte 5 with runes all compile without Node.js installed. Plain TypeScript with LiveView hooks works too.
+Vue SFCs with scoped CSS, React JSX with the automatic runtime, Svelte 5 with runes, and Solid JSX all compile without Node.js installed. Plain TypeScript with LiveView hooks works too.
 
 See the [examples](https://github.com/elixir-volt/volt/tree/master/examples) for complete Phoenix projects with each framework.
 
