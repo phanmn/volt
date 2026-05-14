@@ -294,6 +294,8 @@ defmodule Volt.BuilderTest do
         "self.postMessage('solid-worker-ready')"
       )
 
+      File.write!(Path.join(@fixture_dir, "src/solid_types.ts"), "export type Label = string")
+
       File.write!(Path.join(@fixture_dir, "src/solid_app.tsx"), """
       import type { Label } from './solid_types'
       import { createSignal } from 'solid-js'

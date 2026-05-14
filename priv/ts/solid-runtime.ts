@@ -1,68 +1,70 @@
-function assert(value, message) {
-  if (!value) {
-    throw new Error(message || 'assertion failed')
-  }
-}
+// Babel's CJS internals call require() at runtime for modules like
+// 'assert' and 'path'. Provide a fallback that delegates to QuickBEAM's
+// node globals where available.
+const _globals = globalThis as Record<string, unknown>
 
+const assert = (value: unknown, message?: string) => {
+  if (!value) throw new Error(message || 'assertion failed')
+}
 assert.ok = assert
-assert.equal = (actual, expected, message) => {
-  if (actual != expected) {
-    throw new Error(message || 'assert equal failed')
-  }
+assert.equal = (a: unknown, b: unknown, msg?: string) => {
+  if (a != b) throw new Error(msg || `assert.equal: ${a} != ${b}`)
 }
-assert.strictEqual = (actual, expected, message) => {
-  if (actual !== expected) {
-    throw new Error(message || 'assert strictEqual failed')
-  }
+assert.strictEqual = (a: unknown, b: unknown, msg?: string) => {
+  if (a !== b) throw new Error(msg || `assert.strictEqual: ${a} !== ${b}`)
 }
 
-const path = {
-  sep: '/',
-  basename(value) {
-    return String(value).split('/').pop() || ''
-  },
-  dirname(value) {
-    const parts = String(value).split('/')
-    parts.pop()
-    return parts.join('/') || '.'
-  },
-  extname(value) {
-    const base = path.basename(value)
-    const index = base.lastIndexOf('.')
-    return index > 0 ? base.slice(index) : ''
-  },
-  join(...parts) {
-    return parts.join('/')
-  },
-  resolve(...parts) {
-    return parts.join('/')
-  }
-}
-
-globalThis.require = (name) => {
+_globals.require = (name: string) => {
   if (name === 'assert') return assert
-  if (name === 'path') return path
-  throw new Error(`unsupported require ${name}`)
+  const builtin = _globals[name] ?? _globals[name.replace('node:', '')]
+  if (builtin !== undefined) return builtin
+  throw new Error(`require: module '${name}' not available`)
 }
 
-let compiler
+interface BabelTransformResult {
+  code?: string
+  map?: unknown
+}
 
-async function loadCompiler() {
+interface BabelStandalone {
+  registerPreset(name: string, preset: unknown): void
+  transform(source: string, options: Record<string, unknown>): BabelTransformResult
+}
+
+interface CompileOptions {
+  filename?: string
+  typescript?: boolean
+  sourcemap?: boolean
+  solidOptions?: Record<string, unknown>
+  typescriptOptions?: Record<string, unknown>
+}
+
+interface CompileResult {
+  code: string
+  map: unknown | null
+}
+
+let compiler: BabelStandalone | null = null
+
+async function loadCompiler(): Promise<BabelStandalone> {
   if (compiler) return compiler
 
-  const Babel = await import('@babel/standalone')
+  const Babel = (await import('@babel/standalone')) as unknown as BabelStandalone
   const solidPreset = await import('babel-preset-solid')
-  Babel.registerPreset('solid', solidPreset.default)
+  Babel.registerPreset('solid', (solidPreset as { default?: unknown }).default ?? solidPreset)
   compiler = Babel
   return compiler
 }
 
-async function compileSolid(source, options = {}) {
+async function compileSolid(
+  source: string,
+  options: CompileOptions = {}
+): Promise<CompileResult> {
   const Babel = await loadCompiler()
   const filename = options.filename ?? 'component.tsx'
   const typescript = options.typescript ?? /\.[cm]?tsx?$/.test(filename)
 
-  const presets = []
+  const presets: unknown[] = []
 
   if (typescript) {
     presets.push([
@@ -85,8 +87,8 @@ async function compileSolid(source, options = {}) {
   })
 
   return {
-    code: result.code ?? '',
-    map: result.map ?? null
+    code: result?.code ?? '',
+    map: result?.map ?? null
   }
 }
 
