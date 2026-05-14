@@ -122,6 +122,7 @@ defmodule Volt.MixProject do
           Volt.Plugin.Vue,
           Volt.Plugin.Svelte,
           Volt.Plugin.React,
+          Volt.Plugin.Solid,
           Volt.PluginRunner
         ],
         JavaScript: [
