@@ -1,6 +1,6 @@
 # Frontend Frameworks
 
-Volt has built-in support for Vue, Svelte, and React. No Node.js runtime is required — each framework's compiler runs through Rust NIFs or QuickBEAM.
+Volt has built-in support for Vue, Svelte, React, and Solid. No Node.js runtime is required — each framework's compiler runs through Rust NIFs or QuickBEAM.
 
 ## React
 
@@ -141,6 +141,47 @@ if (import.meta.hot) {
   import.meta.hot.accept()
 }
 ```
+
+## Solid
+
+Solid JSX/TSX compiles through [QuickBEAM](https://hex.pm/packages/quickbeam), which runs `babel-preset-solid` in-process without Node.js. Solid uses the same `.jsx`/`.tsx` extensions as React, so the plugin must be enabled explicitly.
+
+### Setup
+
+```elixir
+# config/config.exs
+config :volt,
+  entry: "assets/js/app.tsx",
+  sources: ["**/*.{js,ts,jsx,tsx}"],
+  plugins: [Volt.Plugin.Solid]
+
+config :volt, :lint, plugins: [:typescript]
+```
+
+```json
+// package.json
+{
+  "dependencies": {
+    "solid-js": "^1.9.0"
+  }
+}
+```
+
+### Entry Point
+
+```tsx
+import { render } from 'solid-js/web'
+import App from './App'
+
+const dispose = render(() => <App />, document.getElementById('app')!)
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => dispose())
+  import.meta.hot.accept()
+}
+```
+
+Volt pre-bundles `solid-js` and `solid-js/web` into a single vendor module automatically.
 
 ## Vanilla TypeScript
 
