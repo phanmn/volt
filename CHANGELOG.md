@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.10.4
+
+### Fixed
+
+- CSS files imported from JavaScript (`import './style.css'`) are now served as JavaScript modules that inject styles at runtime, matching Vite's behavior. Previously the dev server returned `text/css`, which browsers rejected as an invalid ES module MIME type.
+- CSS Modules (`.module.css`) are now served as JavaScript in the dev server regardless of how they are requested, fixing silent failures when importing CSS modules from JS.
+- CSS import specifiers in JS are rewritten to `?import` URLs so the dev server can distinguish stylesheet requests from JS module imports and serve each with the correct content type.
+
+### Added
+
+- `updateStyle` and `removeStyle` helpers in the HMR client for injecting and removing `<style>` tags by module ID.
+- HMR style updates now refresh injected CSS import modules in addition to `<link>` stylesheet tags.
+
+## 0.10.3
+
+### Changed
+
+- Upgraded `npm_ex` to 0.7.1 and QuickBEAM to 0.10.11.
+- Runtime npm installs now record and validate npm_ex lockfile security policy, including registry allowlists, registry redirect policy, and transitive exotic dependency policy.
+- QuickBEAM now hides vendored C symbols in the native library to avoid collisions with other NIFs.
+
+### Security
+
+- Runtime npm installs continue to ignore package lifecycle hooks and now warn when packages declare ignored install scripts.
+- `npm_ex` now blocks direct git/file/URL dependencies unless explicitly allowlisted and blocks transitive exotic dependency specs from registry metadata by default.
+- `npm_ex` now skips package versions with blocked transitive exotic dependencies during resolution, so safe matching versions can still be selected.
+
 ## 0.10.2
 
 ### Changed

@@ -11,6 +11,8 @@ mix phx.server
 
 The installer configures everything. No binaries to download, no extra processes to manage.
 
+Volt's npm integration uses `npm_ex`, which ignores package lifecycle hooks by default. Runtime package installs do not execute `preinstall`, `install`, or `postinstall` scripts, mitigating install-time credential stealers.
+
 ## Why Volt
 
 Phoenix ships with esbuild and a Tailwind CLI as separate binaries downloaded at compile time. They can't coordinate HMR or share work, and anything beyond vanilla JS requires Node.js.

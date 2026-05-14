@@ -152,6 +152,90 @@ defmodule Volt.Integration.HMRTest do
       {:ok, result} = eval_poll(frame, "window.__voltImportResult")
       assert result == "hello from utils"
     end
+
+    test "imports CSS from JavaScript and injects a style tag", %{frame: frame} do
+      write_fixture("imported.css", """
+      .volt-css-import-target { color: rgb(10, 20, 30); }
+      """)
+
+      write_fixture("css_importer.ts", """
+      import './imported.css'
+
+      const el = document.createElement('div')
+      el.className = 'volt-css-import-target'
+      el.textContent = 'styled'
+      document.body.appendChild(el)
+      window.__voltCssImportLoaded = true
+      """)
+
+      write_fixture("css_import_page.html", """
+      <!DOCTYPE html>
+      <html><body>
+        <script type="module" src="/assets/css_importer.ts"></script>
+      </body></html>
+      """)
+
+      {:ok, _} = Frame.goto(frame.guid, url: base_url("/css_import_page.html"), timeout: 10_000)
+
+      {:ok, loaded} = eval_poll(frame, "window.__voltCssImportLoaded")
+      assert loaded == true
+
+      {:ok, style_count} =
+        eval_poll(
+          frame,
+          "document.querySelectorAll('style[data-volt-id=\"/assets/imported.css\"]').length"
+        )
+
+      assert style_count == 1
+
+      {:ok, color} =
+        eval_poll(
+          frame,
+          "getComputedStyle(document.querySelector('.volt-css-import-target')).color"
+        )
+
+      assert color == "rgb(10, 20, 30)"
+    end
+
+    test "imports CSS modules from JavaScript with exports and injected styles", %{frame: frame} do
+      write_fixture("button.module.css", """
+      .btn { color: rgb(40, 50, 60); }
+      """)
+
+      write_fixture("css_module_importer.ts", """
+      import classes from './button.module.css'
+
+      const el = document.createElement('div')
+      el.className = classes.btn
+      el.textContent = classes.btn
+      document.body.appendChild(el)
+      window.__voltCssModuleClass = classes.btn
+      """)
+
+      write_fixture("css_module_page.html", """
+      <!DOCTYPE html>
+      <html><body>
+        <script type="module" src="/assets/css_module_importer.ts"></script>
+      </body></html>
+      """)
+
+      {:ok, _} = Frame.goto(frame.guid, url: base_url("/css_module_page.html"), timeout: 10_000)
+
+      {:ok, class_name} = eval_poll(frame, "window.__voltCssModuleClass")
+      assert is_binary(class_name)
+      assert class_name =~ "btn"
+
+      {:ok, style_count} =
+        eval_poll(
+          frame,
+          "document.querySelectorAll('style[data-volt-id=\"/assets/button.module.css\"]').length"
+        )
+
+      assert style_count == 1
+
+      {:ok, color} = eval_poll(frame, "getComputedStyle(document.querySelector('div')).color")
+      assert color == "rgb(40, 50, 60)"
+    end
   end
 
   defp eval_poll(frame, expression, attempts \\ 20) do

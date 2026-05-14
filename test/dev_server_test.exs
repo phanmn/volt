@@ -61,6 +61,54 @@ defmodule Volt.DevServerTest do
       assert conn.resp_body =~ "color"
       assert get_resp_header(conn, "content-type") |> hd() =~ "text/css"
     end
+
+    test "serves CSS imports as JavaScript modules" do
+      conn = call_dev_server("/assets/style.css?import")
+      assert conn.status == 200
+      assert conn.resp_body =~ "__volt_updateStyle"
+      assert conn.resp_body =~ "color"
+      assert get_resp_header(conn, "content-type") |> hd() =~ "javascript"
+    end
+
+    test "serves CSS import requests with cache-busting params as JavaScript modules" do
+      conn = call_dev_server("/assets/style.css?import&t=123")
+      assert conn.status == 200
+      assert conn.resp_body =~ "__volt_updateStyle"
+      assert get_resp_header(conn, "content-type") |> hd() =~ "javascript"
+    end
+
+    test "serves raw CSS and CSS import modules from separate cache entries" do
+      import_conn = call_dev_server("/assets/style.css?import")
+      raw_conn = call_dev_server("/assets/style.css")
+
+      assert import_conn.resp_body =~ "__volt_updateStyle"
+      assert get_resp_header(import_conn, "content-type") |> hd() =~ "javascript"
+
+      assert raw_conn.resp_body =~ "color: red"
+      refute raw_conn.resp_body =~ "__volt_updateStyle"
+      assert get_resp_header(raw_conn, "content-type") |> hd() =~ "text/css"
+    end
+
+    test "serves CSS modules imported from JavaScript with styles and exports" do
+      File.write!(Path.join(@fixture_dir, "src/button.module.css"), ".btn { color: red }")
+
+      conn = call_dev_server("/assets/button.module.css?import")
+      assert conn.status == 200
+      assert conn.resp_body =~ "__volt_updateStyle"
+      assert conn.resp_body =~ "color: red"
+      assert conn.resp_body =~ "export default"
+      assert get_resp_header(conn, "content-type") |> hd() =~ "javascript"
+    end
+
+    test "serves CSS modules as JavaScript even without import query" do
+      File.write!(Path.join(@fixture_dir, "src/button.module.css"), ".btn { color: red }")
+
+      conn = call_dev_server("/assets/button.module.css")
+      assert conn.status == 200
+      assert conn.resp_body =~ "__volt_updateStyle"
+      assert conn.resp_body =~ "export default"
+      assert get_resp_header(conn, "content-type") |> hd() =~ "javascript"
+    end
   end
 
   describe "caching" do
@@ -119,6 +167,15 @@ defmodule Volt.DevServerTest do
       assert conn.status == 200
       assert conn.resp_body =~ "/assets/utils.ts"
       refute conn.resp_body =~ "'./utils'"
+    end
+
+    test "rewrites CSS imports to import-mode URLs" do
+      File.write!(Path.join(@fixture_dir, "src/entry.ts"), "import './style.css'")
+
+      conn = call_dev_server("/assets/entry.ts")
+      assert conn.status == 200
+      assert conn.resp_body =~ "/assets/style.css?import"
+      refute conn.resp_body =~ "'./style.css'"
     end
 
     test "rewrites bare imports to vendor URLs" do

@@ -1,4 +1,4 @@
-function renderErrorOverlay(message: string) {
+globalThis.renderErrorOverlay = function renderErrorOverlay(message: string) {
   console.error(`[Volt] Compilation error:\n${message}`)
 
   if (typeof document === 'undefined') {

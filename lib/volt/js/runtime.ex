@@ -181,9 +181,6 @@ defmodule Volt.JS.Runtime do
         {:ok, code} when is_binary(code) ->
           write_bundle!(bundle_path, code)
 
-        {:ok, %{code: code}} when is_binary(code) ->
-          write_bundle!(bundle_path, code)
-
         {:error, reason} ->
           raise Error,
             stage: :bundle,

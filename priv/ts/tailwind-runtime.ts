@@ -125,12 +125,7 @@ function normalizeBase(base: string | null | undefined, fallbackBase: string) {
 }
 
 function unwrapModule(mod: unknown): unknown {
-  if (
-    mod &&
-    typeof mod === 'object' &&
-    '__esModule' in mod &&
-    'default' in mod
-  ) {
+  if (mod && typeof mod === 'object' && '__esModule' in mod && 'default' in mod) {
     return (mod as Record<string, unknown>).default
   }
   return mod

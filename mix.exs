@@ -1,7 +1,7 @@
 defmodule Volt.MixProject do
   use Mix.Project
 
-  @version "0.10.2"
+  @version "0.10.4"
   @source_url "https://github.com/elixir-volt/volt"
 
   def project do
@@ -36,7 +36,7 @@ defmodule Volt.MixProject do
       {:oxc, "~> 0.12.0"},
       {:vize, "~> 0.10.0"},
       {:oxide_ex, "~> 0.2.1"},
-      {:quickbeam, "~> 0.10.9"},
+      {:quickbeam, "~> 0.10.11"},
       {:dotenvy, "~> 1.1"},
       {:floki, "~> 0.38"},
       {:plug, "~> 1.16"},
@@ -44,7 +44,7 @@ defmodule Volt.MixProject do
       {:file_system, "~> 1.0"},
       {:jason, "~> 1.4"},
       {:igniter, "~> 0.5", optional: true},
-      {:npm, "~> 0.6.0"},
+      {:npm, "~> 0.7.1"},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:ex_slop, "~> 0.2", only: [:dev, :test], runtime: false},
@@ -111,13 +111,13 @@ defmodule Volt.MixProject do
         Cheatsheets: ~r/guides\/cheatsheets\//
       ],
       groups_for_modules: [
-        "Core": [Volt, Volt.Pipeline, Volt.Config],
+        Core: [Volt, Volt.Pipeline, Volt.Config],
         "Dev Server": [Volt.DevServer, Volt.Watcher, Volt.Dev.ConsoleForwarder],
-        "HMR": [Volt.HMR.Boundary, Volt.HMR.Client, Volt.HMR.Socket],
+        HMR: [Volt.HMR.Boundary, Volt.HMR.Client, Volt.HMR.Socket],
         "Production Build": [Volt.Builder, Volt.ChunkGraph, Volt.Preload],
         "Tailwind CSS": [Volt.Tailwind],
-        "CSS": [Volt.CSS.Modules],
-        "Plugins": [
+        CSS: [Volt.CSS.Modules],
+        Plugins: [
           Volt.Plugin,
           Volt.Plugin.Vue,
           Volt.Plugin.Svelte,
@@ -125,9 +125,22 @@ defmodule Volt.MixProject do
           Volt.Plugin.Solid,
           Volt.PluginRunner
         ],
-        "JavaScript": [Volt.JS.Runtime, Volt.JS.GlobImport, Volt.JS.PackageResolver, Volt.Env, Volt.Assets],
-        "Formatting": [Volt.Formatter],
-        "Mix Tasks": [Mix.Tasks.Volt.Build, Mix.Tasks.Volt.Dev, Mix.Tasks.Volt.Lint, Mix.Tasks.Volt.Js.Format, Mix.Tasks.Volt.Js.Check, Mix.Tasks.Volt.Install]
+        JavaScript: [
+          Volt.JS.Runtime,
+          Volt.JS.GlobImport,
+          Volt.JS.PackageResolver,
+          Volt.Env,
+          Volt.Assets
+        ],
+        Formatting: [Volt.Formatter],
+        "Mix Tasks": [
+          Mix.Tasks.Volt.Build,
+          Mix.Tasks.Volt.Dev,
+          Mix.Tasks.Volt.Lint,
+          Mix.Tasks.Volt.Js.Format,
+          Mix.Tasks.Volt.Js.Check,
+          Mix.Tasks.Volt.Install
+        ]
       ],
       skip_undefined_reference_warnings_on: ["CHANGELOG.md"]
     ]

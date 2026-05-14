@@ -224,6 +224,46 @@ defmodule Volt.TailwindTest do
       assert css =~ "prose-headings"
       assert css =~ "prose-a"
     end
+
+    test "plugin reading files with readFileSync().toString() produces correct strings" do
+      svg_content =
+        ~s(<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a.75.75 0 0 1 .75.75"/></svg>)
+
+      File.mkdir_p!(Path.join(@fixture_dir, "icons"))
+      File.write!(Path.join(@fixture_dir, "icons/star.svg"), svg_content)
+
+      File.write!(Path.join(@fixture_dir, "icon-plugin.js"), """
+      const plugin = require('tailwindcss/plugin')
+      const fs = require('fs')
+      const path = require('path')
+
+      module.exports = plugin(function({ matchComponents }) {
+        const iconPath = path.join(__dirname, 'icons/star.svg')
+        let content = fs.readFileSync(iconPath).toString()
+        content = encodeURIComponent(content)
+        matchComponents({ 'icon': (value) => ({
+          '--icon': "url('data:image/svg+xml;utf8," + content + "')",
+          'mask-image': 'var(--icon)',
+          'background-color': 'currentColor',
+          'width': '1rem',
+          'height': '1rem'
+        })}, { values: { star: 'star' } })
+      })
+      """)
+
+      File.write!(Path.join(@fixture_dir, "icons.html"), ~S(<div class="icon-star"></div>))
+
+      {:ok, css} =
+        Volt.Tailwind.build(
+          sources: [%{base: @fixture_dir, pattern: "**/*.html"}],
+          css: "@import \"tailwindcss\";\n@plugin \"./icon-plugin.js\";",
+          css_base: @fixture_dir
+        )
+
+      assert css =~ ".icon-star"
+      assert css =~ "%3Csvg"
+      refute css =~ "60%2C115%2C118"
+    end
   end
 
   describe "rebuild/2" do
