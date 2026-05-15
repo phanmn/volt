@@ -56,10 +56,7 @@ async function loadCompiler(): Promise<BabelStandalone> {
   return compiler
 }
 
-async function compileSolid(
-  source: string,
-  options: CompileOptions = {}
-): Promise<CompileResult> {
+async function compileSolid(source: string, options: CompileOptions = {}): Promise<CompileResult> {
   const Babel = await loadCompiler()
   const filename = options.filename ?? 'component.tsx'
   const typescript = options.typescript ?? /\.[cm]?tsx?$/.test(filename)
