@@ -70,7 +70,10 @@ defmodule Volt.Pipeline do
           {:error, {:unsupported, ext}}
       end
 
-    with {:ok, compiled} <- result do
+    with {:ok, compiled} <- result,
+         {:ok, code} <-
+           replace_defines(compiled.code, path, content_type, Keyword.get(opts, :define, %{})) do
+      compiled = %{compiled | code: code}
       compiled = apply_transforms(compiled, path, plugins)
 
       case Keyword.get(opts, :rewrite_import) do
@@ -80,6 +83,22 @@ defmodule Volt.Pipeline do
         nil ->
           {:ok, compiled}
       end
+    end
+  end
+
+  defp replace_defines(code, _path, _content_type, define) when define in [%{}, nil],
+    do: {:ok, code}
+
+  defp replace_defines(code, path, content_type, define) do
+    ext = Path.extname(path)
+
+    if content_type in ~w(application/javascript text/javascript) or
+         ext in Volt.JS.Extensions.js() or
+         Volt.CSS.Modules.css_module?(path) or ext == @json_ext do
+      filename = Path.basename(path)
+      Volt.JS.ImportMetaEnv.inject(code, filename, define)
+    else
+      {:ok, code}
     end
   end
 

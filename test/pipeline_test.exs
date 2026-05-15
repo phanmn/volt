@@ -19,6 +19,76 @@ defmodule Volt.PipelineTest do
       {:ok, result} = Volt.Pipeline.compile("app.js", "const x = a ?? b", target: :es2019)
       refute result.code =~ "??"
     end
+
+    test "injects import.meta.env defines" do
+      {:ok, result} =
+        Volt.Pipeline.compile("app.ts", "console.log(import.meta.env.MODE, import.meta.env.DEV)",
+          define: %{
+            "import.meta.env.MODE" => ~s("development"),
+            "import.meta.env.DEV" => "true"
+          }
+        )
+
+      assert result.code =~ ~s(import.meta.env = { "DEV": true, "MODE": "development" };)
+      assert result.code =~ "console.log(import.meta.env.MODE, import.meta.env.DEV)"
+    end
+
+    test "supports runtime access to injected import.meta.env" do
+      source = "const key = 'MODE'; console.log(import.meta.env[key], import.meta.env)"
+
+      {:ok, result} =
+        Volt.Pipeline.compile("app.ts", source,
+          define: %{"import.meta.env.MODE" => ~s("development")}
+        )
+
+      assert result.code =~ ~s("MODE": "development")
+      assert result.code =~ "import.meta.env[key]"
+      assert result.code =~ "console.log(import.meta.env[key], import.meta.env)"
+    end
+
+    test "supports destructuring import.meta.env" do
+      {:ok, result} =
+        Volt.Pipeline.compile("app.ts", "const { MODE } = import.meta.env; console.log(MODE)",
+          define: %{"import.meta.env.MODE" => ~s("development")}
+        )
+
+      assert result.code =~ ~s("MODE": "development")
+      assert result.code =~ "const { MODE } = import.meta.env"
+    end
+
+    test "supports optional access to import.meta.env" do
+      {:ok, result} =
+        Volt.Pipeline.compile("app.ts", "console.log(import.meta?.env?.MODE)",
+          define: %{"import.meta.env.MODE" => ~s("development")}
+        )
+
+      assert result.code =~ ~s("MODE": "development")
+      assert result.code =~ "import.meta?.env?.MODE"
+    end
+
+    test "does not inject import.meta.env for string literals or unrelated import.meta properties" do
+      source = "console.log('import.meta.env', import.meta.url)"
+
+      {:ok, result} =
+        Volt.Pipeline.compile("app.ts", source,
+          define: %{"import.meta.env.MODE" => ~s("development")}
+        )
+
+      refute result.code =~ "import.meta.env ="
+      assert result.code =~ "import.meta.url"
+      assert result.code =~ ~s("import.meta.env")
+    end
+
+    test "leaves non import.meta.env defines unchanged" do
+      source = "function f(process) { return process.env.NODE_ENV }"
+
+      {:ok, result} =
+        Volt.Pipeline.compile("app.js", source,
+          define: %{"process.env.NODE_ENV" => ~s("development")}
+        )
+
+      assert result.code =~ "process.env.NODE_ENV"
+    end
   end
 
   describe "compile/3 with Vue SFC" do

@@ -54,7 +54,8 @@ defmodule Volt.DevServer do
       custom_renderer: config.custom_renderer,
       plugins: plugins,
       aliases: config.aliases,
-      node_modules: node_modules
+      node_modules: node_modules,
+      define: Volt.Env.define(mode: "development", root: File.cwd!())
     }
   end
 
@@ -182,6 +183,7 @@ defmodule Volt.DevServer do
       custom_renderer: config.custom_renderer,
       sourcemap: true,
       plugins: config.plugins,
+      define: config.define,
       rewrite_import: &rewrite_dev_specifier(&1, file_path, config)
     ]
 
