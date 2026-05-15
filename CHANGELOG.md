@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.10.6
+
+### Added
+
+- Dev server output now supports `import.meta.env` runtime access for modules that reference it, including `MODE`, `DEV`, `PROD`, and exposed `VOLT_*` values.
+
+### Fixed
+
+- `Volt.entry_path/2` now resolves production manifests written by `mix volt.build` under `priv/static/assets/js`, returns `/assets/js/...` paths, and passes them through Phoenix `static_path/1` for `phx.digest` compatibility.
+- Production entry path lookup now resolves relative `priv/...` output directories through the endpoint OTP app, matching Phoenix release behavior.
+
 ## 0.10.5
 
 ### Added
