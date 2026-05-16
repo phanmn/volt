@@ -43,7 +43,7 @@ defmodule Volt.DevServer do
     node_modules = NPM.Resolution.PackageResolver.find_node_modules(expanded_root)
     plugins = config.plugins
 
-    prebundle_vendor(expanded_root, node_modules, plugins)
+    prebundle_vendor(expanded_root, node_modules, plugins, config.resolve_dirs)
 
     %{
       root: expanded_root,
@@ -55,6 +55,7 @@ defmodule Volt.DevServer do
       plugins: plugins,
       aliases: config.aliases,
       node_modules: node_modules,
+      resolve_dirs: config.resolve_dirs,
       define: Volt.Env.define(mode: "development", root: File.cwd!())
     }
   end
@@ -383,8 +384,13 @@ defmodule Volt.DevServer do
 
   # ── Vendor pre-bundling ───────────────────────────────────────────
 
-  defp prebundle_vendor(root, node_modules, plugins) do
-    case Volt.JS.Vendor.prebundle(root: root, node_modules: node_modules, plugins: plugins) do
+  defp prebundle_vendor(root, node_modules, plugins, resolve_dirs) do
+    case Volt.JS.Vendor.prebundle(
+           root: root,
+           node_modules: node_modules,
+           plugins: plugins,
+           resolve_dirs: resolve_dirs
+         ) do
       {:ok, vendor_map} when map_size(vendor_map) > 0 ->
         count = map_size(vendor_map)
         Logger.debug("[Volt] Pre-bundled #{count} vendor package(s)")
@@ -400,7 +406,10 @@ defmodule Volt.DevServer do
         ok
 
       {:error, :not_found} ->
-        Volt.JS.Vendor.bundle_on_demand(specifier, config.node_modules, config.plugins)
+        Volt.JS.Vendor.bundle_on_demand(specifier, config.node_modules,
+          plugins: config.plugins,
+          resolve_dirs: config.resolve_dirs
+        )
     end
   end
 

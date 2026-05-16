@@ -3,6 +3,7 @@ defmodule Volt.JS.VendorTest do
 
   @fixture_dir Path.expand("fixtures/vendor", __DIR__)
   @node_modules Path.join(@fixture_dir, "node_modules")
+  @deps_dir Path.join(@fixture_dir, "deps")
 
   setup do
     File.mkdir_p!(Path.join(@fixture_dir, "src"))
@@ -212,6 +213,49 @@ defmodule Volt.JS.VendorTest do
       {:ok, code} = Volt.JS.Vendor.read("dep-b")
       assert code =~ "require_dep_a"
       assert code =~ "exports.b = a.a + 1"
+    end
+  end
+
+  describe "resolve_dirs" do
+    setup do
+      File.mkdir_p!(Path.join(@deps_dir, "hex-lib"))
+
+      File.write!(
+        Path.join(@deps_dir, "hex-lib/package.json"),
+        :json.encode(%{"name" => "hex-lib", "main" => "index.js"})
+      )
+
+      File.write!(
+        Path.join(@deps_dir, "hex-lib/index.js"),
+        "export const value = 'from deps';"
+      )
+
+      :ok
+    end
+
+    test "prebundles packages from additional resolve directories" do
+      File.write!(
+        Path.join(@fixture_dir, "src/app.ts"),
+        "import { value } from 'hex-lib'\nconsole.log(value)"
+      )
+
+      {:ok, vendor_map} =
+        Volt.JS.Vendor.prebundle(
+          root: Path.join(@fixture_dir, "src"),
+          node_modules: nil,
+          resolve_dirs: [@deps_dir]
+        )
+
+      assert Map.has_key?(vendor_map, "hex-lib")
+      {:ok, code} = Volt.JS.Vendor.read("hex-lib")
+      assert code =~ "from deps"
+    end
+
+    test "bundles on demand from additional resolve directories" do
+      {:ok, code} =
+        Volt.JS.Vendor.bundle_on_demand("hex-lib", nil, resolve_dirs: [@deps_dir])
+
+      assert code =~ "from deps"
     end
   end
 
