@@ -258,12 +258,21 @@ defmodule Volt.JS.VendorTest do
       assert code =~ "from deps"
     end
 
-    test "bundles subpath directories without package.json from additional resolve directories" do
-      File.mkdir_p!(Path.join(@deps_dir, "phoenix-colocated/my_app"))
+    test "bundles Phoenix colocated JS from additional resolve directories" do
+      File.mkdir_p!(Path.join(@deps_dir, "phoenix-colocated/my_app/MyAppWeb.DemoLive"))
 
       File.write!(
         Path.join(@deps_dir, "phoenix-colocated/my_app/index.js"),
-        "export const hooks = {demo: {mounted() {}}};"
+        """
+        import hook from './MyAppWeb.DemoLive/line_42.js'
+        export const hooks = {'MyAppWeb.DemoLive.Sortable': hook}
+        export default {hooks}
+        """
+      )
+
+      File.write!(
+        Path.join(@deps_dir, "phoenix-colocated/my_app/MyAppWeb.DemoLive/line_42.js"),
+        "export default {mounted() { console.log('colocated hook mounted') }};"
       )
 
       File.write!(
@@ -280,7 +289,8 @@ defmodule Volt.JS.VendorTest do
 
       assert Map.has_key?(vendor_map, "phoenix-colocated/my_app")
       {:ok, code} = Volt.JS.Vendor.read("phoenix-colocated/my_app")
-      assert code =~ "hooks"
+      assert code =~ "MyAppWeb.DemoLive.Sortable"
+      assert code =~ "colocated hook mounted"
     end
   end
 
