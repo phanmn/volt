@@ -4,7 +4,7 @@ defmodule Volt.Tailwind.Loader do
   alias Volt.JS.SpecifierRewriter
   alias Volt.Tailwind.Resolver
 
-  @tailwind_install_spec "^4.2.2"
+  @tailwind_install_spec "^4.3.0"
   @tailwind_runtime_deps %{
     "tailwindcss" => @tailwind_install_spec,
     "@tailwindcss/typography" => "*"
