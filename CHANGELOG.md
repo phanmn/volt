@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.10.7
+
+### Added
+
+- Vendor prebundling and dev-server on-demand bundling now honor `resolve_dirs`, allowing bare imports to resolve from additional module directories such as Phoenix's `_build/$MIX_ENV/phoenix-colocated` output.
+- Documented the Phoenix LiveView colocated JavaScript setup for projects migrating from esbuild's `NODE_PATH` configuration.
+
+### Changed
+
+- Upgraded the Tailwind CSS runtime package requirement to `^4.3.0`.
+- `mix ci` now runs the test suite through `env MIX_ENV=test`, which works with newer Mix versions.
+
+### Fixed
+
+- Additional resolve directories now support package-like folders without `package.json`, including subpath imports such as `phoenix-colocated/my_app`.
+
 ## 0.10.6
 
 ### Added

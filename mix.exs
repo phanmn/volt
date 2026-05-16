@@ -1,7 +1,7 @@
 defmodule Volt.MixProject do
   use Mix.Project
 
-  @version "0.10.6"
+  @version "0.10.7"
   @source_url "https://github.com/elixir-volt/volt"
 
   def project do
@@ -74,7 +74,7 @@ defmodule Volt.MixProject do
     [
       licenses: ["MIT"],
       links: %{"GitHub" => @source_url},
-      files: ~w[lib priv mix.exs README.md LICENSE]
+      files: ~w[lib priv guides mix.exs README.md CHANGELOG.md LICENSE]
     ]
   end
 
