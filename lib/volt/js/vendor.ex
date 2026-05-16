@@ -254,13 +254,55 @@ defmodule Volt.JS.Vendor do
     package_dir = Path.join(module_dir, package_name)
 
     if File.dir?(package_dir) do
-      NPM.Resolution.PackageResolver.resolve_entry(package_dir,
-        subpath: subpath || ".",
-        extensions: Volt.JS.Extensions.resolvable(),
-        conditions: Volt.JS.PackageResolver.browser_conditions()
-      )
+      extensions = Volt.JS.Extensions.resolvable()
+
+      case NPM.Resolution.PackageResolver.resolve_entry(package_dir,
+             subpath: subpath || ".",
+             extensions: extensions,
+             conditions: Volt.JS.PackageResolver.browser_conditions()
+           ) do
+        {:ok, _path} = ok -> ok
+        :error -> resolve_module_dir_subpath(package_dir, subpath || ".", extensions)
+      end
     else
       :error
+    end
+  end
+
+  defp resolve_module_dir_subpath(package_dir, subpath, extensions) do
+    path =
+      subpath
+      |> String.trim_leading("./")
+      |> then(&Path.join(package_dir, &1))
+
+    resolve_file_or_directory(path, extensions)
+  end
+
+  defp resolve_file_or_directory(path, extensions) do
+    cond do
+      File.regular?(path) ->
+        {:ok, path}
+
+      match = resolve_with_extensions(path, extensions) ->
+        {:ok, match}
+
+      File.dir?(path) ->
+        resolve_with_extensions(Path.join(path, "index"), extensions)
+        |> case do
+          nil -> :error
+          match -> {:ok, match}
+        end
+
+      true ->
+        :error
+    end
+  end
+
+  defp resolve_with_extensions(path, extensions) do
+    Enum.find(extensions, &File.regular?(path <> &1))
+    |> case do
+      nil -> nil
+      extension -> path <> extension
     end
   end
 

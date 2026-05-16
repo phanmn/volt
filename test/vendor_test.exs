@@ -257,6 +257,31 @@ defmodule Volt.JS.VendorTest do
 
       assert code =~ "from deps"
     end
+
+    test "bundles subpath directories without package.json from additional resolve directories" do
+      File.mkdir_p!(Path.join(@deps_dir, "phoenix-colocated/my_app"))
+
+      File.write!(
+        Path.join(@deps_dir, "phoenix-colocated/my_app/index.js"),
+        "export const hooks = {demo: {mounted() {}}};"
+      )
+
+      File.write!(
+        Path.join(@fixture_dir, "src/app.ts"),
+        "import { hooks } from 'phoenix-colocated/my_app'\nconsole.log(hooks)"
+      )
+
+      {:ok, vendor_map} =
+        Volt.JS.Vendor.prebundle(
+          root: Path.join(@fixture_dir, "src"),
+          node_modules: nil,
+          resolve_dirs: [@deps_dir]
+        )
+
+      assert Map.has_key?(vendor_map, "phoenix-colocated/my_app")
+      {:ok, code} = Volt.JS.Vendor.read("phoenix-colocated/my_app")
+      assert code =~ "hooks"
+    end
   end
 
   describe "bundle_on_demand/2" do

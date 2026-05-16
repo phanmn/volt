@@ -66,7 +66,7 @@ defmodule Volt.MixProject do
         "dialyzer"
       ],
       setup: ["deps.get"],
-      ci: ["lint", "cmd MIX_ENV=test mix test"]
+      ci: ["lint", "cmd env MIX_ENV=test mix test"]
     ]
   end
 
