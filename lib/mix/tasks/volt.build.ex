@@ -110,6 +110,7 @@ defmodule Mix.Tasks.Volt.Build do
       code_splitting: Keyword.get(parsed, :code_splitting, config.code_splitting),
       chunks: config.chunks,
       import_source: config.import_source,
+      module_types: config.module_types,
       name: parsed[:name]
     ]
 

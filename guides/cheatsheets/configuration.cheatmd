@@ -129,6 +129,14 @@ config :volt, resolve_dirs: ["node_modules", "deps"]
 
 Additional directories for bare import resolution.
 
+### Module Types
+
+```elixir
+config :volt, module_types: %{".css" => :empty, ".ttf" => :empty}
+```
+
+Map file extensions to bundler loaders. Useful for packages that import non-JS files (e.g. Monaco Editor). Supported: `:js`, `:jsx`, `:ts`, `:tsx`, `:json`, `:text`, `:base64`, `:dataurl`, `:binary`, `:empty`, `:css`, `:asset`.
+
 ### Mode
 
 ```elixir

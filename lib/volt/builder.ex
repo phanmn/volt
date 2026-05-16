@@ -72,6 +72,7 @@ defmodule Volt.Builder do
 
     resolve_dirs = Keyword.get(opts, :resolve_dirs, []) |> Enum.map(&Path.expand/1)
     loaders = Keyword.get(opts, :loaders, %{})
+    module_types = Keyword.get(opts, :module_types, %{})
     import_source = opts |> Keyword.get(:import_source) |> to_string_or_nil()
     hash = Keyword.get(opts, :hash, true)
     name = Keyword.get(opts, :name)
@@ -92,16 +93,18 @@ defmodule Volt.Builder do
       external: external_set,
       external_globals: external_globals,
       loaders: loaders,
+      module_types: module_types,
       import_source: import_source
     }
 
-    bundle_opts = [
-      minify: minify,
-      sourcemap: sourcemap,
-      target: target,
-      define: all_define,
-      format: format
-    ]
+    bundle_opts =
+      [
+        minify: minify,
+        sourcemap: sourcemap,
+        target: target,
+        define: all_define,
+        format: format
+      ] ++ if(module_types != %{}, do: [module_types: module_types], else: [])
 
     build_ctx = %{
       outdir: outdir,

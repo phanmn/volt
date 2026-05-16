@@ -102,7 +102,8 @@ defmodule Volt.Config do
     ignore: ["node_modules/**", "vendor/**"],
     import_source: nil,
     vapor: false,
-    custom_renderer: false
+    custom_renderer: false,
+    module_types: %{}
   }
 
   @build_keys Map.keys(@defaults)

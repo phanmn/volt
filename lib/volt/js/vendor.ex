@@ -40,6 +40,7 @@ defmodule Volt.JS.Vendor do
     module_dirs = module_dirs(node_modules, Keyword.get(opts, :resolve_dirs, []))
 
     plugins = Keyword.get(opts, :plugins, [])
+    module_types = Keyword.get(opts, :module_types, %{})
 
     with {:ok, specifiers} <- scan_bare_imports(root, plugins),
          :ok <- ensure_cache_dir() do
@@ -48,7 +49,7 @@ defmodule Volt.JS.Vendor do
         |> Enum.map(&Volt.PluginRunner.prebundle_alias(plugins, &1))
         |> Enum.uniq()
         |> Enum.reduce(%{}, fn spec, acc ->
-          case safe_bundle_vendor(spec, module_dirs, force, plugins) do
+          case safe_bundle_vendor(spec, module_dirs, force, plugins, module_types) do
             {:ok, path} -> Map.put(acc, spec, path)
             {:error, _} -> acc
           end
@@ -69,11 +70,11 @@ defmodule Volt.JS.Vendor do
           {:ok, String.t()} | {:error, term()}
   def bundle_on_demand(specifier, node_modules, opts \\ []) do
     ensure_cache_dir()
-    {plugins, resolve_dirs} = normalize_on_demand_opts(opts)
+    {plugins, resolve_dirs, module_types} = normalize_on_demand_opts(opts)
     module_dirs = module_dirs(node_modules, resolve_dirs)
     specifier = Volt.PluginRunner.prebundle_alias(plugins, specifier)
 
-    case bundle_vendor(specifier, module_dirs, false, plugins) do
+    case bundle_vendor(specifier, module_dirs, false, plugins, module_types) do
       {:ok, path} -> File.read(path)
       {:error, _} = error -> error
     end
@@ -131,8 +132,8 @@ defmodule Volt.JS.Vendor do
 
   # ── Bundling ──────────────────────────────────────────────────────
 
-  defp safe_bundle_vendor(specifier, module_dirs, force, plugins) do
-    bundle_vendor(specifier, module_dirs, force, plugins)
+  defp safe_bundle_vendor(specifier, module_dirs, force, plugins, module_types) do
+    bundle_vendor(specifier, module_dirs, force, plugins, module_types)
   rescue
     exception ->
       Logger.debug(
@@ -142,28 +143,29 @@ defmodule Volt.JS.Vendor do
       {:error, exception}
   end
 
-  defp bundle_vendor(specifier, module_dirs, force, plugins) do
+  defp bundle_vendor(specifier, module_dirs, force, plugins, module_types) do
     path = cache_path(specifier)
 
     if not force and File.regular?(path) do
       {:ok, path}
     else
-      do_bundle_vendor(specifier, module_dirs, path, plugins)
+      do_bundle_vendor(specifier, module_dirs, path, plugins, module_types)
     end
   end
 
-  defp do_bundle_vendor(specifier, module_dirs, output_path, plugins) do
+  defp do_bundle_vendor(specifier, module_dirs, output_path, plugins, module_types) do
     case prebundle_entry(specifier, module_dirs, plugins) do
       {:ok, entry_path, project_root} ->
-        bundle_opts = [
-          cwd: project_root,
-          format: :esm,
-          conditions: Volt.JS.PackageResolver.browser_conditions(),
-          modules: module_dirs,
-          define: %{"process.env.NODE_ENV" => ~s("development")},
-          exports: :named,
-          preserve_entry_signatures: :strict
-        ]
+        bundle_opts =
+          [
+            cwd: project_root,
+            format: :esm,
+            conditions: Volt.JS.PackageResolver.browser_conditions(),
+            modules: module_dirs,
+            define: %{"process.env.NODE_ENV" => ~s("development")},
+            exports: :named,
+            preserve_entry_signatures: :strict
+          ] ++ if(module_types != %{}, do: [module_types: module_types], else: [])
 
         case OXC.bundle(entry_path, bundle_opts) do
           {:ok, result} ->
@@ -322,9 +324,10 @@ defmodule Volt.JS.Vendor do
 
   defp normalize_on_demand_opts(opts) do
     if Keyword.keyword?(opts) do
-      {Keyword.get(opts, :plugins, []), Keyword.get(opts, :resolve_dirs, [])}
+      {Keyword.get(opts, :plugins, []), Keyword.get(opts, :resolve_dirs, []),
+       Keyword.get(opts, :module_types, %{})}
     else
-      {opts, []}
+      {opts, [], %{}}
     end
   end
 
