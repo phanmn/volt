@@ -31,7 +31,7 @@ defmodule Mix.Tasks.Volt.Build do
 
   @impl true
   def run(args) do
-    Mix.Task.run("app.start")
+    Mix.Task.run("compile")
 
     {parsed, _argv, _invalid} =
       OptionParser.parse(args,

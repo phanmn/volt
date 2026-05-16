@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.8
+
+### Fixed
+
+- `mix volt.build` now compiles the project without starting the application, avoiding database connection attempts during asset builds in Phoenix projects.
+
 ## 0.10.7
 
 ### Added
