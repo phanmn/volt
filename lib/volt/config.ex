@@ -2,6 +2,8 @@ defmodule Volt.Config do
   @moduledoc """
   Read Volt configuration from application environment.
 
+  ## Flat config (single app)
+
   All config lives under the `:volt` application key in `config/config.exs`:
 
       # config/config.exs
@@ -26,6 +28,29 @@ defmodule Volt.Config do
       config :volt, :server,
         prefix: "/assets",
         watch_dirs: ["lib/"]
+
+  ## Named profiles (umbrella / multi-web apps)
+
+  Use a named profile to configure multiple independent Volt instances:
+
+      # config/config.exs
+      config :volt, :my_app_web,
+        entry: "apps/my_app_web/assets/js/app.js",
+        outdir: "apps/my_app_web/priv/static/assets",
+        tailwind: [
+          css: "apps/my_app_web/assets/css/app.css",
+          sources: [
+            %{base: "apps/my_app_web/lib/", pattern: "**/*.{ex,heex,eex}"}
+          ]
+        ],
+        server: [watch_dirs: ["apps/my_app_web/lib/"]]
+
+  Pass the profile name to Mix tasks and the plug:
+
+      mix volt.build my_app_web --tailwind
+      mix volt.dev my_app_web --tailwind
+
+      plug Volt.DevServer, root: "assets", profile: :my_app_web
 
   CLI flags and plug options override config values.
 
@@ -90,22 +115,47 @@ defmodule Volt.Config do
   @doc """
   Read the full build config, merged with defaults.
 
-  `overrides` (from CLI flags or function opts) take precedence
-  over app env, which takes precedence over defaults.
+  Accepts an optional profile atom as the first argument. When given, reads
+  from `Application.get_env(:volt, profile)` and merges it on top of flat
+  config and defaults.
+
+  `overrides` (from CLI flags or function opts) take precedence over all
+  config sources.
 
   Automatically reads `compilerOptions.paths` from `tsconfig.json` and
   merges them into aliases. Explicit aliases override tsconfig paths.
   """
-  @spec build(keyword()) :: map()
-  def build(overrides \\ []) do
-    app_env =
+  @spec build(atom() | keyword()) :: map()
+  def build(profile_or_overrides \\ [])
+
+  def build(profile) when is_atom(profile) do
+    build(profile, [])
+  end
+
+  def build(overrides) when is_list(overrides) do
+    build(nil, overrides)
+  end
+
+  @spec build(atom() | nil, keyword()) :: map()
+  def build(profile, overrides) do
+    flat_env =
       Application.get_all_env(:volt)
       |> Keyword.take(@build_keys)
       |> Keyword.reject(fn {k, v} -> k == :format and not is_atom(v) end)
 
+    profile_env =
+      if profile do
+        Application.get_env(:volt, profile, [])
+        |> Keyword.take(@build_keys)
+        |> Keyword.reject(fn {k, v} -> k == :format and not is_atom(v) end)
+      else
+        []
+      end
+
     config =
       @defaults
-      |> Map.merge(Map.new(app_env))
+      |> Map.merge(Map.new(flat_env))
+      |> Map.merge(Map.new(profile_env))
       |> Map.merge(Map.new(overrides))
 
     tsconfig_paths = Volt.JS.TSConfig.discover_paths()
@@ -114,21 +164,51 @@ defmodule Volt.Config do
 
   @doc """
   Read dev server config, merged with defaults.
+
+  When a profile is given, reads the `:server` key from within that profile's
+  config, falling back to the global `:server` config.
   """
-  @spec server(keyword()) :: map()
-  def server(overrides \\ []) do
-    app_env = Application.get_env(:volt, :server, [])
+  @spec server(atom() | keyword()) :: map()
+  def server(profile_or_overrides \\ [])
+
+  def server(profile) when is_atom(profile) do
+    server(profile, [])
+  end
+
+  def server(overrides) when is_list(overrides) do
+    server(nil, overrides)
+  end
+
+  @spec server(atom() | nil, keyword()) :: map()
+  def server(profile, overrides) do
+    global_env = Application.get_env(:volt, :server, [])
+
+    profile_env =
+      if profile do
+        Application.get_env(:volt, profile, []) |> Keyword.get(:server, [])
+      else
+        []
+      end
 
     @server_defaults
-    |> Map.merge(Map.new(app_env))
+    |> Map.merge(Map.new(global_env))
+    |> Map.merge(Map.new(profile_env))
     |> Map.merge(Map.new(overrides))
   end
 
   @doc """
   Read Tailwind config.
+
+  When a profile is given, reads the `:tailwind` key from within that
+  profile's config, falling back to the global `:tailwind` config.
   """
-  @spec tailwind() :: keyword()
-  def tailwind do
-    Application.get_env(:volt, :tailwind, [])
+  @spec tailwind(atom() | nil) :: keyword()
+  def tailwind(profile \\ nil)
+
+  def tailwind(nil), do: Application.get_env(:volt, :tailwind, [])
+
+  def tailwind(profile) when is_atom(profile) do
+    profile_config = Application.get_env(:volt, profile, [])
+    Keyword.get(profile_config, :tailwind) || Application.get_env(:volt, :tailwind, [])
   end
 end

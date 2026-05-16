@@ -4,8 +4,10 @@ defmodule Mix.Tasks.Volt.Build do
   Build production frontend assets.
 
       mix volt.build
+      mix volt.build my_app_web
 
   Reads configuration from `config :volt` in your config files.
+  Pass a profile name as the first argument to use a named profile.
   CLI flags override config values.
 
   ## Options
@@ -34,7 +36,7 @@ defmodule Mix.Tasks.Volt.Build do
     Mix.Task.run("compile")
     Application.ensure_all_started(:volt)
 
-    {parsed, _argv, _invalid} =
+    {parsed, argv, _invalid} =
       OptionParser.parse(args,
         strict: [
           entry: [:string, :keep],
@@ -55,8 +57,9 @@ defmodule Mix.Tasks.Volt.Build do
         ]
       )
 
-    config = Volt.Config.build()
-    tailwind_config = Volt.Config.tailwind()
+    profile = parse_profile(argv)
+    config = Volt.Config.build(profile)
+    tailwind_config = Volt.Config.tailwind(profile)
 
     cli_entries = Keyword.get_values(parsed, :entry)
     cli_resolve_dirs = Keyword.get_values(parsed, :resolve_dir)
@@ -222,6 +225,9 @@ defmodule Mix.Tasks.Volt.Build do
   defp parse_sourcemap("true", _default), do: true
   defp parse_sourcemap(nil, default), do: default
   defp parse_sourcemap(_, default), do: default
+
+  defp parse_profile([name | _]) when is_binary(name), do: String.to_atom(name)
+  defp parse_profile(_), do: nil
 
   defp format_file(path) do
     Volt.Format.format_with_gzip(File.read!(path))

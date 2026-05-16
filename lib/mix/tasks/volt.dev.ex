@@ -4,9 +4,11 @@ defmodule Mix.Tasks.Volt.Dev do
   Start the Volt file watcher for development.
 
   Reads configuration from `config :volt` and `config :volt, :server`.
+  Pass a profile name as the first argument to use a named profile.
   CLI flags override config values.
 
       mix volt.dev
+      mix volt.dev my_app_web
 
   ## Options
 
@@ -23,7 +25,7 @@ defmodule Mix.Tasks.Volt.Dev do
   def run(args) do
     Mix.Task.run("app.start")
 
-    {parsed, _argv, _invalid} =
+    {parsed, argv, _invalid} =
       OptionParser.parse(args,
         strict: [
           root: :string,
@@ -35,9 +37,10 @@ defmodule Mix.Tasks.Volt.Dev do
         ]
       )
 
-    config = Volt.Config.build()
-    server_config = Volt.Config.server()
-    tailwind_config = Volt.Config.tailwind()
+    profile = parse_profile(argv)
+    config = Volt.Config.build(profile)
+    server_config = Volt.Config.server(profile)
+    tailwind_config = Volt.Config.tailwind(profile)
 
     root = Keyword.get(parsed, :root) || to_string(config.root)
     target = Keyword.get(parsed, :target) || to_string(config.target)
@@ -112,6 +115,9 @@ defmodule Mix.Tasks.Volt.Dev do
         Mix.shell().error("[Volt] Tailwind build failed: #{inspect(reason)}")
     end
   end
+
+  defp parse_profile([name | _]) when is_binary(name), do: String.to_atom(name)
+  defp parse_profile(_), do: nil
 
   @dialyzer {:nowarn_function, iex_running?: 0}
   defp iex_running? do

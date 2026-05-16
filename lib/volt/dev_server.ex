@@ -34,8 +34,10 @@ defmodule Volt.DevServer do
 
   @impl true
   def init(opts) do
-    config = Volt.Config.build(opts)
-    server_config = Volt.Config.server(opts)
+    profile = Keyword.get(opts, :profile)
+    build_opts = Keyword.delete(opts, :profile)
+    config = Volt.Config.build(profile, build_opts)
+    server_config = Volt.Config.server(profile, build_opts)
 
     root = Keyword.get(opts, :root) || to_string(config.root)
     expanded_root = Path.expand(root)

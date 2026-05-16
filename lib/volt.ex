@@ -26,8 +26,10 @@ defmodule Volt do
   In production it reads `manifest.json` and returns the built asset path.
   """
   def entry_path(endpoint, overrides \\ []) do
-    build = Volt.Config.build(overrides)
-    server = Volt.Config.server(overrides)
+    profile = Keyword.get(overrides, :profile)
+    build_overrides = Keyword.delete(overrides, :profile)
+    build = Volt.Config.build(profile, build_overrides)
+    server = Volt.Config.server(profile, build_overrides)
     entry = build.entry |> List.wrap() |> hd()
 
     if code_reloader?(endpoint) do
@@ -35,7 +37,7 @@ defmodule Volt do
       |> Path.join(Path.relative_to(entry, build.root))
       |> ensure_leading_slash()
     else
-      built_entry_path(endpoint, build, server.prefix, overrides)
+      built_entry_path(endpoint, build, server.prefix, build_overrides)
     end
   end
 
