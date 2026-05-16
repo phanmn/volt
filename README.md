@@ -21,6 +21,8 @@ Volt replaces both with a single Elixir dep. `mix phx.server` starts the fronten
 
 You also get features you'd expect from Vite: code splitting, CSS Modules, `import.meta.glob()`, `.env` variables, static asset imports, import aliases, and `import.meta.hot` with state preservation.
 
+The pieces integrate because they run in one toolchain: template edits can trigger incremental Tailwind rebuilds, browser console output can flow back to your Elixir terminal, and project-specific JS/TS lint rules can be written as Elixir modules. See the [Features guide](https://hexdocs.pm/volt/features.html) for the full list.
+
 ## Installation
 
 ```bash
@@ -98,9 +100,11 @@ mix volt.lint        # 650+ oxlint rules
 mix volt.js.check    # format + lint for CI
 ```
 
+Project-specific lint rules can be written in Elixir with `OXC.Lint.Rule`.
+
 ## Plugins
 
-Extend the build pipeline with the `Volt.Plugin` behaviour:
+Extend the build pipeline with the `Volt.Plugin` behaviour. Plugins can resolve imports, load custom file types, transform ASTs, render chunks, or call JS tooling through an embedded runtime:
 
 ```elixir
 defmodule MyApp.MarkdownPlugin do

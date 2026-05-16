@@ -1,5 +1,11 @@
 # Features
 
+## Elixir-Native Toolchain
+
+Volt keeps the frontend toolchain inside the BEAM. The dev server, production builds, Tailwind rebuilds, formatting, linting, and plugin hooks run from Mix tasks and Elixir configuration instead of a separate Node.js watcher.
+
+Runtime npm package installs use `npm_ex`, which ignores package lifecycle hooks by default. Packages installed for embedded JS runtimes do not execute `preinstall`, `install`, or `postinstall` scripts.
+
 ## JavaScript and TypeScript
 
 Volt compiles JavaScript and TypeScript through [OXC](https://oxc.rs), a Rust-based toolchain. ES2020+ syntax is downleveled to your configured target. TypeScript types are stripped at compile time without type-checking — use `tsc --noEmit` separately if you want type safety.
@@ -8,15 +14,19 @@ Volt compiles JavaScript and TypeScript through [OXC](https://oxc.rs), a Rust-ba
 
 Vue single-file components (`.vue`) compile through Vize with scoped CSS and optional Vapor mode. Svelte components (`.svelte`) compile through QuickBEAM. Both work without Node.js installed. Import `.vue` and `.svelte` files directly from your application code.
 
-## React and JSX
+## React, Solid, and JSX
 
 JSX and TSX files are transformed by OXC. Set `import_source: "react"` in your Volt config to use React's automatic JSX runtime. Volt includes a React plugin that pre-bundles `react`, `react-dom/client`, and `react/jsx-runtime` into a single vendor module for efficient loading.
+
+Solid JSX/TSX is supported through `Volt.Plugin.Solid`, which compiles Solid components through QuickBEAM without requiring Node.js in the host application.
 
 See [Frontend Frameworks](frameworks.md) for setup instructions and entry point examples for each framework.
 
 ## Tailwind CSS
 
 Volt compiles Tailwind CSS v4 natively. [Oxide](https://hex.pm/packages/oxide_ex) scans source files in parallel for candidate class names, then the Tailwind compiler generates CSS. In dev mode, only changed files are re-scanned — editing a `.heex` template triggers an incremental CSS rebuild and hot-swaps the stylesheet without a page reload.
+
+Tailwind `@plugin` and `@config` directives are resolved and bundled automatically, including local files and npm packages.
 
 See [Tailwind CSS](tailwind.md) for configuration and the programmatic API.
 
@@ -26,9 +36,15 @@ The dev server pushes updates over a WebSocket. CSS changes hot-swap without a p
 
 See [HMR](hmr.md) for the `import.meta.hot` API.
 
+## Production Builds
+
+Production builds include tree-shaking, minification, code splitting, content-hashed filenames, source maps, and a `manifest.json` ready for `mix phx.digest`.
+
 ## Code Splitting
 
 Dynamic `import()` calls automatically create separate async chunks. Shared modules between chunks are extracted to avoid duplication. Manual chunk boundaries can be configured for vendor splitting.
+
+`Volt.Preload` can generate `<link rel="modulepreload">` tags from the production manifest to avoid chunk-loading waterfalls.
 
 See [Code Splitting](code-splitting.md) for examples and configuration.
 
@@ -140,7 +156,9 @@ Production builds write `.map` files by default. Use `sourcemap: :hidden` to wri
 
 ## Formatting and Linting
 
-Volt includes Prettier-compatible JS/TS formatting via oxfmt (~30× faster) and 650+ oxlint rules, both as Rust NIFs. `Volt.Formatter` integrates with `mix format`. Custom lint rules can be written in Elixir.
+Volt includes Prettier-compatible JS/TS formatting via oxfmt (~30× faster) and 650+ oxlint rules, both as Rust NIFs. `Volt.Formatter` integrates with `mix format` and can read Elixir config, `.oxfmtrc.json`, or `.prettierrc.json`.
+
+Custom lint rules can be written in Elixir with `OXC.Lint.Rule` and configured alongside oxlint's built-in rules.
 
 See [Formatting and Linting](formatting-and-linting.md) for setup and configuration.
 
@@ -164,6 +182,8 @@ Compilation errors in development are displayed as a full-screen browser overlay
 
 ## Plugins
 
-Extend the build pipeline with the `Volt.Plugin` behaviour. Plugins can resolve imports, load custom file formats, transform code, and run JavaScript build tools through `Volt.JS.Runtime`.
+Extend the build pipeline with the `Volt.Plugin` behaviour. Plugins can resolve imports, load custom file formats, compile files to JS and CSS, extract imports for dependency tracking, transform compiled code with OXC ASTs, inject compile-time definitions, customize vendor prebundling, and render final output chunks.
+
+Plugins can also run JavaScript build tools through `Volt.JS.Runtime`, which installs npm packages into Volt's cache and executes bundled runtime code through QuickBEAM without requiring Node.js in the host application.
 
 See [Plugins](plugins.md) for the full hook API and examples.
