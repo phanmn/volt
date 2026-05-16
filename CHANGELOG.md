@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.11.1
+
+### Added
+
+- `module_types` config option — maps file extensions to bundler loaders (e.g. `%{".css" => :empty, ".ttf" => :empty}`). Passed to both production builds and vendor prebundling. Useful for packages like Monaco Editor that import non-JS files.
+
+### Changed
+
+- Upgraded OXC to 0.13 and QuickBEAM to 0.10.13.
+
 ## 0.11.0
 
 ### Added
