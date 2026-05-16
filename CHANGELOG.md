@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.9
+
+### Fixed
+
+- `mix volt.build` now compiles the project and starts only Volt's application, avoiding database connection attempts during asset builds in Phoenix projects while keeping Volt services available for Tailwind builds.
+
 ## 0.10.8
 
 ### Fixed
