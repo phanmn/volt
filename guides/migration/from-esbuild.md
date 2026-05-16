@@ -31,6 +31,17 @@ Remove `config :esbuild` and `config :tailwind` blocks from `config/config.exs`.
 
 Add Volt config (see [Getting Started](../introduction/getting-started.md)).
 
+If your esbuild setup uses `NODE_PATH` to resolve packages outside `node_modules`, add those directories to `resolve_dirs` instead:
+
+```elixir
+config :volt,
+  entry: "assets/js/app.js",
+  outdir: "priv/static/assets",
+  resolve_dirs: [Mix.Project.build_path()]
+```
+
+Phoenix LiveView colocated JavaScript uses this pattern. LiveView writes compiled hook modules to `_build/$MIX_ENV/phoenix-colocated/`, and imports them as `"phoenix-colocated/my_app"`. Adding `Mix.Project.build_path()` lets Volt resolve and bundle those imports.
+
 ### 3. Replace Endpoint Plug
 
 Remove the esbuild/tailwind watchers from `config/dev.exs` and add the Volt dev server plug to your endpoint.
