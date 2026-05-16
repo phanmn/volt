@@ -5,7 +5,8 @@ defmodule Volt.Tailwind.Resolver do
   @module_index_files Enum.map(Volt.JS.Extensions.node_resolvable(), &("/index" <> &1))
   @stylesheet_extensions ["", ".css"]
   @stylesheet_index_files ["/index.css"]
-  @cjs_conditions ["require", "default", "browser", "import"]
+  @module_conditions ["require", "default", "browser", "import"]
+  @stylesheet_conditions ["style", "browser", "import", "default"]
 
   def resolve_stylesheet_path!(id, base, runtime_node_modules) do
     base = normalize_base(base)
@@ -59,11 +60,13 @@ defmodule Volt.Tailwind.Resolver do
       |> Enum.find_value(fn node_modules ->
         package_dir = Path.join(node_modules, package_name)
 
+        conditions = package_conditions(kind)
+
         result =
           if subpath do
-            resolve_package_subpath(package_dir, subpath, extensions, index_files)
+            resolve_package_subpath(package_dir, subpath, extensions, index_files, conditions)
           else
-            resolve_package_entry(package_dir, extensions, index_files)
+            resolve_package_entry(package_dir, extensions, index_files, conditions)
           end
 
         case result do
@@ -81,8 +84,11 @@ defmodule Volt.Tailwind.Resolver do
     end
   end
 
-  defp resolve_package_entry(package_dir, extensions, index_files) do
-    case NPM.Resolution.PackageResolver.resolve_entry(package_dir, conditions: @cjs_conditions) do
+  defp resolve_package_entry(package_dir, extensions, index_files, conditions) do
+    case NPM.Resolution.PackageResolver.resolve_entry(package_dir,
+           conditions: conditions,
+           extensions: extensions
+         ) do
       {:ok, _} = ok ->
         ok
 
@@ -91,10 +97,11 @@ defmodule Volt.Tailwind.Resolver do
     end
   end
 
-  defp resolve_package_subpath(package_dir, subpath, extensions, index_files) do
+  defp resolve_package_subpath(package_dir, subpath, extensions, index_files, conditions) do
     case NPM.Resolution.PackageResolver.resolve_entry(package_dir,
            subpath: subpath,
-           conditions: @cjs_conditions
+           conditions: conditions,
+           extensions: extensions
          ) do
       {:ok, _} = ok ->
         ok
@@ -130,6 +137,9 @@ defmodule Volt.Tailwind.Resolver do
 
   def normalize_base(base) when base in [nil, "", "."], do: File.cwd!()
   def normalize_base(base), do: Path.expand(base)
+
+  defp package_conditions("stylesheet"), do: @stylesheet_conditions
+  defp package_conditions(_kind), do: @module_conditions
 
   defp find_node_modules_for(base) do
     base |> normalize_base() |> NPM.Resolution.PackageResolver.find_node_modules()

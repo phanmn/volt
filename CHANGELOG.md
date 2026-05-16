@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.11.2
+
+### Fixed
+
+- Tailwind `@plugin "daisyui"` and subpath imports like `daisyui/theme` now resolve correctly.
+- Tailwind `@import "tw-animate-css"` now resolves via the `style` export condition.
+
 ## 0.11.1
 
 ### Added

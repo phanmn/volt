@@ -1,7 +1,7 @@
 defmodule Volt.MixProject do
   use Mix.Project
 
-  @version "0.11.1"
+  @version "0.11.2"
   @source_url "https://github.com/elixir-volt/volt"
 
   def project do
@@ -44,7 +44,7 @@ defmodule Volt.MixProject do
       {:file_system, "~> 1.0"},
       {:jason, "~> 1.4"},
       {:igniter, "~> 0.5", optional: true},
-      {:npm, "~> 0.7.1"},
+      {:npm, "~> 0.7.3"},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:ex_slop, "~> 0.2", only: [:dev, :test], runtime: false},
