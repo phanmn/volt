@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.0
+
+### Added
+
+- Named configuration profiles for multi-app and umbrella support. Use `config :volt, :my_app_web, [...]` to define per-app configs, and pass the profile name to Mix tasks (`mix volt.build my_app_web`) and the dev server plug (`plug Volt.DevServer, profile: :my_app_web`). The existing flat `config :volt` format continues to work unchanged.
+
 ## 0.10.9
 
 ### Fixed
