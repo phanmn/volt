@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Watcher no longer caches its own compilation results, preventing stale responses missing HMR preamble, `import.meta.env` injection, and dev import rewriting after file changes.
+- CSS `?import` cache entries are now properly evicted on file changes.
+
 ## 0.11.2
 
 ### Fixed
