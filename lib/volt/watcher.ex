@@ -181,23 +181,12 @@ defmodule Volt.Watcher do
 
     old_mtime = Volt.Format.file_mtime(path)
     old_entry = Volt.Cache.get(path, old_mtime)
-    Volt.Cache.evict(path)
+    Volt.Cache.evict_file(path)
 
     case File.read(path) do
       {:ok, source} ->
         case Volt.Pipeline.compile(path, source, Map.to_list(state.config)) do
           {:ok, result} ->
-            mtime = Volt.Format.file_mtime(path)
-
-            entry = %{
-              code: result.code,
-              sourcemap: result.sourcemap,
-              css: result.css,
-              hashes: result.hashes,
-              content_type: "application/javascript"
-            }
-
-            Volt.Cache.put(path, mtime, entry)
             update_dep_graph(path, result.code)
 
             changes = detect_changes(old_entry, result)
@@ -208,7 +197,6 @@ defmodule Volt.Watcher do
         end
 
       {:error, :enoent} ->
-        Volt.Cache.evict(path)
         Volt.DepGraph.remove(path)
         broadcast(:remove, %{path: relative})
     end

@@ -118,6 +118,117 @@ defmodule Volt.DevServerTest do
       assert conn.status == 200
       assert conn.resp_body =~ "const x = 42"
     end
+
+    test "watcher invalidation does not replace dev-server cache" do
+      source_dir = Path.join(@fixture_dir, "src")
+      app_path = Path.join(source_dir, "app.ts")
+
+      File.write!(app_path, """
+      import "phoenix_html"
+      console.log(import.meta.env.DEV, "before")
+      """)
+
+      File.touch!(app_path, {{2026, 1, 1}, {0, 0, 0}})
+
+      conn = call_dev_server("/assets/app.ts")
+
+      assert conn.status == 200
+      assert conn.resp_body =~ "before"
+      assert conn.resp_body =~ "createHotContext"
+      assert conn.resp_body =~ "/@vendor/phoenix_html.js"
+      refute conn.resp_body =~ ~s(import "phoenix_html")
+
+      File.write!(app_path, """
+      import "phoenix_html"
+      console.log(import.meta.env.DEV, "after")
+      """)
+
+      File.touch!(app_path, {{2026, 1, 1}, {0, 0, 1}})
+
+      watcher =
+        start_supervised!({Volt.Watcher, root: source_dir, name: :test_dev_server_watcher_cache})
+
+      send(watcher, {:rebuild, app_path})
+      _ = :sys.get_state(watcher)
+
+      conn = call_dev_server("/assets/app.ts")
+
+      assert conn.status == 200
+      assert conn.resp_body =~ "after"
+      assert conn.resp_body =~ "createHotContext"
+      assert conn.resp_body =~ "/@vendor/phoenix_html.js"
+      refute conn.resp_body =~ ~s(import "phoenix_html")
+    end
+
+    test "watcher invalidation evicts CSS import cache" do
+      source_dir = Path.join(@fixture_dir, "src")
+      css_path = Path.join(source_dir, "style.css")
+
+      File.write!(css_path, ".foo { color: red }")
+      File.touch!(css_path, {{2026, 1, 1}, {0, 0, 0}})
+
+      conn = call_dev_server("/assets/style.css?import")
+      assert conn.status == 200
+      assert conn.resp_body =~ "red"
+      assert conn.resp_body =~ "__volt_updateStyle"
+
+      File.write!(css_path, ".foo { color: green }")
+      File.touch!(css_path, {{2026, 1, 1}, {0, 0, 1}})
+
+      watcher =
+        start_supervised!({Volt.Watcher, root: source_dir, name: :test_css_import_cache})
+
+      send(watcher, {:rebuild, css_path})
+      _ = :sys.get_state(watcher)
+
+      conn = call_dev_server("/assets/style.css?import")
+      assert conn.status == 200
+      assert conn.resp_body =~ "green"
+      refute conn.resp_body =~ "red"
+    end
+
+    test "watcher invalidation evicts cache even for never-served files" do
+      source_dir = Path.join(@fixture_dir, "src")
+      app_path = Path.join(source_dir, "app.ts")
+
+      File.write!(app_path, "export const x = 1")
+      File.touch!(app_path, {{2026, 1, 1}, {0, 0, 0}})
+
+      watcher =
+        start_supervised!({Volt.Watcher, root: source_dir, name: :test_never_served})
+
+      send(watcher, {:rebuild, app_path})
+      _ = :sys.get_state(watcher)
+
+      conn = call_dev_server("/assets/app.ts")
+      assert conn.status == 200
+      assert conn.resp_body =~ "createHotContext"
+    end
+
+    test "compilation error does not serve stale cache" do
+      source_dir = Path.join(@fixture_dir, "src")
+      app_path = Path.join(source_dir, "app.ts")
+
+      File.write!(app_path, "export const x = 1")
+      File.touch!(app_path, {{2026, 1, 1}, {0, 0, 0}})
+
+      conn = call_dev_server("/assets/app.ts")
+      assert conn.status == 200
+      assert conn.resp_body =~ "const x = 1"
+
+      File.write!(app_path, "const = ;")
+      File.touch!(app_path, {{2026, 1, 1}, {0, 0, 1}})
+
+      watcher =
+        start_supervised!({Volt.Watcher, root: source_dir, name: :test_compile_error})
+
+      send(watcher, {:rebuild, app_path})
+      _ = :sys.get_state(watcher)
+
+      conn = call_dev_server("/assets/app.ts")
+      assert conn.status == 500
+      refute conn.resp_body =~ "const x = 1"
+    end
   end
 
   describe "non-matching paths" do

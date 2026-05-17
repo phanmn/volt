@@ -41,10 +41,18 @@ defmodule Volt.Cache do
     :ok
   end
 
-  @doc "Evict all entries for a path (any mtime)."
+  @doc "Evict all entries for a cache key (any mtime)."
   @spec evict(String.t()) :: :ok
-  def evict(path) do
-    :ets.match_delete(@table, {{path, :_}, :_})
+  def evict(key) do
+    :ets.match_delete(@table, {{key, :_}, :_})
+    :ok
+  end
+
+  @doc "Evict all cache entries derived from a file path, including variant keys like `path <> \"?import\"`."
+  @spec evict_file(String.t()) :: :ok
+  def evict_file(path) do
+    evict(path)
+    evict(path <> "?import")
     :ok
   end
 
