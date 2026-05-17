@@ -110,12 +110,16 @@ defmodule Volt.Plugin.Svelte do
       case OXC.collect_imports(script, filename) do
         {:ok, imports} ->
           typed = Enum.map(imports, &{&1.type, &1.specifier})
-          {:cont, {:ok, %{acc | imports: acc.imports ++ typed}}}
+          {:cont, {:ok, %{acc | imports: [typed | acc.imports]}}}
 
         {:error, _} = error ->
           {:halt, error}
       end
     end)
+    |> case do
+      {:ok, result} -> {:ok, %{result | imports: result.imports |> Enum.reverse() |> List.flatten()}}
+      error -> error
+    end
   end
 
   defp script_blocks(source) do

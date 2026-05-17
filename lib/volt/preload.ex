@@ -30,11 +30,9 @@ defmodule Volt.Preload do
   def tags(manifest, opts) when is_map(manifest) do
     prefix = Keyword.get(opts, :prefix, "/assets")
 
-    manifest
-    |> Map.values()
-    |> Enum.map(fn
-      %{"file" => file} -> file
-      file when is_binary(file) -> file
+    Enum.map(manifest, fn
+      {_key, %{"file" => file}} -> file
+      {_key, file} when is_binary(file) -> file
     end)
     |> Enum.uniq()
     |> Enum.filter(&String.ends_with?(&1, ".js"))

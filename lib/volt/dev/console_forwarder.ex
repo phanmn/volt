@@ -22,7 +22,7 @@ defmodule Volt.Dev.ConsoleForwarder do
   end
 
   def log(%{"level" => level, "args" => args, "source" => source}) when is_list(args) do
-    message = Enum.join(Enum.map(args, &format_arg/1), " ")
+    message = Enum.map_join(args, " ", &format_arg/1)
     prefix = if source in [nil, ""], do: "[Volt][browser]", else: "[Volt][browser][#{source}]"
 
     case normalize_level(level) do

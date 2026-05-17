@@ -109,30 +109,28 @@ defmodule Volt.Tailwind.Loader do
   end
 
   defp bundle_specifier(specifier, abs_path, runtime_node_modules) do
-    cond do
-      Resolver.node_builtin_specifier?(specifier) ->
-        :skip
+    if Resolver.node_builtin_specifier?(specifier) do
+      :skip
+    else
+      resolved_path =
+        Resolver.resolve_module_path!(
+          specifier,
+          Path.dirname(abs_path),
+          "require",
+          runtime_node_modules
+        )
 
-      true ->
-        resolved_path =
-          Resolver.resolve_module_path!(
-            specifier,
-            Path.dirname(abs_path),
-            "require",
-            runtime_node_modules
-          )
+      cond do
+        Path.extname(resolved_path) == ".json" ->
+          :skip
 
-        cond do
-          Path.extname(resolved_path) == ".json" ->
-            :skip
+        Resolver.relative_specifier?(specifier) ->
+          {:ok, nil, resolved_path}
 
-          Resolver.relative_specifier?(specifier) ->
-            {:ok, nil, resolved_path}
-
-          true ->
-            relative = compute_relative_path(abs_path, resolved_path)
-            {:ok, relative, resolved_path}
-        end
+        true ->
+          relative = compute_relative_path(abs_path, resolved_path)
+          {:ok, relative, resolved_path}
+      end
     end
   rescue
     error in RuntimeError ->

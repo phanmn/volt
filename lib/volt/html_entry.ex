@@ -30,15 +30,13 @@ defmodule Volt.HTMLEntry do
     scripts =
       doc
       |> Floki.find("script[src]")
-      |> Enum.map(&Floki.attribute(&1, "src"))
-      |> List.flatten()
+      |> Enum.flat_map(&Floki.attribute(&1, "src"))
       |> Enum.map(&resolve_path(&1, html_path))
 
     styles =
       doc
       |> Floki.find("link[rel=stylesheet][href]")
-      |> Enum.map(&Floki.attribute(&1, "href"))
-      |> List.flatten()
+      |> Enum.flat_map(&Floki.attribute(&1, "href"))
       |> Enum.map(&resolve_path(&1, html_path))
 
     {:ok, %{scripts: scripts, styles: styles}}

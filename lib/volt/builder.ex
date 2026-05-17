@@ -276,7 +276,7 @@ defmodule Volt.Builder do
   end
 
   defp merge_compiled(batch, special) do
-    all = Enum.reverse(batch) ++ Enum.reverse(special)
+    all = Enum.reverse(batch, Enum.reverse(special))
 
     {js_files, css_parts} =
       Enum.reduce(all, {[], []}, fn {label, js, css}, {js_acc, css_acc} ->

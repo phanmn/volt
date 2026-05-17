@@ -59,15 +59,13 @@ defmodule Volt.HMR.Boundary do
   defp visit_parent(parent, read_source, visited) do
     source = read_source.(parent)
 
-    cond do
-      source != nil and self_accepting?(source) ->
-        {:ok, parent}
-
-      true ->
-        case walk_up(parent, read_source, visited) do
-          {:ok, _} = found -> found
-          :full_reload -> nil
-        end
+    if source != nil and self_accepting?(source) do
+      {:ok, parent}
+    else
+      case walk_up(parent, read_source, visited) do
+        {:ok, _} = found -> found
+        :full_reload -> nil
+      end
     end
   end
 

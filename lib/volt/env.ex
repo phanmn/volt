@@ -45,11 +45,13 @@ defmodule Volt.Env do
       |> Enum.filter(fn {k, _} -> String.starts_with?(k, @prefix) end)
       |> Map.new()
 
+    encoded_mode = Jason.encode!(mode)
+
     base = %{
-      "import.meta.env.MODE" => Jason.encode!(mode),
+      "import.meta.env.MODE" => encoded_mode,
       "import.meta.env.DEV" => to_string(mode != "production"),
       "import.meta.env.PROD" => to_string(mode == "production"),
-      "process.env.NODE_ENV" => Jason.encode!(mode)
+      "process.env.NODE_ENV" => encoded_mode
     }
 
     env_defines =

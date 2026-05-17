@@ -98,10 +98,12 @@ defmodule Volt.JS.Runtime.Bundler do
   end
 
   defp shared_segments([first | rest]) do
+    rest_tuples = Enum.map(rest, &List.to_tuple/1)
+
     first
     |> Enum.with_index()
     |> Enum.take_while(fn {segment, index} ->
-      Enum.all?(rest, &(Enum.at(&1, index) == segment))
+      Enum.all?(rest_tuples, fn t -> index < tuple_size(t) and elem(t, index) == segment end)
     end)
     |> Enum.map(&elem(&1, 0))
   end

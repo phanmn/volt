@@ -129,8 +129,7 @@ defmodule Volt.Builder.Externals do
   defp merge_imports(acc, imports) do
     Enum.reduce(imports, acc, fn {spec, names}, a ->
       existing = Map.get(a, spec, [])
-      merged = (existing ++ names) |> Enum.uniq()
-      Map.put(a, spec, merged)
+      Map.put(a, spec, Enum.uniq(names ++ existing))
     end)
   end
 
