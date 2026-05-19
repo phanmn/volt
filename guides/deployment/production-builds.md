@@ -26,11 +26,30 @@ Production builds run the same framework/plugin compilation pipeline as the dev 
 - rewrites CSS `url(...)` references to `/assets/...`
 - tree-shakes, minifies, and optionally code-splits JavaScript
 - writes a manifest that Phoenix can use for digested asset paths
-- copies the configured public directory to the static root without transforming files
+- optionally copies a Vite-style public directory to the static root without transforming files
 
-## Public directory
+## Public files in Phoenix apps
 
-Files in `public_dir` are copied as-is to the static root. With the default output directory, JavaScript and CSS are written below `priv/static/assets`, while public files are copied to `priv/static`:
+For Phoenix projects, stable root files usually belong in `priv/static` and are served by Phoenix through `Plug.Static`. Examples include `favicon.ico`, `robots.txt`, web app manifests, and touch icons. Keep those files at the Phoenix level when possible.
+
+Volt handles files that are part of the frontend module graph instead:
+
+- JavaScript asset imports
+- `new URL("./asset.ext", import.meta.url)` references
+- CSS `url(...)` references
+
+Those graph assets are copied with content hashes and rewritten in production builds.
+
+## Optional Vite-style public directory
+
+`public_dir` is disabled by default. Enable it only when you intentionally want Vite-style public directory behavior, for example during migration from Vite:
+
+```elixir
+config :volt,
+  public_dir: "public"
+```
+
+When enabled, files are copied as-is to the static root. With the default output directory, JavaScript and CSS are written below `priv/static/assets`, while public files are copied to `priv/static`:
 
 ```text
 public/favicon.svg      -> priv/static/favicon.svg
@@ -39,17 +58,6 @@ assets/js/app.ts        -> priv/static/assets/js/app-a1b2c3d4.js
 ```
 
 Reference public files with root-absolute URLs such as `/favicon.svg`. They are not transformed, hashed, or included in the module graph.
-
-Configure or disable the directory with:
-
-```elixir
-config :volt,
-  public_dir: "public"
-
-# or
-config :volt,
-  public_dir: false
-```
 
 CLI: `mix volt.build --public-dir path/to/public`.
 

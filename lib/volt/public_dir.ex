@@ -1,11 +1,13 @@
 defmodule Volt.PublicDir do
   @moduledoc """
-  Vite-style public directory support.
+  Optional Vite-style public directory support.
 
-  Files in the configured public directory are served from the site root in
-  development and copied as-is to the production static root. They are not
-  transformed, hashed, or included in the module graph, so application code
-  should reference them with root-absolute URLs such as `/favicon.svg`.
+  Phoenix apps normally serve stable public files from `priv/static` through
+  `Plug.Static`, so this feature is disabled by default. When enabled for Vite
+  compatibility, files in the configured public directory are served from the
+  site root in development and copied as-is to the production static root. They
+  are not transformed, hashed, or included in the module graph, so application
+  code should reference them with root-absolute URLs such as `/favicon.svg`.
   """
 
   @doc """

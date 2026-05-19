@@ -17,6 +17,14 @@ Entry file path or list of paths.
 config :volt, outdir: "priv/static/assets"
 ```
 
+### Public Directory
+
+```elixir
+config :volt, public_dir: false
+```
+
+Optional Vite-style public directory. Phoenix apps usually keep stable public files in `priv/static` instead.
+
 ### Root
 
 ```elixir

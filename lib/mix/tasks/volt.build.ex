@@ -14,7 +14,7 @@ defmodule Mix.Tasks.Volt.Build do
 
     * `--entry` — entry file (repeatable, default from config or `"assets/js/app.ts"`)
     * `--outdir` — output directory (default: `"priv/static/assets"`)
-    * `--public-dir` — directory copied to the static root as-is (default: `"public"`)
+    * `--public-dir` — optional Vite-style public directory copied to the static root as-is
     * `--target` — JS target (default: `es2020`)
     * `--no-minify` — skip minification
     * `--sourcemap false` — skip source map generation

@@ -77,15 +77,29 @@ becomes something like:
 
 Absolute paths, fragments, data URLs, and remote URLs are preserved.
 
-## Public directory
+## Phoenix static files and optional public directory
 
-Files in `public_dir` are served and copied without transformation. Use this for files that must keep stable names, such as `favicon.svg` or `robots.txt`:
+In Phoenix apps, stable root files usually belong in `priv/static` and are served by Phoenix through `Plug.Static`:
+
+```text
+priv/static/favicon.svg -> /favicon.svg
+priv/static/robots.txt  -> /robots.txt
+```
+
+Volt's asset pipeline is for files referenced by JavaScript and CSS when you want dependency tracking, hashing, and URL rewriting.
+
+For Vite migration compatibility, Volt also supports an optional `public_dir`. It is disabled by default. When enabled, files in that directory are served and copied without transformation:
+
+```elixir
+config :volt,
+  public_dir: "public"
+```
 
 ```text
 public/favicon.svg -> /favicon.svg
 ```
 
-Public files are not hashed and are not processed by import query modes. Prefer module imports for assets referenced by JavaScript or CSS when you want hashing and dependency tracking.
+Public directory files are not hashed and are not processed by import query modes. Prefer module imports for assets referenced by JavaScript or CSS when you want hashing and dependency tracking.
 
 ## Supported formats
 
