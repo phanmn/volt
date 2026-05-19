@@ -9,10 +9,10 @@ defmodule Volt.Builder.Resolver do
   def resolve(specifier, importer, ctx) do
     {path_specifier, query} = Volt.JS.Query.split(specifier)
 
-    cond do
-      external?(path_specifier, ctx.external) -> :skip
-      css_specifier?(path_specifier) -> :skip
-      true -> do_resolve(path_specifier, importer, ctx, query)
+    if external?(path_specifier, ctx.external) do
+      :skip
+    else
+      do_resolve(path_specifier, importer, ctx, query)
     end
   end
 
@@ -110,11 +110,6 @@ defmodule Volt.Builder.Resolver do
   defp type_declaration?(base) do
     File.exists?(base <> ".d.ts") or File.exists?(base <> ".d.cts") or
       File.exists?(base <> ".d.mts")
-  end
-
-  defp css_specifier?(specifier) do
-    Path.extname(specifier) in Volt.JS.Extensions.css() and
-      not Volt.CSS.Modules.css_module?(specifier)
   end
 
   defp external?(specifier, external) do

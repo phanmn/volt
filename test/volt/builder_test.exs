@@ -693,6 +693,56 @@ defmodule Volt.BuilderTest do
       assert File.read!(result.js.path) =~ "One.vue"
     end
 
+    test "CSS entry url assets are copied and rewritten for production" do
+      File.mkdir_p!(Path.join(@fixture_dir, "src/images"))
+      File.write!(Path.join(@fixture_dir, "src/images/logo.svg"), "<svg></svg>")
+
+      File.write!(Path.join(@fixture_dir, "src/url_app.css"), """
+      .logo { background: url('./images/logo.svg') }
+      """)
+
+      {:ok, result} =
+        Volt.Builder.build(
+          entry: Path.join(@fixture_dir, "src/url_app.css"),
+          outdir: @outdir,
+          minify: false,
+          sourcemap: false
+        )
+
+      css = File.read!(result.css.path)
+      assert css =~ "/assets/logo-"
+      refute css =~ "./images/logo.svg"
+      assert Enum.any?(File.ls!(@outdir), &String.starts_with?(&1, "logo-"))
+    end
+
+    test "imported CSS url assets are copied and rewritten for production" do
+      File.mkdir_p!(Path.join(@fixture_dir, "src/images"))
+      File.write!(Path.join(@fixture_dir, "src/images/logo.svg"), "<svg></svg>")
+
+      File.write!(
+        Path.join(@fixture_dir, "src/styles.css"),
+        ".logo { background: url('./images/logo.svg') }"
+      )
+
+      File.write!(Path.join(@fixture_dir, "src/css_url_app.ts"), """
+      import './styles.css'
+      console.log('css')
+      """)
+
+      {:ok, result} =
+        Volt.Builder.build(
+          entry: Path.join(@fixture_dir, "src/css_url_app.ts"),
+          outdir: @outdir,
+          minify: false,
+          sourcemap: false
+        )
+
+      css = File.read!(result.css.path)
+      assert css =~ "/assets/logo-"
+      refute css =~ "./images/logo.svg"
+      assert Enum.any?(File.ls!(@outdir), &String.starts_with?(&1, "logo-"))
+    end
+
     test "dynamic import vars compile into production graph modules" do
       File.mkdir_p!(Path.join(@fixture_dir, "src/pages"))
       File.write!(Path.join(@fixture_dir, "src/pages/home.ts"), "export const name = 'home'")

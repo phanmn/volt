@@ -40,9 +40,7 @@ defmodule Volt.Builder.Collector do
     path = module_path(abs_path)
 
     cond do
-      MapSet.member?(state.seen, abs_path) or
-          (Path.extname(path) in Volt.JS.Extensions.css() and
-             not Volt.CSS.Modules.css_module?(path)) ->
+      MapSet.member?(state.seen, abs_path) ->
         {:ok, state}
 
       Volt.Assets.asset?(path) ->
@@ -138,43 +136,38 @@ defmodule Volt.Builder.Collector do
         collect_imports(rest, importer, state)
 
       {:ok, resolved_path, original_specifier} ->
-        if Path.extname(resolved_path) in Volt.JS.Extensions.css() and
-             not Volt.CSS.Modules.css_module?(resolved_path) do
-          collect_imports(rest, importer, state)
-        else
-          {label, state} =
-            if MapSet.member?(state.seen, resolved_path) do
-              {state.path_labels[resolved_path], state}
-            else
-              unique_label(original_specifier, resolved_path, state)
-            end
-
-          importer_labels = Map.get(state.specifier_labels, importer, %{})
-
-          state = %{
-            state
-            | specifier_labels:
-                Map.put(
-                  state.specifier_labels,
-                  importer,
-                  Map.put_new(importer_labels, original_specifier, label)
-                ),
-              dep_map:
-                resolve_dep_map_specifier(
-                  state.dep_map,
-                  importer,
-                  original_specifier,
-                  resolved_path
-                )
-          }
-
-          case do_collect(resolved_path, label, state) do
-            {:ok, state} ->
-              collect_imports(rest, importer, state)
-
-            {:error, _} = error ->
-              error
+        {label, state} =
+          if MapSet.member?(state.seen, resolved_path) do
+            {state.path_labels[resolved_path], state}
+          else
+            unique_label(original_specifier, resolved_path, state)
           end
+
+        importer_labels = Map.get(state.specifier_labels, importer, %{})
+
+        state = %{
+          state
+          | specifier_labels:
+              Map.put(
+                state.specifier_labels,
+                importer,
+                Map.put_new(importer_labels, original_specifier, label)
+              ),
+            dep_map:
+              resolve_dep_map_specifier(
+                state.dep_map,
+                importer,
+                original_specifier,
+                resolved_path
+              )
+        }
+
+        case do_collect(resolved_path, label, state) do
+          {:ok, state} ->
+            collect_imports(rest, importer, state)
+
+          {:error, _} = error ->
+            error
         end
 
       {:error, _} = error ->
@@ -227,7 +220,7 @@ defmodule Volt.Builder.Collector do
           content_type in ~w(application/javascript text/javascript) ->
             extract_js_typed_imports(source, filename)
 
-          ext == ".json" or Volt.CSS.Modules.css_module?(path) ->
+          ext == ".json" or ext in Volt.JS.Extensions.css() ->
             {:ok, %{imports: [], workers: []}}
 
           true ->
@@ -316,7 +309,7 @@ defmodule Volt.Builder.Collector do
 
     cond do
       Path.extname(label) == ".json" -> Path.rootname(label) <> ".json.js"
-      Volt.CSS.Modules.css_module?(label) -> label <> ".js"
+      Path.extname(label) in Volt.JS.Extensions.css() -> label <> ".js"
       query != "" -> label <> ".js"
       true -> label
     end

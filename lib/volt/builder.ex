@@ -11,6 +11,10 @@ defmodule Volt.Builder do
 
   alias Volt.Builder.{Collector, Output}
 
+  @css_exts Volt.JS.Extensions.css()
+  @css_import_noop "data:text/javascript,export{}"
+  @dynamic_css_import_noop "Promise.resolve({ default: undefined })"
+
   @type build_result :: %{
           js:
             %{path: String.t(), size: non_neg_integer()}
@@ -182,7 +186,7 @@ defmodule Volt.Builder do
     with {:ok, source} <- File.read(entry),
          {:ok, compiled} <-
            Volt.Pipeline.compile(entry, source, minify: bundle_opts[:minify] || false) do
-      Volt.Builder.Writer.build_style_entry(name, compiled.code, outdir, hash)
+      Volt.Builder.Writer.build_style_entry(name, compiled.code, outdir, hash, entry)
     end
   end
 
@@ -225,11 +229,14 @@ defmodule Volt.Builder do
   defp compile_modules(modules, ctx) do
     Enum.reduce_while(modules, {:ok, []}, fn {path, label, source}, {:ok, acc} ->
       case compile_module(path, label, source, ctx) do
-        {:ok, js, css} -> {:cont, {:ok, [{label, js, css} | acc]}}
+        {:ok, js, css} -> {:cont, {:ok, [{label, js, css_part(path, css)} | acc]}}
         {:error, _} = error -> {:halt, error}
       end
     end)
   end
+
+  defp css_part(_path, nil), do: nil
+  defp css_part(path, css), do: {path, css}
 
   defp merge_compiled(compiled) do
     {js_files, css_parts} =
@@ -245,31 +252,49 @@ defmodule Volt.Builder do
   defp compile_module(module_id, _label, source, ctx) do
     {path, query} = Volt.JS.Query.split(module_id)
 
-    if Volt.Assets.asset?(path) do
-      query_params = Volt.JS.Query.decode(query)
+    cond do
+      Path.extname(path) in @css_exts and not Volt.CSS.Modules.css_module?(path) ->
+        compile_css_import(path, source, ctx)
 
-      asset_opts = [
-        raw: Map.has_key?(query_params, "raw"),
-        url: Map.has_key?(query_params, "url"),
-        inline: Map.has_key?(query_params, "inline"),
-        no_inline: Map.has_key?(query_params, "no-inline")
-      ]
+      Volt.Assets.asset?(path) ->
+        query_params = Volt.JS.Query.decode(query)
 
-      case Volt.Assets.to_js_module(path, asset_opts) do
-        {:ok, js} -> {:ok, js, nil}
-        {:error, _} = error -> error
-      end
-    else
-      case Volt.Pipeline.compile(path, source,
-             target: ctx.target,
-             import_source: ctx.import_source,
-             define: ctx.define,
-             plugins: ctx.plugins,
-             loaders: ctx.loaders
-           ) do
-        {:ok, %{code: code, css: css}} -> {:ok, code, css}
-        {:error, _} = error -> error
-      end
+        asset_opts = [
+          raw: Map.has_key?(query_params, "raw"),
+          url: Map.has_key?(query_params, "url"),
+          inline: Map.has_key?(query_params, "inline"),
+          no_inline: Map.has_key?(query_params, "no-inline")
+        ]
+
+        case Volt.Assets.to_js_module(path, asset_opts) do
+          {:ok, js} -> {:ok, js, nil}
+          {:error, _} = error -> error
+        end
+
+      true ->
+        case Volt.Pipeline.compile(path, source,
+               target: ctx.target,
+               import_source: ctx.import_source,
+               define: ctx.define,
+               plugins: ctx.plugins,
+               loaders: ctx.loaders
+             ) do
+          {:ok, %{code: code, css: css}} -> {:ok, code, css}
+          {:error, _} = error -> error
+        end
+    end
+  end
+
+  defp compile_css_import(path, source, ctx) do
+    case Volt.Pipeline.compile(path, source,
+           target: ctx.target,
+           import_source: ctx.import_source,
+           define: ctx.define,
+           plugins: ctx.plugins,
+           loaders: ctx.loaders
+         ) do
+      {:ok, %{code: css}} -> {:ok, "export default undefined;", css}
+      {:error, _} = error -> error
     end
   end
 
@@ -323,10 +348,6 @@ defmodule Volt.Builder do
       {:error, _} -> code
     end
   end
-
-  @css_exts Volt.JS.Extensions.css()
-  @css_import_noop "data:text/javascript,export{}"
-  @dynamic_css_import_noop "Promise.resolve({ default: undefined })"
 
   defp rewrite_dynamic_css_imports(code) do
     case OXC.parse(code, "module.js") do
