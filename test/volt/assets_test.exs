@@ -47,6 +47,22 @@ defmodule Volt.AssetsTest do
       assert js =~ "export default"
       assert js =~ "large.png"
     end
+
+    test "exports raw file contents" do
+      path = Path.join(@fixture_dir, "raw.txt")
+      File.write!(path, "hello\nworld")
+
+      assert {:ok, ~s(export default "hello\\nworld";\n)} =
+               Volt.Assets.to_js_module(path, raw: true)
+    end
+
+    test "exports forced asset URLs" do
+      path = Path.join(@fixture_dir, "small.svg")
+      File.write!(path, "<svg></svg>")
+
+      assert {:ok, ~s(export default "/assets/icons/small.svg";\n)} =
+               Volt.Assets.to_js_module(path, url: true, url_path: "/assets/icons/small.svg")
+    end
   end
 
   describe "copy_hashed/2" do

@@ -272,6 +272,22 @@ defmodule Volt.DevServerTest do
       assert get_resp_header(conn, "content-type") |> hd() =~ "javascript"
     end
 
+    test "serves raw asset query as a JavaScript string module" do
+      File.write!(Path.join(@fixture_dir, "src/data.txt"), "hello\nworld")
+      conn = call_dev_server("/assets/data.txt?raw")
+      assert conn.status == 200
+      assert conn.resp_body == ~s(export default "hello\\nworld";\n)
+      assert get_resp_header(conn, "content-type") |> hd() =~ "javascript"
+    end
+
+    test "serves URL asset query as a JavaScript URL module" do
+      File.write!(Path.join(@fixture_dir, "src/image.png"), "binary")
+      conn = call_dev_server("/assets/image.png?url")
+      assert conn.status == 200
+      assert conn.resp_body == ~s(export default "/assets/image.png";\n)
+      assert get_resp_header(conn, "content-type") |> hd() =~ "javascript"
+    end
+
     test "serves asset script fetches as JavaScript modules" do
       File.write!(Path.join(@fixture_dir, "src/icon.svg"), "<svg></svg>")
 
@@ -353,6 +369,20 @@ defmodule Volt.DevServerTest do
       assert conn.status == 200
       assert conn.resp_body =~ "/assets/logo.svg?import"
       refute conn.resp_body =~ "'./logo.svg'"
+    end
+
+    test "preserves asset import query modes while rewriting" do
+      File.write!(Path.join(@fixture_dir, "src/logo.svg"), "<svg></svg>")
+
+      File.write!(
+        Path.join(@fixture_dir, "src/entry.ts"),
+        "import logo from './logo.svg?raw'\nconsole.log(logo)"
+      )
+
+      conn = call_dev_server("/assets/entry.ts")
+      assert conn.status == 200
+      assert conn.resp_body =~ "/assets/logo.svg?raw"
+      refute conn.resp_body =~ "/assets/logo.svg?import"
     end
 
     test "rewrites nested asset imports to import-mode URLs" do

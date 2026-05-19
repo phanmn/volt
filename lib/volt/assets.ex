@@ -59,17 +59,32 @@ defmodule Volt.Assets do
   """
   @spec to_js_module(String.t(), keyword()) :: {:ok, String.t()} | {:error, term()}
   def to_js_module(path, opts \\ []) do
-    limit = Keyword.get(opts, :inline_limit, @default_inline_limit)
+    cond do
+      Keyword.get(opts, :raw, false) ->
+        raw_asset(path)
 
-    case File.stat(path) do
-      {:ok, %{size: size}} when size <= limit ->
-        inline_asset(path)
-
-      {:ok, _stat} ->
+      Keyword.get(opts, :url, false) ->
         reference_asset(path, opts)
 
-      {:error, reason} ->
-        {:error, reason}
+      Keyword.get(opts, :inline, false) ->
+        inline_asset(path)
+
+      Keyword.get(opts, :no_inline, false) ->
+        reference_asset(path, opts)
+
+      true ->
+        limit = Keyword.get(opts, :inline_limit, @default_inline_limit)
+
+        case File.stat(path) do
+          {:ok, %{size: size}} when size <= limit ->
+            inline_asset(path)
+
+          {:ok, _stat} ->
+            reference_asset(path, opts)
+
+          {:error, reason} ->
+            {:error, reason}
+        end
     end
   end
 
@@ -99,6 +114,13 @@ defmodule Volt.Assets do
     Map.get(@mime_types, Path.extname(path), "application/octet-stream")
   end
 
+  defp raw_asset(path) do
+    case File.read(path) do
+      {:ok, content} -> {:ok, "export default #{Jason.encode!(content)};\n"}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
   defp inline_asset(path) do
     content = File.read!(path)
     mime = mime_type(path)
@@ -112,8 +134,8 @@ defmodule Volt.Assets do
 
     case Keyword.get(opts, :outdir) do
       nil ->
-        filename = Path.basename(path)
-        {:ok, ~s(export default "#{prefix}/#{filename}";\n)}
+        url = Keyword.get(opts, :url_path) || Path.join(prefix, Path.basename(path))
+        {:ok, ~s(export default "#{url}";\n)}
 
       outdir ->
         {:ok, filename} = copy_hashed(path, outdir)

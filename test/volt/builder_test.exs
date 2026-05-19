@@ -693,6 +693,82 @@ defmodule Volt.BuilderTest do
       assert File.read!(result.js.path) =~ "One.vue"
     end
 
+    test "new URL asset references compile through production asset modules" do
+      File.write!(Path.join(@fixture_dir, "src/logo.svg"), "<svg></svg>")
+
+      File.write!(Path.join(@fixture_dir, "src/asset_url_app.ts"), """
+      const logo = new URL('./logo.svg', import.meta.url).href
+      console.log(logo)
+      """)
+
+      {:ok, result} =
+        Volt.Builder.build(
+          entry: Path.join(@fixture_dir, "src/asset_url_app.ts"),
+          outdir: @outdir,
+          minify: false,
+          sourcemap: false
+        )
+
+      js = File.read!(result.js.path)
+      assert js =~ "/assets/logo.svg"
+      refute js =~ "./logo.svg"
+    end
+
+    test "asset query imports compile as distinct production modules" do
+      File.write!(Path.join(@fixture_dir, "src/message.txt"), "hello from raw")
+      File.write!(Path.join(@fixture_dir, "src/logo.svg"), "<svg></svg>")
+
+      File.write!(Path.join(@fixture_dir, "src/asset_query_app.ts"), """
+      import raw from './message.txt?raw'
+      import url from './logo.svg?url'
+      console.log(raw, url)
+      """)
+
+      {:ok, result} =
+        Volt.Builder.build(
+          entry: Path.join(@fixture_dir, "src/asset_query_app.ts"),
+          outdir: @outdir,
+          minify: false,
+          sourcemap: false
+        )
+
+      js = File.read!(result.js.path)
+      assert js =~ "hello from raw"
+      assert js =~ "/assets/logo.svg"
+      refute js =~ "data:image/svg+xml"
+    end
+
+    test "eager import.meta.glob inside Vue SFC is included in production graph" do
+      File.mkdir_p!(Path.join(@fixture_dir, "src/pages"))
+      File.write!(Path.join(@fixture_dir, "src/pages/home.ts"), "export const page = 'home'")
+
+      File.write!(Path.join(@fixture_dir, "src/App.vue"), """
+      <script setup lang=\"ts\">
+      const pages = import.meta.glob('./pages/*.ts', { eager: true })
+      console.log(pages)
+      </script>
+      <template><p>App</p></template>
+      """)
+
+      File.write!(Path.join(@fixture_dir, "src/app.ts"), """
+      import App from './App.vue'
+      console.log(App)
+      """)
+
+      {:ok, result} =
+        Volt.Builder.build(
+          entry: Path.join(@fixture_dir, "src/app.ts"),
+          outdir: @outdir,
+          minify: false,
+          sourcemap: false,
+          node_modules: Path.expand("../node_modules", __DIR__)
+        )
+
+      js = File.read!(result.js.path)
+      assert js =~ "home"
+      refute js =~ "import.meta.glob"
+    end
+
     test "alias-imported Vue SFC resolves bare npm imports" do
       File.mkdir_p!(Path.join(@fixture_dir, "src/components"))
       File.mkdir_p!(Path.join(@fixture_dir, "node_modules/fake-lib"))

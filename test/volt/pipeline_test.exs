@@ -43,6 +43,7 @@ defmodule Volt.PipelineTest do
 
       assert result.code =~ ~s(import.meta.env = { "DEV": true, "MODE": "development" };)
       assert result.code =~ "console.log(import.meta.env.MODE, import.meta.env.DEV)"
+      assert result.sourcemap == nil
     end
 
     test "supports runtime access to injected import.meta.env" do

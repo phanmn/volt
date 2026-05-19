@@ -90,7 +90,7 @@ defmodule Volt.Pipeline do
 
   defp apply_transforms(compiled, path, plugins) do
     code = Volt.PluginRunner.transform(plugins, compiled.code, path)
-    %{compiled | code: code}
+    put_code(compiled, code)
   end
 
   defp postprocess_javascript(%{type: :js} = compiled, path, opts) do
@@ -98,11 +98,12 @@ defmodule Volt.Pipeline do
 
     code =
       compiled.code
+      |> Volt.JS.AssetURLRewriter.rewrite(filename)
       |> Volt.JS.GlobImport.transform(Path.dirname(path), filename)
 
     with {:ok, code} <-
            Volt.JS.ImportMetaEnv.inject(code, filename, Keyword.get(opts, :define, %{})) do
-      {:ok, %{compiled | code: code}}
+      {:ok, put_code(compiled, code)}
     end
   end
 
@@ -115,11 +116,14 @@ defmodule Volt.Pipeline do
            Volt.JS.ImportRewriter.rewrite(compiled.code, filename, rewrite_fn),
          {:ok, workers_rewritten} <-
            Volt.JS.WorkerRewriter.rewrite(imports_rewritten, filename, rewrite_fn) do
-      {:ok, %{compiled | code: workers_rewritten}}
+      {:ok, put_code(compiled, workers_rewritten)}
     else
       {:error, _} -> {:ok, compiled}
     end
   end
+
+  defp put_code(%{code: code} = compiled, code), do: compiled
+  defp put_code(compiled, code), do: %{compiled | code: code, sourcemap: nil}
 
   defp compile_js(path, source, opts) do
     sourcemap = Keyword.get(opts, :sourcemap, true)

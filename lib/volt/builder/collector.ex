@@ -37,17 +37,19 @@ defmodule Volt.Builder.Collector do
   end
 
   defp do_collect(abs_path, label, state) do
+    path = module_path(abs_path)
+
     cond do
       MapSet.member?(state.seen, abs_path) or
-          (Path.extname(abs_path) in Volt.JS.Extensions.css() and
-             not Volt.CSS.Modules.css_module?(abs_path)) ->
+          (Path.extname(path) in Volt.JS.Extensions.css() and
+             not Volt.CSS.Modules.css_module?(path)) ->
         {:ok, state}
 
-      Volt.Assets.asset?(abs_path) ->
+      Volt.Assets.asset?(path) ->
         collect_asset(abs_path, label, state)
 
       true ->
-        case read_module(abs_path, state.ctx.plugins) do
+        case read_module(path, state.ctx.plugins) do
           {:ok, source, content_type} ->
             process_source(abs_path, label, source, content_type, state)
 
@@ -56,6 +58,8 @@ defmodule Volt.Builder.Collector do
         end
     end
   end
+
+  defp module_path(module_id), do: module_id |> Volt.JS.Query.split() |> elem(0)
 
   defp collect_asset(abs_path, label, state) do
     source = ""
@@ -86,7 +90,8 @@ defmodule Volt.Builder.Collector do
   end
 
   defp process_source(abs_path, label, source, content_type, state) do
-    source = Volt.JS.GlobImport.transform(source, Path.dirname(abs_path), Path.basename(abs_path))
+    path = module_path(abs_path)
+    graph_source = graph_source(path, source, content_type, state.ctx)
 
     state = %{
       state
@@ -95,11 +100,12 @@ defmodule Volt.Builder.Collector do
     }
 
     case extract_typed_imports(
-           source,
+           graph_source,
            abs_path,
            content_type,
            state.ctx.loaders,
-           state.ctx.plugins
+           state.ctx.plugins,
+           graph_source != source
          ) do
       {:ok, %{imports: typed_imports, workers: worker_specs}} ->
         state = %{
@@ -195,11 +201,27 @@ defmodule Volt.Builder.Collector do
     end
   end
 
-  defp extract_typed_imports(source, path, content_type, loaders, plugins) do
+  defp graph_source(path, source, _content_type, ctx) do
+    case Volt.Pipeline.compile(path, source,
+           target: ctx.target,
+           import_source: ctx.import_source,
+           define: ctx.define,
+           plugins: ctx.plugins,
+           loaders: ctx.loaders
+         ) do
+      {:ok, %{type: :js, code: code}} -> code
+      _ -> source
+    end
+  end
+
+  defp extract_typed_imports(source, path, content_type, loaders, plugins, compiled?) do
     ext = Path.extname(path)
     filename = Volt.JS.Extensions.apply_loader(Path.basename(path), loaders)
 
-    case Volt.PluginRunner.extract_imports(plugins, path, source, loaders: loaders) do
+    case if(compiled?,
+           do: nil,
+           else: Volt.PluginRunner.extract_imports(plugins, path, source, loaders: loaders)
+         ) do
       nil ->
         cond do
           content_type in ~w(application/javascript text/javascript) ->
@@ -274,27 +296,43 @@ defmodule Volt.Builder.Collector do
   end
 
   defp module_label(resolved_path, root) do
-    parts = String.split(resolved_path, "/node_modules/")
+    {path, query} = Volt.JS.Query.split(resolved_path)
+    parts = String.split(path, "/node_modules/")
 
     label =
       if length(parts) > 1 do
         List.last(parts)
       else
-        relative = Path.relative_to(resolved_path, root)
+        relative = Path.relative_to(path, root)
 
         if Path.type(relative) == :absolute do
           "_external/" <>
-            Path.basename(Path.dirname(resolved_path)) <> "/" <> Path.basename(resolved_path)
+            Path.basename(Path.dirname(path)) <> "/" <> Path.basename(path)
         else
           relative
         end
       end
+      |> with_query_suffix(query)
 
     cond do
       Path.extname(label) == ".json" -> Path.rootname(label) <> ".json.js"
       Volt.CSS.Modules.css_module?(label) -> label <> ".js"
+      query != "" -> label <> ".js"
       true -> label
     end
+  end
+
+  defp with_query_suffix(label, ""), do: label
+
+  defp with_query_suffix(label, query) do
+    suffix =
+      query
+      |> URI.decode_query()
+      |> Map.keys()
+      |> Enum.sort()
+      |> Enum.join("-")
+
+    label <> "." <> suffix
   end
 
   defp deduplicate_label(label, resolved_path, used) do

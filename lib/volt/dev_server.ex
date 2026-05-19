@@ -248,9 +248,20 @@ defmodule Volt.DevServer do
   end
 
   defp serve_asset_module(conn, file_path, relative, config) do
-    prefix = Path.dirname(Path.join(config.prefix, relative))
+    query = Volt.JS.Query.decode(conn.query_string)
+    url_path = Path.join(config.prefix, relative)
+    prefix = Path.dirname(url_path)
 
-    case Volt.Assets.to_js_module(file_path, prefix: prefix) do
+    opts = [
+      prefix: prefix,
+      url_path: url_path,
+      raw: Map.has_key?(query, "raw"),
+      url: Map.has_key?(query, "url"),
+      inline: Map.has_key?(query, "inline"),
+      no_inline: Map.has_key?(query, "no-inline")
+    ]
+
+    case Volt.Assets.to_js_module(file_path, opts) do
       {:ok, code} ->
         conn
         |> Plug.Conn.put_resp_content_type("application/javascript")
@@ -279,13 +290,13 @@ defmodule Volt.DevServer do
   end
 
   defp asset_import_request?(conn) do
-    import_query?(conn.query_string) or
+    Volt.JS.Query.asset_module_query?(conn.query_string) or
       Enum.member?(Plug.Conn.get_req_header(conn, "sec-fetch-dest"), "script")
   end
 
   defp import_query?(query_string) do
     query_string
-    |> URI.decode_query()
+    |> Volt.JS.Query.decode()
     |> Map.has_key?("import")
   end
 
@@ -356,22 +367,25 @@ defmodule Volt.DevServer do
   end
 
   defp rewrite_relative(specifier, importer, config) do
-    resolved = Path.expand(Path.join(Path.dirname(importer), specifier))
+    {path_specifier, query} = Volt.JS.Query.split(specifier)
+    resolved = Path.expand(Path.join(Path.dirname(importer), path_specifier))
 
     if String.starts_with?(resolved, config.root) do
       resolved = resolve_with_extension(resolved, config.plugins)
       relative = Path.relative_to(resolved, config.root)
-      {:rewrite, dev_url_for(config.prefix, relative, resolved)}
+      {:rewrite, dev_url_for(config.prefix, relative, resolved, query)}
     else
       :keep
     end
   end
 
   defp rewrite_resolved_path(resolved, config) do
+    {resolved, query} = Volt.JS.Query.split(resolved)
+
     if String.starts_with?(resolved, config.root) do
       resolved = resolve_with_extension(resolved, config.plugins)
       relative = Path.relative_to(resolved, config.root)
-      {:rewrite, dev_url_for(config.prefix, relative, resolved)}
+      {:rewrite, dev_url_for(config.prefix, relative, resolved, query)}
     else
       :keep
     end
@@ -382,10 +396,11 @@ defmodule Volt.DevServer do
     {:rewrite, Volt.JS.Vendor.vendor_url(specifier)}
   end
 
-  defp dev_url_for(prefix, relative, resolved) do
+  defp dev_url_for(prefix, relative, resolved, query) do
     url = Path.join(prefix, relative)
 
     cond do
+      query != "" -> Volt.JS.Query.append(url, query)
       Path.extname(resolved) == ".css" -> url <> "?import"
       Volt.Assets.asset?(resolved) -> url <> "?import"
       true -> url

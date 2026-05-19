@@ -94,7 +94,9 @@ defmodule Volt.Builder do
       external_globals: external_globals,
       loaders: loaders,
       module_types: module_types,
-      import_source: import_source
+      import_source: import_source,
+      target: target,
+      define: all_define
     }
 
     bundle_opts =
@@ -214,92 +216,57 @@ defmodule Volt.Builder do
 
   # ── Module compilation ──────────────────────────────────────────────
 
-  defp compile_all(modules, target, ctx) do
-    {batch, special} = split_batchable(modules, ctx.plugins, ctx.loaders)
-
-    transform_opts =
-      []
-      |> maybe_put(:target, if(target != "", do: target))
-      |> maybe_put(:import_source, ctx.import_source)
-
-    batch_inputs = Enum.map(batch, fn {source, filename, _label} -> {source, filename} end)
-
-    with {:ok, batch_compiled} <- compile_batch(batch, batch_inputs, transform_opts),
-         {:ok, special_compiled} <- compile_special(special, target, ctx.plugins, ctx.loaders) do
-      merge_compiled(batch_compiled, special_compiled)
+  defp compile_all(modules, _target, ctx) do
+    with {:ok, compiled} <- compile_modules(modules, ctx) do
+      merge_compiled(compiled)
     end
   end
 
-  defp split_batchable(modules, plugins, loaders) do
-    {batch, special} =
-      Enum.reduce(modules, {[], []}, fn {path, _label, _source} = mod, {b, s} ->
-        if batchable?(path, plugins) do
-          {_path, label, source} = mod
-          filename = Volt.JS.Extensions.apply_loader(Path.basename(path), loaders)
-          {[{source, filename, label} | b], s}
-        else
-          {b, [mod | s]}
-        end
-      end)
-
-    {Enum.reverse(batch), Enum.reverse(special)}
-  end
-
-  defp compile_batch(_batch, [], _opts), do: {:ok, []}
-
-  defp compile_batch(batch, inputs, opts) do
-    batch
-    |> Enum.zip(OXC.transform_many(inputs, opts))
-    |> Enum.reduce_while([], fn
-      {{_, _, label}, {:ok, code}}, acc when is_binary(code) ->
-        {:cont, [{label, code, nil} | acc]}
-
-      {{_, _, label}, {:ok, %{code: code, sourcemap: sm}}}, acc ->
-        {:cont, [{label, code, sm} | acc]}
-
-      {_, {:error, _} = error}, _acc ->
-        {:halt, error}
-    end)
-    |> then(fn
-      list when is_list(list) -> {:ok, list}
-      {:error, _} = error -> error
-    end)
-  end
-
-  defp compile_special(special, target, plugins, loaders) do
-    Enum.reduce_while(special, {:ok, []}, fn {path, label, source}, {:ok, acc} ->
-      case compile_module(path, label, source, target, plugins, loaders) do
+  defp compile_modules(modules, ctx) do
+    Enum.reduce_while(modules, {:ok, []}, fn {path, label, source}, {:ok, acc} ->
+      case compile_module(path, label, source, ctx) do
         {:ok, js, css} -> {:cont, {:ok, [{label, js, css} | acc]}}
         {:error, _} = error -> {:halt, error}
       end
     end)
   end
 
-  defp merge_compiled(batch, special) do
-    all = Enum.reverse(batch, Enum.reverse(special))
-
+  defp merge_compiled(compiled) do
     {js_files, css_parts} =
-      Enum.reduce(all, {[], []}, fn {label, js, css}, {js_acc, css_acc} ->
+      compiled
+      |> Enum.reverse()
+      |> Enum.reduce({[], []}, fn {label, js, css}, {js_acc, css_acc} ->
         {[{label, js} | js_acc], if(css, do: [css | css_acc], else: css_acc)}
       end)
 
     {:ok, {Enum.reverse(js_files), Enum.reverse(css_parts)}}
   end
 
-  defp batchable?(path, plugins) do
-    not Volt.Assets.asset?(path) and
-      Path.extname(path) in Volt.JS.Extensions.js() and
-      plugins == []
-  end
+  defp compile_module(module_id, _label, source, ctx) do
+    {path, query} = Volt.JS.Query.split(module_id)
 
-  defp compile_module(path, _label, source, target, plugins, loaders) do
     if Volt.Assets.asset?(path) do
-      case Volt.Assets.to_js_module(path) do
+      query_params = Volt.JS.Query.decode(query)
+
+      asset_opts = [
+        raw: Map.has_key?(query_params, "raw"),
+        url: Map.has_key?(query_params, "url"),
+        inline: Map.has_key?(query_params, "inline"),
+        no_inline: Map.has_key?(query_params, "no-inline")
+      ]
+
+      case Volt.Assets.to_js_module(path, asset_opts) do
         {:ok, js} -> {:ok, js, nil}
         {:error, _} = error -> error
       end
     else
-      case Volt.Pipeline.compile(path, source, target: target, plugins: plugins, loaders: loaders) do
+      case Volt.Pipeline.compile(path, source,
+             target: ctx.target,
+             import_source: ctx.import_source,
+             define: ctx.define,
+             plugins: ctx.plugins,
+             loaders: ctx.loaders
+           ) do
         {:ok, %{code: code, css: css}} -> {:ok, code, css}
         {:error, _} = error -> error
       end
@@ -450,9 +417,6 @@ defmodule Volt.Builder do
 
   defp to_string_or_nil(nil), do: nil
   defp to_string_or_nil(value), do: to_string(value)
-
-  defp maybe_put(opts, _key, nil), do: opts
-  defp maybe_put(opts, key, value), do: Keyword.put(opts, key, value)
 
   defp merge_build_results(results) do
     Enum.reduce(results, %Volt.Builder.Result{}, fn {:ok, result}, acc ->
