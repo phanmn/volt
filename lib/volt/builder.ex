@@ -365,7 +365,7 @@ defmodule Volt.Builder do
     case OXC.parse(code, "module.js") do
       {:ok, ast} ->
         patches = collect_dynamic_css_import_patches(ast)
-        if patches == [], do: code, else: OXC.patch_string(code, patches)
+        if patches == [], do: code, else: Volt.JS.Patch.apply(code, patches)
 
       {:error, _} ->
         code
@@ -384,7 +384,7 @@ defmodule Volt.Builder do
         patches
         when is_binary(spec) and is_integer(start) and is_integer(finish) ->
           if Path.extname(spec) in @css_exts do
-            {node, [%{start: start, end: finish, change: @dynamic_css_import_noop} | patches]}
+            {node, [Volt.JS.Patch.new(start, finish, @dynamic_css_import_noop) | patches]}
           else
             {node, patches}
           end
@@ -455,8 +455,8 @@ defmodule Volt.Builder do
   defp maybe_put(opts, key, value), do: Keyword.put(opts, key, value)
 
   defp merge_build_results(results) do
-    Enum.reduce(results, %{js: [], css: nil, manifest: %{}}, fn {:ok, result}, acc ->
-      %{
+    Enum.reduce(results, %Volt.Builder.Result{}, fn {:ok, result}, acc ->
+      %Volt.Builder.Result{
         js: [result.js | acc.js],
         css: result.css || acc.css,
         manifest: Map.merge(acc.manifest, result.manifest)

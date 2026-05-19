@@ -216,8 +216,9 @@ defmodule Mix.Tasks.Volt.Build do
 
   defp parse_format(nil, default), do: default
 
-  defp parse_format(value, _default) when value in ["iife", "esm", "cjs"],
-    do: String.to_atom(value)
+  defp parse_format("iife", _default), do: :iife
+  defp parse_format("esm", _default), do: :esm
+  defp parse_format("cjs", _default), do: :cjs
 
   defp parse_format(_value, default), do: default
 
@@ -227,8 +228,7 @@ defmodule Mix.Tasks.Volt.Build do
   defp parse_sourcemap(nil, default), do: default
   defp parse_sourcemap(_, default), do: default
 
-  defp parse_profile([name | _]) when is_binary(name), do: String.to_atom(name)
-  defp parse_profile(_), do: nil
+  defp parse_profile(args), do: Volt.Mix.profile_from_args(args)
 
   defp format_file(path) do
     Volt.Format.format_with_gzip(File.read!(path))

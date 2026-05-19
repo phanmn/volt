@@ -63,7 +63,9 @@ defmodule Volt.JS.Runtime.Installer do
     packages =
       lockfile
       |> Enum.filter(fn {_name, entry} -> Map.get(entry, :has_install_script, false) end)
-      |> Enum.map_join(", ", fn {name, entry} -> "#{name}@#{entry.version}" end)
+      |> Enum.map(fn {name, entry} -> [name, "@", entry.version] end)
+      |> Enum.intersperse(", ")
+      |> IO.iodata_to_binary()
 
     if packages != "" do
       Logger.warning(

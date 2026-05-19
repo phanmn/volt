@@ -157,11 +157,11 @@ defmodule Volt.Plugin.Solid do
       {:ok, %{"code" => code, "map" => map}} ->
         with {:ok, code, downlevelled?} <- maybe_downlevel(code, filename, opts) do
           {:ok,
-           %{
+           %Volt.Pipeline.Result{
              code: code,
              sourcemap: encode_sourcemap(map, downlevelled?),
              css: nil,
-             hashes: %{template: nil, style: nil, script: hash(source)}
+             hashes: %Volt.Pipeline.Hashes{template: nil, style: nil, script: hash(source)}
            }}
         end
 

@@ -10,7 +10,7 @@ defmodule Volt.JS.SpecifierRewriter do
     case OXC.parse(source, Path.basename(importer)) do
       {:ok, ast} ->
         {patches, resolved_paths} = collect_patches(ast, importer, context, rewrite_fun)
-        {:ok, OXC.patch_string(source, patches), resolved_paths}
+        {:ok, Volt.JS.Patch.apply(source, patches), resolved_paths}
 
       {:error, errors} ->
         {:error, {:parse_error, importer, errors}}
@@ -22,35 +22,34 @@ defmodule Volt.JS.SpecifierRewriter do
   defp collect_patches(ast, importer, context, rewrite_fun) do
     {_ast, {patches, paths}} =
       OXC.postwalk(ast, {[], []}, fn
-        %{type: type, source: %{value: specifier, start: start_pos, end: end_pos}}, acc
+        %{type: type, source: source}, acc
         when type in [:import_declaration, :export_all_declaration, :export_named_declaration] ->
-          {nil,
-           accumulate_patch(specifier, start_pos, end_pos, importer, context, rewrite_fun, acc)}
+          {nil, maybe_accumulate_patch(source, importer, context, rewrite_fun, acc)}
 
-        %{
-          type: :import_expression,
-          source: %{type: :literal, value: specifier, start: start_pos, end: end_pos}
-        } = node,
-        acc
-        when is_binary(specifier) ->
-          {node,
-           accumulate_patch(specifier, start_pos, end_pos, importer, context, rewrite_fun, acc)}
-
-        %{
-          type: :call_expression,
-          callee: %{type: :identifier, name: "require"},
-          arguments: [%{value: specifier, start: start_pos, end: end_pos}]
-        } = node,
-        acc
-        when is_binary(specifier) ->
-          {node,
-           accumulate_patch(specifier, start_pos, end_pos, importer, context, rewrite_fun, acc)}
+        %{type: :import_expression, source: source} = node, acc ->
+          {node, maybe_accumulate_patch(source, importer, context, rewrite_fun, acc)}
 
         node, acc ->
-          {node, acc}
+          case Volt.JS.AST.call_arguments(node, "require") do
+            {:ok, [source | _]} ->
+              {node, maybe_accumulate_patch(source, importer, context, rewrite_fun, acc)}
+
+            _ ->
+              {node, acc}
+          end
       end)
 
     {Enum.reverse(patches), Enum.reverse(paths)}
+  end
+
+  defp maybe_accumulate_patch(source, importer, context, rewrite_fun, acc) do
+    case Volt.JS.AST.string_literal_span(source) do
+      {:ok, specifier, start_pos, end_pos} ->
+        accumulate_patch(specifier, start_pos, end_pos, importer, context, rewrite_fun, acc)
+
+      nil ->
+        acc
+    end
   end
 
   defp accumulate_patch(
@@ -70,7 +69,7 @@ defmodule Volt.JS.SpecifierRewriter do
         {patches, [resolved_path | paths]}
 
       {:ok, replacement, resolved_path} ->
-        patch = %{start: start_pos, end: end_pos, change: inspect(replacement)}
+        patch = Volt.JS.Patch.new(start_pos, end_pos, inspect(replacement))
         {[patch | patches], [resolved_path | paths]}
 
       {:error, _reason} ->

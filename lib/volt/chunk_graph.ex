@@ -28,14 +28,22 @@ defmodule Volt.ChunkGraph do
   `node_modules`, while path patterns match against the full module path.
   """
 
+  defmodule Chunk do
+    @moduledoc false
+
+    defstruct id: "", type: :async, modules: [], imports: []
+
+    @type t :: %__MODULE__{
+            id: String.t(),
+            type: :entry | :async | :common | :manual,
+            modules: [String.t()],
+            imports: [String.t()]
+          }
+  end
+
   defstruct chunks: %{}, module_to_chunk: %{}
 
-  @type chunk :: %{
-          id: String.t(),
-          type: :entry | :async | :common | :manual,
-          modules: [String.t()],
-          imports: [String.t()]
-        }
+  @type chunk :: Chunk.t()
 
   @doc """
   Build chunks from a module graph.
@@ -106,7 +114,7 @@ defmodule Volt.ChunkGraph do
     order = fn set -> set |> MapSet.to_list() |> Enum.sort_by(&Map.get(module_order, &1, 0)) end
 
     chunks = %{
-      "entry" => %{
+      "entry" => %Chunk{
         id: "entry",
         type: :entry,
         modules: order.(entry_modules),
@@ -116,7 +124,7 @@ defmodule Volt.ChunkGraph do
 
     chunks =
       if common_chunk do
-        Map.put(chunks, "common", %{
+        Map.put(chunks, "common", %Chunk{
           id: "common",
           type: :common,
           modules: order.(common_chunk),
@@ -131,7 +139,7 @@ defmodule Volt.ChunkGraph do
         id = unique_id(id, ch)
         deps = if common_chunk, do: ["common"], else: []
 
-        chunk = %{
+        chunk = %Chunk{
           id: id,
           type: :async,
           modules: order.(mods),
@@ -185,7 +193,7 @@ defmodule Volt.ChunkGraph do
       entry_imports = (ch["entry"].imports ++ [chunk_name]) |> Enum.uniq()
       ch = put_in(ch["entry"].imports, entry_imports)
 
-      manual = %{
+      manual = %Chunk{
         id: chunk_name,
         type: :manual,
         modules: order.(MapSet.new(mod_paths)),

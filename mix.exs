@@ -63,6 +63,7 @@ defmodule Volt.MixProject do
         "volt.js.check",
         "credo --strict",
         "ex_dna",
+        "reach.check --dead-code --smells --strict",
         "dialyzer"
       ],
       setup: ["deps.get"],

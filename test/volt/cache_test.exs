@@ -45,7 +45,14 @@ defmodule Volt.CacheTest do
 
   test "evict_file removes both plain and ?import entries" do
     entry = %{code: "v1", sourcemap: nil, css: nil, content_type: "text/css"}
-    import_entry = %{code: "import_v1", sourcemap: nil, css: nil, content_type: "application/javascript"}
+
+    import_entry = %{
+      code: "import_v1",
+      sourcemap: nil,
+      css: nil,
+      content_type: "application/javascript"
+    }
+
     Volt.Cache.put("/style.css", 100, entry)
     Volt.Cache.put("/style.css?import", 100, import_entry)
     Volt.Cache.evict_file("/style.css")

@@ -66,7 +66,7 @@ defmodule Volt.Builder.Externals do
                 names = Enum.map(specifiers, &classify_specifier/1)
                 global = Map.get(external_globals, spec, derive_global(spec))
                 replacement = emit_global_access(global, names)
-                patch = %{start: start_pos, end: end_pos, change: replacement}
+                patch = Volt.JS.Patch.new(start_pos, end_pos, replacement)
                 {node, [patch | patches]}
               else
                 {node, patches}
@@ -76,7 +76,7 @@ defmodule Volt.Builder.Externals do
               {node, patches}
           end)
 
-        OXC.patch_string(code, patches)
+        Volt.JS.Patch.apply(code, patches)
 
       {:error, _} ->
         code
@@ -127,9 +127,13 @@ defmodule Volt.Builder.Externals do
   defp classify_specifier(_), do: nil
 
   defp merge_imports(acc, imports) do
-    Enum.reduce(imports, acc, fn {spec, names}, a ->
-      existing = Map.get(a, spec, [])
-      Map.put(a, spec, Enum.uniq(names ++ existing))
+    Enum.reduce(imports, acc, fn {spec, names}, merged ->
+      Map.update(merged, spec, Enum.uniq(names), fn existing ->
+        names
+        |> Enum.reverse()
+        |> Enum.reduce(existing, &[&1 | &2])
+        |> Enum.uniq()
+      end)
     end)
   end
 
@@ -144,12 +148,14 @@ defmodule Volt.Builder.Externals do
     named_part =
       if named != [] do
         destructured =
-          Enum.map_join(named, ", ", fn
+          named
+          |> Enum.map(fn
             {:named, name} -> name
-            {:named, name, local} -> "#{name}: #{local}"
+            {:named, name, local} -> [name, ": ", local]
           end)
+          |> Enum.intersperse(", ")
 
-        [~s(const { #{destructured} } = #{global};)]
+        [["const { ", destructured, " } = ", global, ";"]]
       else
         []
       end
@@ -163,7 +169,10 @@ defmodule Volt.Builder.Externals do
       end)
       |> Enum.reject(&is_nil/1)
 
-    Enum.join(named_part ++ other_parts, "\n")
+    [named_part, other_parts]
+    |> Enum.concat()
+    |> Enum.intersperse("\n")
+    |> IO.iodata_to_binary()
   end
 
   defp derive_global(specifier), do: Volt.Builder.derive_global_name(specifier)

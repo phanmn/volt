@@ -11,12 +11,7 @@ defmodule Volt.Plugin do
   the final argument.
   """
 
-  @type compiled :: %{
-          code: String.t(),
-          sourcemap: String.t() | nil,
-          css: String.t() | nil,
-          hashes: map() | nil
-        }
+  @type compiled :: Volt.Pipeline.Result.t()
 
   @doc "Plugin name for identification and error messages."
   @callback name() :: String.t()

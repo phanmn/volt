@@ -29,7 +29,7 @@ defmodule Volt.JS.ImportRewriter do
     case OXC.parse(source, filename) do
       {:ok, ast} ->
         patches = collect_import_patches(ast, rewrite_fn)
-        {:ok, OXC.patch_string(source, patches)}
+        {:ok, Volt.JS.Patch.apply(source, patches)}
 
       {:error, _} = error ->
         error
@@ -96,17 +96,20 @@ defmodule Volt.JS.ImportRewriter do
     patches
   end
 
-  defp maybe_patch(%{value: specifier, start: s, end: e}, rewrite_fn, patches)
-       when is_binary(specifier) and is_integer(s) and is_integer(e) do
-    case rewrite_fn.(specifier) do
-      {:rewrite, new_specifier} ->
-        quote_char = "'"
-        [%{start: s, end: e, change: "#{quote_char}#{new_specifier}#{quote_char}"} | patches]
+  defp maybe_patch(source_node, rewrite_fn, patches) do
+    case Volt.JS.AST.string_literal_span(source_node) do
+      {:ok, specifier, s, e} ->
+        case rewrite_fn.(specifier) do
+          {:rewrite, new_specifier} ->
+            quote_char = "'"
+            [Volt.JS.Patch.new(s, e, "#{quote_char}#{new_specifier}#{quote_char}") | patches]
 
-      :keep ->
+          :keep ->
+            patches
+        end
+
+      nil ->
         patches
     end
   end
-
-  defp maybe_patch(_, _, patches), do: patches
 end

@@ -59,8 +59,9 @@ defmodule Volt.JS.ImportMetaEnv do
     properties =
       env
       |> Enum.sort_by(fn {key, _value} -> key end)
-      |> Enum.map_join(", ", fn {key, value} -> "#{Jason.encode!(key)}: #{value}" end)
+      |> Enum.map(fn {key, value} -> [Jason.encode!(key), ": ", value] end)
+      |> Enum.intersperse(", ")
 
-    "import.meta.env = { #{properties} };\n"
+    IO.iodata_to_binary(["import.meta.env = { ", properties, " };\n"])
   end
 end

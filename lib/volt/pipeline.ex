@@ -8,13 +8,7 @@ defmodule Volt.Pipeline do
 
   @type rewrite_fn :: (String.t() -> {:rewrite, String.t()} | :keep)
 
-  @type compiled :: %{
-          code: String.t(),
-          sourcemap: String.t() | nil,
-          css: String.t() | nil,
-          hashes:
-            %{template: String.t() | nil, style: String.t() | nil, script: String.t() | nil} | nil
-        }
+  @type compiled :: Volt.Pipeline.Result.t()
 
   @css_exts ~w(.css)
   @json_ext ".json"
@@ -175,7 +169,7 @@ defmodule Volt.Pipeline do
   end
 
   defp compiled(code, opts \\ []) do
-    %{
+    %Volt.Pipeline.Result{
       code: code,
       sourcemap: Keyword.get(opts, :sourcemap),
       css: Keyword.get(opts, :css),

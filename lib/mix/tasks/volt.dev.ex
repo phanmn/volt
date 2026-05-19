@@ -116,8 +116,7 @@ defmodule Mix.Tasks.Volt.Dev do
     end
   end
 
-  defp parse_profile([name | _]) when is_binary(name), do: String.to_atom(name)
-  defp parse_profile(_), do: nil
+  defp parse_profile(args), do: Volt.Mix.profile_from_args(args)
 
   @dialyzer {:nowarn_function, iex_running?: 0}
   defp iex_running? do

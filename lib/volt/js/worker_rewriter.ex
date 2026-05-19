@@ -7,7 +7,7 @@ defmodule Volt.JS.WorkerRewriter do
     case OXC.parse(source, filename) do
       {:ok, ast} ->
         patches = collect_worker_patches(ast, rewrite_fn)
-        if patches == [], do: {:ok, source}, else: {:ok, OXC.patch_string(source, patches)}
+        if patches == [], do: {:ok, source}, else: {:ok, Volt.JS.Patch.apply(source, patches)}
 
       {:error, _} = error ->
         error
@@ -16,54 +16,46 @@ defmodule Volt.JS.WorkerRewriter do
 
   @doc false
   @spec extract_specifier(map()) :: {:ok, String.t(), non_neg_integer(), non_neg_integer()} | nil
-  def extract_specifier(%{
-        type: :new_expression,
-        callee: %{type: :identifier, name: "URL"},
-        arguments: [
-          source_node,
-          %{type: :member_expression, property: %{type: :identifier, name: "url"}} | _
-        ]
-      }) do
-    extract_string_value(source_node)
+  def extract_specifier(node) do
+    case Volt.JS.AST.new_arguments(node, ["URL"]) do
+      {:ok, _name, [source_node, meta_url | _]} ->
+        if import_meta_url?(meta_url), do: Volt.JS.AST.string_literal_span(source_node)
+
+      _ ->
+        nil
+    end
   end
 
-  def extract_specifier(_), do: nil
-
-  defp extract_string_value(%{value: spec, start: s, end: e})
-       when is_binary(spec) and is_integer(s) and is_integer(e),
-       do: {:ok, spec, s, e}
-
-  defp extract_string_value(%{type: :string_literal, value: spec, start: s, end: e})
-       when is_binary(spec) and is_integer(s) and is_integer(e),
-       do: {:ok, spec, s, e}
-
-  defp extract_string_value(_), do: nil
+  defp import_meta_url?(node) do
+    node[:type] == :member_expression and get_in(node, [:property, :name]) == "url"
+  end
 
   defp collect_worker_patches(ast, rewrite_fn) do
     {_ast, patches} =
       OXC.postwalk(ast, [], fn
-        %{
-          type: :new_expression,
-          callee: %{type: :identifier, name: worker_type},
-          arguments: [first_arg | _]
-        } = node,
-        patches
-        when worker_type in ["Worker", "SharedWorker"] ->
-          case extract_specifier(first_arg) do
-            {:ok, specifier, s, e} ->
-              case rewrite_fn.(specifier) do
-                {:rewrite, new} -> {node, [%{start: s, end: e, change: "'#{new}'"} | patches]}
-                :keep -> {node, patches}
-              end
+        node, patches ->
+          case Volt.JS.AST.new_arguments(node, ["Worker", "SharedWorker"]) do
+            {:ok, _worker_type, [first_arg | _]} ->
+              patch_worker_specifier(node, first_arg, rewrite_fn, patches)
 
-            nil ->
+            _ ->
               {node, patches}
           end
-
-        node, patches ->
-          {node, patches}
       end)
 
     patches
+  end
+
+  defp patch_worker_specifier(node, first_arg, rewrite_fn, patches) do
+    case extract_specifier(first_arg) do
+      {:ok, specifier, s, e} ->
+        case rewrite_fn.(specifier) do
+          {:rewrite, new} -> {node, [Volt.JS.Patch.new(s, e, "'#{new}'") | patches]}
+          :keep -> {node, patches}
+        end
+
+      nil ->
+        {node, patches}
+    end
   end
 end

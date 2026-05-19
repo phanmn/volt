@@ -58,7 +58,7 @@ defmodule Volt.Builder.Rewriter do
         patches = collect_import_patches(ast, module_to_chunk, chunk_url_map)
         worker_patches = collect_worker_patches(ast, module_to_chunk, chunk_url_map)
         all_patches = patches ++ worker_patches
-        if all_patches == [], do: code, else: OXC.patch_string(code, all_patches)
+        if all_patches == [], do: code, else: Volt.JS.Patch.apply(code, all_patches)
 
       {:error, _} ->
         code
@@ -163,7 +163,7 @@ defmodule Volt.Builder.Rewriter do
     case OXC.parse(code, "chunk.js") do
       {:ok, ast} ->
         patches = collect_dynamic_import_protection_patches(ast, placeholder)
-        if patches == [], do: code, else: OXC.patch_string(code, patches)
+        if patches == [], do: code, else: Volt.JS.Patch.apply(code, patches)
 
       {:error, _} ->
         code
@@ -184,30 +184,18 @@ defmodule Volt.Builder.Rewriter do
   end
 
   defp dynamic_import_protection_patch(start, placeholder) do
-    %{
-      start: start,
-      end: start + byte_size(@dynamic_import_keyword),
-      change: placeholder
-    }
+    Volt.JS.Patch.new(start, start + byte_size(@dynamic_import_keyword), placeholder)
   end
 
   defp collect_import_patches(ast, module_to_chunk, chunk_url_map) do
     {_ast, patches} =
       OXC.postwalk(ast, [], fn
-        %{source: %{type: :literal, value: spec, start: s, end: e}} = node, patches
-        when node.type in [
-               :import_declaration,
-               :export_named_declaration,
-               :export_all_declaration
-             ] and
-               is_binary(spec) ->
-          maybe_patch_specifier(node, patches, spec, s, e, module_to_chunk, chunk_url_map)
+        %{type: type, source: source} = node, patches
+        when type in [:import_declaration, :export_named_declaration, :export_all_declaration] ->
+          maybe_patch_source(node, patches, source, module_to_chunk, chunk_url_map)
 
-        %{type: :import_expression, source: %{type: :literal, value: spec, start: s, end: e}} =
-            node,
-        patches
-        when is_binary(spec) ->
-          maybe_patch_specifier(node, patches, spec, s, e, module_to_chunk, chunk_url_map)
+        %{type: :import_expression, source: source} = node, patches ->
+          maybe_patch_source(node, patches, source, module_to_chunk, chunk_url_map)
 
         %{
           type: :import_expression,
@@ -233,32 +221,39 @@ defmodule Volt.Builder.Rewriter do
   defp collect_worker_patches(ast, module_to_chunk, chunk_url_map) do
     {_ast, patches} =
       OXC.postwalk(ast, [], fn
-        %{
-          type: :new_expression,
-          callee: %{type: :identifier, name: worker_type},
-          arguments: [first_arg | _]
-        } = node,
-        patches
-        when worker_type in ["Worker", "SharedWorker"] ->
-          case Volt.JS.WorkerRewriter.extract_specifier(first_arg) do
-            {:ok, spec, s, e} ->
-              maybe_patch_specifier(node, patches, spec, s, e, module_to_chunk, chunk_url_map)
+        node, patches ->
+          case Volt.JS.AST.new_arguments(node, ["Worker", "SharedWorker"]) do
+            {:ok, _worker_type, [first_arg | _]} ->
+              case Volt.JS.WorkerRewriter.extract_specifier(first_arg) do
+                {:ok, spec, s, e} ->
+                  maybe_patch_specifier(node, patches, spec, s, e, module_to_chunk, chunk_url_map)
 
-            nil ->
+                nil ->
+                  {node, patches}
+              end
+
+            _ ->
               {node, patches}
           end
-
-        node, patches ->
-          {node, patches}
       end)
 
     patches
   end
 
+  defp maybe_patch_source(node, patches, source, module_to_chunk, chunk_url_map) do
+    case Volt.JS.AST.string_literal_span(source) do
+      {:ok, spec, s, e} ->
+        maybe_patch_specifier(node, patches, spec, s, e, module_to_chunk, chunk_url_map)
+
+      nil ->
+        {node, patches}
+    end
+  end
+
   defp maybe_patch_specifier(node, patches, spec, s, e, module_to_chunk, chunk_url_map) do
     case find_chunk_url(spec, module_to_chunk, chunk_url_map) do
       nil -> {node, patches}
-      url -> {node, [%{start: s, end: e, change: "'./#{url}'"} | patches]}
+      url -> {node, [Volt.JS.Patch.new(s, e, "'./#{url}'") | patches]}
     end
   end
 

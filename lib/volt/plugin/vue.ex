@@ -30,11 +30,11 @@ defmodule Volt.Plugin.Vue do
       case Vize.compile_sfc(source, sfc_opts) do
         {:ok, result} ->
           {:ok,
-           %{
+           %Volt.Pipeline.Result{
              code: result.code,
              sourcemap: nil,
              css: result.css,
-             hashes: %{
+             hashes: %Volt.Pipeline.Hashes{
                template: result.template_hash,
                style: result.style_hash,
                script: result.script_hash

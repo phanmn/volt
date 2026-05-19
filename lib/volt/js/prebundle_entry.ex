@@ -5,11 +5,13 @@ defmodule Volt.JS.PrebundleEntry do
     code =
       opts
       |> Keyword.get(:imports, [])
-      |> Enum.map_join("\n", &import_statement/1)
+      |> Enum.map(&import_statement/1)
+      |> Enum.intersperse("\n")
       |> append_lines(export_statements(Keyword.get(opts, :exports, [])))
 
-    OXC.parse!(code, "prebundle-entry.js")
-    code
+    case OXC.parse!(code, "prebundle-entry.js") do
+      _ast -> code
+    end
   end
 
   defp import_statement(%{default: name, from: specifier}) do
@@ -22,21 +24,27 @@ defmodule Volt.JS.PrebundleEntry do
         "export default #{expression!(expression)};"
 
       %{members: members} ->
-        Enum.map_join(members, "\n", fn {name, expression} ->
-          "export const #{identifier!(name)} = #{expression!(expression)};"
+        members
+        |> Enum.map(fn {name, expression} ->
+          ["export const ", identifier!(name), " = ", expression!(expression), ";"]
         end)
+        |> Enum.intersperse("\n")
 
       %{named_from: specifier, names: names} ->
-        names = Enum.map_join(names, ", ", &export_name!/1)
-        "export { #{names} } from #{literal!(specifier)};"
+        names = names |> Enum.map(&export_name!/1) |> Enum.intersperse(", ")
+        ["export { ", names, " } from ", literal!(specifier), ";"]
 
       %{all_from: specifier} ->
         "export * from #{literal!(specifier)};"
     end)
   end
 
-  defp append_lines("", lines), do: Enum.join(lines, "\n") <> "\n"
-  defp append_lines(prefix, lines), do: prefix <> "\n" <> Enum.join(lines, "\n") <> "\n"
+  defp append_lines([], lines), do: IO.iodata_to_binary([join_lines(lines), "\n"])
+
+  defp append_lines(prefix, lines),
+    do: IO.iodata_to_binary([prefix, "\n", join_lines(lines), "\n"])
+
+  defp join_lines(lines), do: Enum.intersperse(lines, "\n")
 
   defp export_name!({name, as}) do
     "#{identifier!(name)} as #{identifier!(as)}"

@@ -56,29 +56,8 @@ defmodule Volt.JS.ImportExtractor do
             when is_binary(spec) ->
               {node, update_in(acc.imports, &[{:dynamic, spec} | &1])}
 
-            %{
-              type: :call_expression,
-              callee: %{type: :identifier, name: "require"},
-              arguments: [%{type: :literal, value: spec} | _]
-            } = node,
-            acc
-            when is_binary(spec) ->
-              {node, update_in(acc.imports, &[{:static, spec} | &1])}
-
-            %{
-              type: :new_expression,
-              callee: %{type: :identifier, name: worker_type},
-              arguments: [first_arg | _]
-            } = node,
-            acc
-            when worker_type in ["Worker", "SharedWorker"] ->
-              case Volt.JS.WorkerRewriter.extract_specifier(first_arg) do
-                {:ok, spec, _start, _end} -> {node, update_in(acc.workers, &[spec | &1])}
-                nil -> {node, acc}
-              end
-
             node, acc ->
-              {node, acc}
+              maybe_extract_require(node, acc)
           end)
 
         {:ok, %{imports: Enum.reverse(acc.imports), workers: Enum.reverse(acc.workers)}}
@@ -88,6 +67,34 @@ defmodule Volt.JS.ImportExtractor do
           {:ok, specs} -> {:ok, %{imports: Enum.map(specs, &{:static, &1}), workers: []}}
           error -> error
         end
+    end
+  end
+
+  defp maybe_extract_require(node, acc) do
+    case Volt.JS.AST.call_arguments(node, "require") do
+      {:ok, [source | _]} ->
+        add_require_import(node, acc, Volt.JS.AST.string_literal_span(source))
+
+      _ ->
+        maybe_extract_worker(node, acc)
+    end
+  end
+
+  defp add_require_import(node, acc, {:ok, spec, _start, _end}),
+    do: {node, update_in(acc.imports, &[{:static, spec} | &1])}
+
+  defp add_require_import(node, acc, nil), do: maybe_extract_worker(node, acc)
+
+  defp maybe_extract_worker(node, acc) do
+    case Volt.JS.AST.new_arguments(node, ["Worker", "SharedWorker"]) do
+      {:ok, _worker_type, [first_arg | _]} ->
+        case Volt.JS.WorkerRewriter.extract_specifier(first_arg) do
+          {:ok, spec, _start, _end} -> {node, update_in(acc.workers, &[spec | &1])}
+          nil -> {node, acc}
+        end
+
+      _ ->
+        {node, acc}
     end
   end
 

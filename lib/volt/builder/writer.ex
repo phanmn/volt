@@ -49,7 +49,7 @@ defmodule Volt.Builder.Writer do
     write_manifest(outdir, manifest)
 
     {:ok,
-     %{
+     %Volt.Builder.Result{
        js: [],
        css: %{path: css_path, size: byte_size(css_code)},
        manifest: manifest

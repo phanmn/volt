@@ -46,29 +46,35 @@ defmodule Volt.JS.GlobImport do
   defp collect_glob_calls(ast) do
     {_ast, calls} =
       OXC.postwalk(ast, [], fn
-        %{
-          type: :call_expression,
-          callee: %{
-            type: :member_expression,
-            object: %{type: :meta_property},
-            property: %{name: "glob"}
-          },
-          arguments: args
-        } = node,
-        acc ->
-          case parse_glob_args(args) do
-            {:ok, pattern, eager?} ->
-              {node, [%{start: node.start, end: node.end, pattern: pattern, eager: eager?} | acc]}
+        node, acc ->
+          case glob_call_args(node) do
+            {:ok, args} ->
+              case parse_glob_args(args) do
+                {:ok, pattern, eager?} ->
+                  {node,
+                   [%{start: node.start, end: node.end, pattern: pattern, eager: eager?} | acc]}
 
-            :skip ->
+                :skip ->
+                  {node, acc}
+              end
+
+            nil ->
               {node, acc}
           end
-
-        node, acc ->
-          {node, acc}
       end)
 
     Enum.sort_by(calls, & &1.start)
+  end
+
+  defp glob_call_args(node) do
+    if node[:type] == :call_expression and import_meta_glob?(node[:callee]) do
+      {:ok, node[:arguments] || []}
+    end
+  end
+
+  defp import_meta_glob?(callee) do
+    callee[:type] == :member_expression and get_in(callee, [:object, :type]) == :meta_property and
+      get_in(callee, [:property, :name]) == "glob"
   end
 
   defp parse_glob_args([%{type: :literal, value: pattern} | rest]) when is_binary(pattern) do
@@ -109,16 +115,16 @@ defmodule Volt.JS.GlobImport do
       eager_calls
       |> Enum.zip(Enum.map(eager_preamble, fn {_, expansion} -> expansion end))
       |> Enum.map(fn {call, expansion} ->
-        %{start: call.start, end: call.end, change: expansion}
+        Volt.JS.Patch.new(call.start, call.end, expansion)
       end)
 
     lazy_patches =
       Enum.map(lazy_calls, fn call ->
         files = resolve_glob(call.pattern, base_dir)
-        %{start: call.start, end: call.end, change: lazy_expansion(files)}
+        Volt.JS.Patch.new(call.start, call.end, lazy_expansion(files))
       end)
 
-    patched = OXC.patch_string(source, eager_patches ++ lazy_patches)
+    patched = Volt.JS.Patch.apply(source, eager_patches ++ lazy_patches)
 
     if preamble == "" do
       patched

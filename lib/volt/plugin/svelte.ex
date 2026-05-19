@@ -78,11 +78,11 @@ defmodule Volt.Plugin.Svelte do
     case Volt.JS.Runtime.call(runtime, "compileSvelte", [source, compile_options]) do
       {:ok, %{"js" => js, "css" => css, "jsMap" => js_map} = result} ->
         {:ok,
-         %{
+         %Volt.Pipeline.Result{
            code: js,
            sourcemap: encode_sourcemap(js_map),
            css: empty_to_nil(css),
-           hashes: %{template: nil, style: hash(css), script: hash(source)},
+           hashes: %Volt.Pipeline.Hashes{template: nil, style: hash(css), script: hash(source)},
            warnings: Map.get(result, "warnings", [])
          }}
 
@@ -117,8 +117,11 @@ defmodule Volt.Plugin.Svelte do
       end
     end)
     |> case do
-      {:ok, result} -> {:ok, %{result | imports: result.imports |> Enum.reverse() |> List.flatten()}}
-      error -> error
+      {:ok, result} ->
+        {:ok, %{result | imports: result.imports |> Enum.reverse() |> List.flatten()}}
+
+      error ->
+        error
     end
   end
 

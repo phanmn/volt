@@ -165,7 +165,11 @@ if Code.ensure_loaded?(Igniter) do
           opts
         )
 
-      code = Enum.map_join(format_kw, ",\n  ", fn {k, v} -> "#{k}: #{inspect(v)}" end)
+      code =
+        format_kw
+        |> Enum.map(fn {key, value} -> [to_string(key), ": ", inspect(value)] end)
+        |> Enum.intersperse(",\n  ")
+        |> IO.iodata_to_binary()
 
       ProjectConfig.configure(
         igniter,
@@ -300,7 +304,7 @@ if Code.ensure_loaded?(Igniter) do
         |> to_string()
         |> Macro.camelize()
 
-      Module.concat([String.to_atom("#{app_name}Web"), Endpoint])
+      Module.concat(["#{app_name}Web", "Endpoint"])
     end
   end
 else

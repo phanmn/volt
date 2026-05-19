@@ -12,9 +12,7 @@ defmodule Volt.Cache do
           code: String.t(),
           sourcemap: String.t() | nil,
           css: String.t() | nil,
-          hashes:
-            %{template: String.t() | nil, style: String.t() | nil, script: String.t() | nil}
-            | nil,
+          hashes: Volt.Pipeline.Hashes.t() | nil,
           content_type: String.t()
         }
 

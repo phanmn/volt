@@ -37,7 +37,7 @@ defmodule Volt.Builder.Output do
         Writer.write_manifest(outdir, manifest)
 
         {:ok,
-         %{
+         %Volt.Builder.Result{
            js: %{path: Path.join(outdir, js_filename), size: byte_size(js_code)},
            css: css_result,
            manifest: manifest
@@ -123,7 +123,7 @@ defmodule Volt.Builder.Output do
       Writer.write_manifest(outdir, manifest)
 
       {:ok,
-       %{
+       %Volt.Builder.Result{
          js: entry_js,
          css: css_result,
          manifest: manifest,

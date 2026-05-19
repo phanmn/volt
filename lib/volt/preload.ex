@@ -37,8 +37,10 @@ defmodule Volt.Preload do
     |> Enum.uniq()
     |> Enum.filter(&String.ends_with?(&1, ".js"))
     |> Enum.sort()
-    |> Enum.map_join("\n", fn filename ->
-      ~s(<link rel="modulepreload" href="#{prefix}/#{filename}">)
+    |> Enum.map(fn filename ->
+      [~s(<link rel="modulepreload" href="), prefix, "/", filename, ~s(">)]
     end)
+    |> Enum.intersperse("\n")
+    |> IO.iodata_to_binary()
   end
 end
