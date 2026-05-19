@@ -18,6 +18,21 @@ Plugins can also accept options as `{module, opts}` tuples:
 config :volt, plugins: [{MyApp.SassPlugin, output_style: :compressed}]
 ```
 
+## Plugin ordering
+
+Plugins run in Vite-style phases. By default, plugins run in the order they are configured. Return `:pre` or `:post` from `enforce/0` to run before or after normal plugins:
+
+```elixir
+defmodule MyApp.PrePlugin do
+  @behaviour Volt.Plugin
+
+  def name, do: "my-pre-plugin"
+  def enforce, do: :pre
+end
+```
+
+The ordering applies consistently to resolve, load, compile, transform, define, prebundle, and render hooks.
+
 ## Writing Plugins
 
 Implement the `Volt.Plugin` behaviour. All callbacks except `name/0` are optional — implement only the hooks you need.

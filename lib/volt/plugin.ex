@@ -9,12 +9,18 @@ defmodule Volt.Plugin do
   Plugins may be configured as modules or `{module, opts}` tuples. When a
   plugin defines a callback with one extra arity, Volt passes the tuple opts as
   the final argument.
+
+  Plugins can opt into Vite-style ordering with `enforce/0` or `enforce/1`:
+  `:pre` plugins run before normal plugins, and `:post` plugins run after them.
   """
 
   @type compiled :: Volt.Pipeline.Result.t()
 
   @doc "Plugin name for identification and error messages."
   @callback name() :: String.t()
+
+  @doc "Return `:pre`, `:post`, or `nil` to control plugin ordering."
+  @callback enforce() :: :pre | :post | nil
 
   @doc "Return extensions owned by this plugin for `:compile`, `:resolve`, `:watch`, or `:scan`."
   @callback extensions(kind :: atom()) :: [String.t()]
@@ -55,7 +61,8 @@ defmodule Volt.Plugin do
   @doc "Transform a final output chunk before writing."
   @callback render_chunk(code :: String.t(), chunk_info :: map()) :: {:ok, String.t()} | nil
 
-  @optional_callbacks extensions: 1,
+  @optional_callbacks enforce: 0,
+                      extensions: 1,
                       resolve: 2,
                       load: 1,
                       compile: 3,

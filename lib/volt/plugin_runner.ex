@@ -9,6 +9,7 @@ defmodule Volt.PluginRunner do
     (@default_plugins ++ List.wrap(plugins))
     |> Enum.reject(&is_nil/1)
     |> Enum.uniq_by(&plugin_module/1)
+    |> order_plugins()
   end
 
   @doc "Run extension hooks and return plugin-provided extensions for a kind."
@@ -103,6 +104,21 @@ defmodule Volt.PluginRunner do
         nil -> acc
       end
     end)
+  end
+
+  defp order_plugins(plugins) do
+    plugins
+    |> Enum.with_index()
+    |> Enum.sort_by(fn {plugin, index} -> {order_rank(plugin), index} end)
+    |> Enum.map(fn {plugin, _index} -> plugin end)
+  end
+
+  defp order_rank(plugin) do
+    case call_optional(plugin, :enforce, [], nil) do
+      :pre -> 0
+      :post -> 2
+      _ -> 1
+    end
   end
 
   defp call_optional(plugin, fun, args, default) do

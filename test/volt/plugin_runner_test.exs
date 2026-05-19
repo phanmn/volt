@@ -13,6 +13,26 @@ defmodule Volt.PluginRunnerTest do
     end
   end
 
+  defmodule PrePlugin do
+    @behaviour Volt.Plugin
+    def name, do: "pre"
+    def enforce, do: :pre
+    def transform(code, _path), do: {:ok, code <> "pre"}
+  end
+
+  defmodule NormalPlugin do
+    @behaviour Volt.Plugin
+    def name, do: "normal"
+    def transform(code, _path), do: {:ok, code <> "normal"}
+  end
+
+  defmodule PostPlugin do
+    @behaviour Volt.Plugin
+    def name, do: "post"
+    def enforce, do: :post
+    def transform(code, _path), do: {:ok, code <> "post"}
+  end
+
   defmodule VirtualPlugin do
     @behaviour Volt.Plugin
 
@@ -37,6 +57,13 @@ defmodule Volt.PluginRunnerTest do
     test "skips plugins without transform" do
       result = Volt.PluginRunner.transform([VirtualPlugin], "hello", "test.js")
       assert result == "hello"
+    end
+
+    test "orders transforms by enforce phase" do
+      result =
+        Volt.PluginRunner.transform([PostPlugin, NormalPlugin, PrePlugin], "", "test.js")
+
+      assert result == "prenormalpost"
     end
 
     test "chains multiple transforms" do
