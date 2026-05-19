@@ -1,4 +1,4 @@
-defmodule Volt.CSS.AssetRewriter do
+defmodule Volt.CSS.AssetURLRewriter do
   @moduledoc """
   Parser-backed CSS asset URL rewriting for production builds.
 

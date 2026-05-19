@@ -117,7 +117,7 @@ defmodule Volt.MixProject do
         HMR: [Volt.HMR.Boundary, Volt.HMR.Client, Volt.HMR.Socket],
         "Production Build": [Volt.Builder, Volt.ChunkGraph, Volt.Preload, Volt.PublicDir],
         "Tailwind CSS": [Volt.Tailwind],
-        CSS: [Volt.CSS.Modules],
+        CSS: [Volt.CSS.Modules, Volt.CSS.AssetURLRewriter],
         Plugins: [
           Volt.Plugin,
           Volt.Plugin.Vue,

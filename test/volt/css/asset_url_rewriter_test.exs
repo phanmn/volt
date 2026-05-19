@@ -1,4 +1,4 @@
-defmodule Volt.CSS.AssetRewriterTest do
+defmodule Volt.CSS.AssetURLRewriterTest do
   use ExUnit.Case, async: true
 
   @fixture_dir Path.expand("../fixtures/css_asset_rewriter", __DIR__)
@@ -19,7 +19,7 @@ defmodule Volt.CSS.AssetRewriterTest do
     source_path = Path.join(@fixture_dir, "src/app.css")
 
     {:ok, css} =
-      Volt.CSS.AssetRewriter.rewrite(
+      Volt.CSS.AssetURLRewriter.rewrite(
         ".logo { background: url('./icons/logo.svg') }",
         source_path,
         @outdir
@@ -36,7 +36,7 @@ defmodule Volt.CSS.AssetRewriterTest do
     source_path = Path.join(@fixture_dir, "src/app.css")
 
     {:ok, css} =
-      Volt.CSS.AssetRewriter.rewrite(
+      Volt.CSS.AssetURLRewriter.rewrite(
         ".hero { background-image: image-set(url('./one.png?v=1#x') 1x, url('./two.png') 2x) }",
         source_path,
         @outdir
@@ -50,7 +50,7 @@ defmodule Volt.CSS.AssetRewriterTest do
     source_path = Path.join(@fixture_dir, "src/app.css")
 
     {:ok, css} =
-      Volt.CSS.AssetRewriter.rewrite(
+      Volt.CSS.AssetURLRewriter.rewrite(
         ".a{background:url('https://example.com/a.png')} .b{background:url('/logo.svg')} .c{background:url('data:image/svg+xml;base64,abc')} .d{background:url('./missing.svg')}",
         source_path,
         @outdir

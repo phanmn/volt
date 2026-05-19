@@ -63,7 +63,7 @@ defmodule Volt.Builder.Writer do
   end
 
   defp rewrite_css_part({source_path, css}, outdir) do
-    {:ok, rewritten} = Volt.CSS.AssetRewriter.rewrite(css, source_path, outdir)
+    {:ok, rewritten} = Volt.CSS.AssetURLRewriter.rewrite(css, source_path, outdir)
     rewritten
   end
 
