@@ -59,6 +59,25 @@ defmodule Volt.JS.GlobImportTest do
       assert result =~ "./pages/home.ts?raw"
     end
 
+    test "supports object query option" do
+      source =
+        "const modules = import.meta.glob('./pages/*.ts', { eager: true, query: { raw: true, lang: 'ts' } })"
+
+      result = Volt.JS.GlobImport.transform(source, @fixture_dir)
+
+      assert result =~ "./pages/home.ts?raw=true&lang=ts"
+    end
+
+    test "supports base option for object keys" do
+      source =
+        "const modules = import.meta.glob('./pages/*.ts', { eager: true, base: './pages' })"
+
+      result = Volt.JS.GlobImport.transform(source, @fixture_dir)
+
+      assert result =~ ~S("./home.ts":)
+      assert result =~ ~S(from "./pages/home.ts")
+    end
+
     test "supports TypeScript generic syntax" do
       source = "const modules = import.meta.glob<Module>('./pages/*.ts')"
       result = Volt.JS.GlobImport.transform(source, @fixture_dir)

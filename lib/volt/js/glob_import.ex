@@ -81,10 +81,10 @@ defmodule Volt.JS.GlobImport do
 
   defp parse_patterns(_node), do: :error
 
-  defp parse_options([]), do: {:ok, %{eager: false, import: nil, query: ""}}
+  defp parse_options([]), do: {:ok, %{eager: false, import: nil, query: "", base: nil}}
 
   defp parse_options([%{type: :object_expression, properties: props} | _]) do
-    opts = %{eager: false, import: nil, query: ""}
+    opts = %{eager: false, import: nil, query: "", base: nil}
 
     props
     |> Enum.reduce_while(opts, &parse_option/2)
@@ -105,7 +105,40 @@ defmodule Volt.JS.GlobImport do
   defp parse_option(%{key: %{name: "query"}, value: %{value: value}}, acc) when is_binary(value),
     do: {:cont, %{acc | query: normalize_query(value)}}
 
+  defp parse_option(%{key: %{name: "query"}, value: %{type: :object_expression} = value}, acc) do
+    case query_object(value) do
+      {:ok, query} -> {:cont, %{acc | query: query}}
+      :error -> {:halt, :error}
+    end
+  end
+
+  defp parse_option(%{key: %{name: "base"}, value: %{value: value}}, acc) when is_binary(value),
+    do: {:cont, %{acc | base: value}}
+
   defp parse_option(_property, _acc), do: {:halt, :error}
+
+  defp query_object(%{properties: props}) do
+    props
+    |> Enum.reduce_while([], &query_param/2)
+    |> case do
+      :error -> :error
+      params -> {:ok, URI.encode_query(Enum.reverse(params))}
+    end
+  end
+
+  defp query_param(%{key: key, value: %{value: value}}, acc)
+       when is_binary(value) or is_number(value) or is_boolean(value) do
+    case property_key(key) do
+      {:ok, key} -> {:cont, [{key, to_string(value)} | acc]}
+      :error -> {:halt, :error}
+    end
+  end
+
+  defp query_param(_property, _acc), do: {:halt, :error}
+
+  defp property_key(%{name: name}) when is_binary(name), do: {:ok, name}
+  defp property_key(%{value: value}) when is_binary(value), do: {:ok, value}
+  defp property_key(_key), do: :error
 
   defp normalize_query(""), do: ""
   defp normalize_query("?" <> query), do: query
@@ -118,7 +151,7 @@ defmodule Volt.JS.GlobImport do
       eager_calls
       |> Enum.with_index()
       |> Enum.map(fn {call, i} ->
-        files = resolve_globs(call.patterns, base_dir)
+        files = resolve_globs(call.patterns, base_dir, call.base)
         {preamble_lines(files, i * 100, call), eager_expansion(files, i * 100, call)}
       end)
 
@@ -134,7 +167,7 @@ defmodule Volt.JS.GlobImport do
 
     lazy_patches =
       Enum.map(lazy_calls, fn call ->
-        files = resolve_globs(call.patterns, base_dir)
+        files = resolve_globs(call.patterns, base_dir, call.base)
         Volt.JS.Patch.new(call.start, call.end, lazy_expansion(files, call))
       end)
 
@@ -147,26 +180,37 @@ defmodule Volt.JS.GlobImport do
     end
   end
 
-  defp resolve_globs(patterns, base_dir) do
+  defp resolve_globs(patterns, base_dir, base) do
     {negated, positive} = Enum.split_with(patterns, &String.starts_with?(&1, "!"))
 
     excluded =
       negated
-      |> Enum.flat_map(fn "!" <> pattern -> wildcard(pattern, base_dir) end)
+      |> Enum.flat_map(fn "!" <> pattern -> wildcard(pattern, base_dir, base) end)
+      |> Enum.map(& &1.specifier)
       |> MapSet.new()
 
     positive
-    |> Enum.flat_map(&wildcard(&1, base_dir))
-    |> Enum.reject(&MapSet.member?(excluded, &1))
-    |> Enum.uniq()
-    |> Enum.sort()
+    |> Enum.flat_map(&wildcard(&1, base_dir, base))
+    |> Enum.reject(&MapSet.member?(excluded, &1.specifier))
+    |> Enum.uniq_by(& &1.specifier)
+    |> Enum.sort_by(& &1.key)
   end
 
-  defp wildcard(pattern, base_dir) do
+  defp wildcard(pattern, base_dir, base) do
+    key_base_dir = key_base_dir(base, base_dir)
+
     Path.join(base_dir, pattern)
     |> Path.wildcard()
-    |> Enum.map(&("./" <> Path.relative_to(&1, base_dir)))
+    |> Enum.map(fn path ->
+      %{
+        specifier: "./" <> Path.relative_to(path, base_dir),
+        key: "./" <> Path.relative_to(path, key_base_dir)
+      }
+    end)
   end
+
+  defp key_base_dir(nil, base_dir), do: base_dir
+  defp key_base_dir(base, base_dir), do: Path.expand(base, base_dir)
 
   defp lazy_expansion(files, call) do
     files
@@ -177,7 +221,7 @@ defmodule Volt.JS.GlobImport do
   defp preamble_lines(files, offset, call) do
     files
     |> Enum.with_index(offset)
-    |> Enum.map(fn {file, i} -> import_statement("__glob_#{i}", file, call) end)
+    |> Enum.map(fn {file, i} -> import_statement("__glob_#{i}", file.specifier, call) end)
   end
 
   defp eager_expansion(files, offset, call) do
@@ -188,7 +232,7 @@ defmodule Volt.JS.GlobImport do
   end
 
   defp lazy_entry(file, call) do
-    import_path = import_path(file, call)
+    import_path = import_path(file.specifier, call)
 
     value =
       case call.import do
@@ -208,7 +252,7 @@ defmodule Volt.JS.GlobImport do
           ]
       end
 
-    IO.iodata_to_binary([Jason.encode!(file), ": ", value])
+    IO.iodata_to_binary([Jason.encode!(file.key), ": ", value])
   end
 
   defp eager_entry(file, identifier, call) do
@@ -220,7 +264,7 @@ defmodule Volt.JS.GlobImport do
         key -> [identifier, ".", key]
       end
 
-    IO.iodata_to_binary([Jason.encode!(file), ": ", value])
+    IO.iodata_to_binary([Jason.encode!(file.key), ": ", value])
   end
 
   defp import_path(file, %{query: ""}), do: file
