@@ -118,6 +118,10 @@ defmodule Volt.Watcher do
           state = maybe_schedule_tailwind(state, path)
           {:noreply, state}
 
+        Volt.Assets.asset?(path) ->
+          handle_asset_change(path, state)
+          {:noreply, state}
+
         ext in Volt.JS.Extensions.template() and state.config[:tailwind] ->
           state = maybe_schedule_tailwind(state, path)
           {:noreply, state}
@@ -200,6 +204,12 @@ defmodule Volt.Watcher do
         Volt.DepGraph.remove(path)
         broadcast(:remove, %{path: relative})
     end
+  end
+
+  defp handle_asset_change(path, state) do
+    relative = Path.relative_to(path, state.root)
+    Volt.Cache.evict_file(path)
+    broadcast(:update, %{path: relative, changes: [:full]})
   end
 
   defp broadcast_change(path, relative, changes, root) do

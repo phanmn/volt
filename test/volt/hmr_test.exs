@@ -104,6 +104,23 @@ defmodule Volt.HMRTest do
       GenServer.stop(pid)
     end
 
+    test "detects asset changes and broadcasts reload update", %{watch_dir: watch_dir} do
+      Registry.register(Volt.HMR.Registry, :clients, nil)
+
+      File.mkdir_p!(Path.join(watch_dir, "images"))
+      asset_file = Path.join(watch_dir, "images/logo.svg")
+      File.write!(asset_file, "<svg></svg>")
+
+      {:ok, pid} = Volt.Watcher.start_link(root: watch_dir, name: :test_watcher_asset_change)
+
+      Process.sleep(100)
+      File.write!(asset_file, "<svg><circle /></svg>")
+
+      assert_receive {:volt_hmr, :update, %{path: "images/logo.svg", changes: [:full]}}, 2000
+
+      GenServer.stop(pid)
+    end
+
     test "triggers tailwind rebuild on template changes", %{watch_dir: watch_dir} do
       Registry.register(Volt.HMR.Registry, :clients, nil)
 

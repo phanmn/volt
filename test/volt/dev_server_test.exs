@@ -244,6 +244,38 @@ defmodule Volt.DevServerTest do
       assert get_resp_header(conn, "content-type") |> hd() =~ "image/png"
     end
 
+    test "serves asset imports as JavaScript modules" do
+      File.write!(Path.join(@fixture_dir, "src/image.png"), "binary")
+      conn = call_dev_server("/assets/image.png?import")
+      assert conn.status == 200
+      assert conn.resp_body =~ ~s(export default "data:image/png;base64,)
+      assert get_resp_header(conn, "content-type") |> hd() =~ "javascript"
+    end
+
+    test "serves asset script fetches as JavaScript modules" do
+      File.write!(Path.join(@fixture_dir, "src/icon.svg"), "<svg></svg>")
+
+      opts = Volt.DevServer.init(root: Path.join(@fixture_dir, "src"), prefix: "/assets")
+
+      conn =
+        conn(:get, "/assets/icon.svg")
+        |> put_req_header("sec-fetch-dest", "script")
+        |> Volt.DevServer.call(opts)
+
+      assert conn.status == 200
+      assert conn.resp_body =~ ~s(export default "data:image/svg+xml;base64,)
+      assert get_resp_header(conn, "content-type") |> hd() =~ "javascript"
+    end
+
+    test "serves large asset imports with their dev URL" do
+      File.mkdir_p!(Path.join(@fixture_dir, "src/images"))
+      File.write!(Path.join(@fixture_dir, "src/images/image.png"), String.duplicate("x", 4097))
+      conn = call_dev_server("/assets/images/image.png?import")
+      assert conn.status == 200
+      assert conn.resp_body == ~s(export default "/assets/images/image.png";\n)
+      assert get_resp_header(conn, "content-type") |> hd() =~ "javascript"
+    end
+
     test "passes through unknown extensions" do
       File.write!(Path.join(@fixture_dir, "src/data.xyz"), "binary")
       conn = call_dev_server("/assets/data.xyz")
@@ -287,6 +319,35 @@ defmodule Volt.DevServerTest do
       assert conn.status == 200
       assert conn.resp_body =~ "/assets/style.css?import"
       refute conn.resp_body =~ "'./style.css'"
+    end
+
+    test "rewrites asset imports to import-mode URLs" do
+      File.write!(Path.join(@fixture_dir, "src/logo.svg"), "<svg></svg>")
+
+      File.write!(
+        Path.join(@fixture_dir, "src/entry.ts"),
+        "import logo from './logo.svg'\nconsole.log(logo)"
+      )
+
+      conn = call_dev_server("/assets/entry.ts")
+      assert conn.status == 200
+      assert conn.resp_body =~ "/assets/logo.svg?import"
+      refute conn.resp_body =~ "'./logo.svg'"
+    end
+
+    test "rewrites nested asset imports to import-mode URLs" do
+      File.mkdir_p!(Path.join(@fixture_dir, "src/images"))
+      File.write!(Path.join(@fixture_dir, "src/images/logo.svg"), "<svg></svg>")
+
+      File.write!(
+        Path.join(@fixture_dir, "src/entry.ts"),
+        "import logo from './images/logo.svg'\nconsole.log(logo)"
+      )
+
+      conn = call_dev_server("/assets/entry.ts")
+      assert conn.status == 200
+      assert conn.resp_body =~ "/assets/images/logo.svg?import"
+      refute conn.resp_body =~ "'./images/logo.svg'"
     end
 
     test "rewrites bare imports to vendor URLs" do

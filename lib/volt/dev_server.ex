@@ -136,7 +136,11 @@ defmodule Volt.DevServer do
         serve_compiled(conn, file_path, relative, config)
 
       Volt.Assets.asset?(file_path) and File.regular?(file_path) ->
-        serve_asset(conn, file_path)
+        if asset_import_request?(conn) do
+          serve_asset_module(conn, file_path, relative, config)
+        else
+          serve_asset(conn, file_path)
+        end
 
       true ->
         conn
@@ -243,6 +247,25 @@ defmodule Volt.DevServer do
     |> Plug.Conn.halt()
   end
 
+  defp serve_asset_module(conn, file_path, relative, config) do
+    prefix = Path.dirname(Path.join(config.prefix, relative))
+
+    case Volt.Assets.to_js_module(file_path, prefix: prefix) do
+      {:ok, code} ->
+        conn
+        |> Plug.Conn.put_resp_content_type("application/javascript")
+        |> Plug.Conn.put_resp_header("cache-control", "no-cache, no-store, must-revalidate")
+        |> Plug.Conn.send_resp(200, code)
+        |> Plug.Conn.halt()
+
+      {:error, reason} ->
+        conn
+        |> Plug.Conn.put_resp_content_type("application/javascript")
+        |> Plug.Conn.send_resp(500, "// asset module error: #{inspect(reason)}")
+        |> Plug.Conn.halt()
+    end
+  end
+
   defp content_type_for(path, css_import?) do
     case {Path.extname(path), css_import?} do
       {".css", false} -> "text/css"
@@ -252,8 +275,18 @@ defmodule Volt.DevServer do
 
   defp css_import_request?(conn, file_path) do
     Path.extname(file_path) == ".css" and
-      (Volt.CSS.Modules.css_module?(file_path) or conn.query_string == "import" or
-         String.starts_with?(conn.query_string, "import&"))
+      (Volt.CSS.Modules.css_module?(file_path) or import_query?(conn.query_string))
+  end
+
+  defp asset_import_request?(conn) do
+    import_query?(conn.query_string) or
+      Enum.member?(Plug.Conn.get_req_header(conn, "sec-fetch-dest"), "script")
+  end
+
+  defp import_query?(query_string) do
+    query_string
+    |> URI.decode_query()
+    |> Map.has_key?("import")
   end
 
   defp cache_key_for(file_path, true), do: file_path <> "?import"
@@ -352,10 +385,10 @@ defmodule Volt.DevServer do
   defp dev_url_for(prefix, relative, resolved) do
     url = Path.join(prefix, relative)
 
-    if Path.extname(resolved) == ".css" do
-      url <> "?import"
-    else
-      url
+    cond do
+      Path.extname(resolved) == ".css" -> url <> "?import"
+      Volt.Assets.asset?(resolved) -> url <> "?import"
+      true -> url
     end
   end
 
