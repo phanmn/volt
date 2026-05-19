@@ -99,6 +99,7 @@ defmodule Volt.Pipeline do
     code =
       compiled.code
       |> Volt.JS.AssetURLRewriter.rewrite(filename)
+      |> Volt.JS.DynamicImportVars.transform(filename)
       |> Volt.JS.GlobImport.transform(Path.dirname(path), filename)
 
     with {:ok, code} <-

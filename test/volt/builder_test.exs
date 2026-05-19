@@ -693,6 +693,32 @@ defmodule Volt.BuilderTest do
       assert File.read!(result.js.path) =~ "One.vue"
     end
 
+    test "dynamic import vars compile into production graph modules" do
+      File.mkdir_p!(Path.join(@fixture_dir, "src/pages"))
+      File.write!(Path.join(@fixture_dir, "src/pages/home.ts"), "export const name = 'home'")
+      File.write!(Path.join(@fixture_dir, "src/pages/about.ts"), "export const name = 'about'")
+
+      File.write!(Path.join(@fixture_dir, "src/dynamic_app.ts"), """
+      const page = 'home'
+      import(`./pages/${page}.ts`).then((mod) => console.log(mod.name))
+      """)
+
+      {:ok, result} =
+        Volt.Builder.build(
+          entry: Path.join(@fixture_dir, "src/dynamic_app.ts"),
+          outdir: @outdir,
+          minify: false,
+          sourcemap: false,
+          code_splitting: false
+        )
+
+      js = File.read!(result.js.path)
+      assert js =~ "home"
+      assert js =~ "about"
+      assert js =~ "Unknown variable dynamic import"
+      refute js =~ "import.meta.glob"
+    end
+
     test "new URL asset references compile through production asset modules" do
       File.write!(Path.join(@fixture_dir, "src/logo.svg"), "<svg></svg>")
 
