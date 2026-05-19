@@ -32,16 +32,17 @@ defmodule Volt.Builder.Output do
         js_filename = Writer.hashed_name(name, js_code, ".js", hash)
         Writer.write_js(outdir, js_filename, js_code, js_sourcemap, hidden: sourcemap_hidden)
 
-        css_result = Writer.write_css(css_parts, outdir, name, hash, bundle_opts)
-        manifest = Writer.build_manifest(name, js_filename, css_result)
-        Writer.write_manifest(outdir, manifest)
+        with {:ok, css_result} <- Writer.write_css(css_parts, outdir, name, hash, bundle_opts) do
+          manifest = Writer.build_manifest(name, js_filename, css_result)
+          Writer.write_manifest(outdir, manifest)
 
-        {:ok,
-         %Volt.Builder.Result{
-           js: %{path: Path.join(outdir, js_filename), size: byte_size(js_code)},
-           css: css_result,
-           manifest: manifest
-         }}
+          {:ok,
+           %Volt.Builder.Result{
+             js: %{path: Path.join(outdir, js_filename), size: byte_size(js_code)},
+             css: css_result,
+             manifest: manifest
+           }}
+        end
 
       {:error, _} = error ->
         error
@@ -107,28 +108,32 @@ defmodule Volt.Builder.Output do
           }
         end)
 
-      entry_js = Enum.find(js_results, &(&1.type == :entry)) || hd(js_results)
-      css_result = Writer.write_css(css_parts, outdir, name, hash, bundle_opts)
+      with {:ok, css_result} <- Writer.write_css(css_parts, outdir, name, hash, bundle_opts) do
+        entry_js = Enum.find(js_results, &(&1.type == :entry)) || hd(js_results)
 
-      manifest =
-        js_results
-        |> Enum.reduce(%{}, fn js, acc ->
-          filename = Path.basename(js.path)
-          Map.put(acc, filename, %{"file" => filename, "src" => filename})
-        end)
-        |> Map.put("#{name}.js", %{"file" => Path.basename(entry_js.path), "src" => "#{name}.js"})
+        manifest =
+          js_results
+          |> Enum.reduce(%{}, fn js, acc ->
+            filename = Path.basename(js.path)
+            Map.put(acc, filename, %{"file" => filename, "src" => filename})
+          end)
+          |> Map.put("#{name}.js", %{
+            "file" => Path.basename(entry_js.path),
+            "src" => "#{name}.js"
+          })
 
-      manifest = Writer.add_css_to_manifest(manifest, name, css_result)
+        manifest = Writer.add_css_to_manifest(manifest, name, css_result)
 
-      Writer.write_manifest(outdir, manifest)
+        Writer.write_manifest(outdir, manifest)
 
-      {:ok,
-       %Volt.Builder.Result{
-         js: entry_js,
-         css: css_result,
-         manifest: manifest,
-         chunks: js_results
-       }}
+        {:ok,
+         %Volt.Builder.Result{
+           js: entry_js,
+           css: css_result,
+           manifest: manifest,
+           chunks: js_results
+         }}
+      end
     end
   end
 

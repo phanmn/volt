@@ -30,6 +30,54 @@ defmodule Volt.CSS.AssetURLRewriterTest do
     assert File.read!(asset) == "<svg></svg>"
   end
 
+  test "returns emitted asset filenames once per source asset" do
+    File.write!(Path.join(@fixture_dir, "src/icons/logo.svg"), "<svg></svg>")
+    source_path = Path.join(@fixture_dir, "src/app.css")
+
+    {:ok, result} =
+      Volt.CSS.AssetURLRewriter.rewrite_with_assets(
+        ".a{background:url('./icons/logo.svg')} .b{background:url('./icons/logo.svg')}",
+        source_path,
+        @outdir
+      )
+
+    assert result.code =~ ~r/\/assets\/logo-[a-f0-9]{8}\.svg/
+    assert ["logo-" <> _] = result.assets
+    assert [_asset] = Path.wildcard(Path.join(@outdir, "logo-*.svg"))
+  end
+
+  test "rewrites URLs after non-ASCII content" do
+    File.write!(Path.join(@fixture_dir, "src/icons/logo.svg"), "<svg></svg>")
+    source_path = Path.join(@fixture_dir, "src/app.css")
+
+    {:ok, css} =
+      Volt.CSS.AssetURLRewriter.rewrite(
+        ".title::before { content: 'Привет'; }\n.logo { background: url('./icons/logo.svg') }",
+        source_path,
+        @outdir
+      )
+
+    assert css =~ "Привет"
+    assert css =~ ~r/\/assets\/logo-[a-f0-9]{8}\.svg/
+    refute css =~ "./icons/logo.svg"
+  end
+
+  test "rewrites dev URLs without copying assets" do
+    File.write!(Path.join(@fixture_dir, "src/icons/logo.svg"), "<svg></svg>")
+    source_path = Path.join(@fixture_dir, "src/app.css")
+
+    {:ok, css} =
+      Volt.CSS.AssetURLRewriter.rewrite_dev(
+        ".logo { background: url('./icons/logo.svg?v=1') }",
+        source_path,
+        Path.join(@fixture_dir, "src"),
+        "/assets"
+      )
+
+    assert css =~ "/assets/icons/logo.svg?v=1"
+    assert [] = Path.wildcard(Path.join(@outdir, "logo-*.svg"))
+  end
+
   test "rewrites image-set url nodes and preserves query and fragment suffixes" do
     File.write!(Path.join(@fixture_dir, "src/one.png"), "one")
     File.write!(Path.join(@fixture_dir, "src/two.png"), "two")

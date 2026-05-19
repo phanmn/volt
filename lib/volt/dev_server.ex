@@ -215,6 +215,7 @@ defmodule Volt.DevServer do
       {:ok, result} ->
         Volt.DepGraph.update_from_source(file_path, source, result.code)
 
+        result = rewrite_dev_css_urls(result, file_path, config)
         mod_url = Path.join(config.prefix, relative)
         code = code_for_request(result, mod_url, content_type, css_import?)
 
@@ -318,6 +319,22 @@ defmodule Volt.DevServer do
 
   defp cache_key_for(file_path, true), do: file_path <> "?import"
   defp cache_key_for(file_path, false), do: file_path
+
+  defp rewrite_dev_css_urls(%{type: :css, code: code} = result, file_path, config) do
+    case Volt.CSS.AssetURLRewriter.rewrite_dev(code, file_path, config.root, config.prefix) do
+      {:ok, code} -> %{result | code: code}
+      {:error, _} -> result
+    end
+  end
+
+  defp rewrite_dev_css_urls(%{css: css} = result, file_path, config) when is_binary(css) do
+    case Volt.CSS.AssetURLRewriter.rewrite_dev(css, file_path, config.root, config.prefix) do
+      {:ok, css} -> %{result | css: css}
+      {:error, _} -> result
+    end
+  end
+
+  defp rewrite_dev_css_urls(result, _file_path, _config), do: result
 
   defp code_for_request(result, mod_url, content_type, true) do
     result

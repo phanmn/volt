@@ -18,60 +18,80 @@ defmodule Volt.Builder.Writer do
     end
   end
 
-  def write_css([], _outdir, _name, _hash, _bundle_opts), do: nil
+  def write_css([], _outdir, _name, _hash, _bundle_opts), do: {:ok, nil}
 
   def write_css(css_parts, outdir, name, hash, bundle_opts) do
-    css_code =
-      css_parts
-      |> Enum.map_join("\n", &rewrite_css_part(&1, outdir))
-      |> compile_css(bundle_opts)
-
-    css_filename = hashed_name(name, css_code, ".css", hash)
-    css_path = Path.join(outdir, css_filename)
-    File.write!(css_path, css_code)
-    %{path: css_path, size: byte_size(css_code)}
+    with {:ok, %{code: css_code, assets: assets}} <- rewrite_css_parts(css_parts, outdir),
+         {:ok, css_code} <- compile_css(css_code, bundle_opts) do
+      css_filename = hashed_name(name, css_code, ".css", hash)
+      css_path = Path.join(outdir, css_filename)
+      File.write!(css_path, css_code)
+      {:ok, %{path: css_path, size: byte_size(css_code), assets: assets}}
+    end
   end
 
   def build_style_entry(name, css_code, outdir, hash, source_path \\ nil, bundle_opts \\ []) do
     File.mkdir_p!(outdir)
 
-    css_code =
-      {source_path, css_code}
-      |> rewrite_css_part(outdir)
-      |> compile_css(bundle_opts)
+    with {:ok, %{code: css_code, assets: assets}} <-
+           rewrite_css_part({source_path, css_code}, outdir),
+         {:ok, css_code} <- compile_css(css_code, bundle_opts) do
+      css_filename = hashed_name(name, css_code, ".css", hash)
+      css_path = Path.join(outdir, css_filename)
+      css_result = %{path: css_path, size: byte_size(css_code), assets: assets}
 
-    css_filename = hashed_name(name, css_code, ".css", hash)
-    css_path = Path.join(outdir, css_filename)
-    File.write!(css_path, css_code)
+      File.write!(css_path, css_code)
 
-    manifest = %{
-      "#{name}.css" => %{
-        "file" => css_filename,
-        "src" => "#{name}.css",
-        "assets" => [css_filename]
+      manifest = %{
+        "#{name}.css" => %{
+          "file" => css_filename,
+          "src" => "#{name}.css",
+          "assets" => css_assets(css_filename, css_result)
+        }
       }
-    }
 
-    write_manifest(outdir, manifest)
+      write_manifest(outdir, manifest)
 
-    {:ok,
-     %Volt.Builder.Result{
-       js: [],
-       css: %{path: css_path, size: byte_size(css_code)},
-       manifest: manifest
-     }}
+      {:ok,
+       %Volt.Builder.Result{
+         js: [],
+         css: css_result,
+         manifest: manifest
+       }}
+    end
+  end
+
+  defp rewrite_css_parts(css_parts, outdir) do
+    css_parts
+    |> Enum.reduce_while({:ok, [], []}, fn css_part, {:ok, code_parts, assets} ->
+      case rewrite_css_part(css_part, outdir) do
+        {:ok, %{code: code, assets: part_assets}} ->
+          {:cont, {:ok, [code | code_parts], merge_assets(assets, part_assets)}}
+
+        {:error, _} = error ->
+          {:halt, error}
+      end
+    end)
+    |> case do
+      {:ok, code_parts, assets} ->
+        {:ok, %{code: code_parts |> Enum.reverse() |> Enum.join("\n"), assets: assets}}
+
+      {:error, _} = error ->
+        error
+    end
   end
 
   defp rewrite_css_part({source_path, css}, outdir) do
-    {:ok, rewritten} = Volt.CSS.AssetURLRewriter.rewrite(css, source_path, outdir)
-    rewritten
+    Volt.CSS.AssetURLRewriter.rewrite_with_assets(css, source_path, outdir)
   end
 
-  defp rewrite_css_part(css, _outdir), do: css
+  defp rewrite_css_part(css, _outdir), do: {:ok, %{code: css, assets: []}}
 
   defp compile_css(css_code, bundle_opts) do
-    {:ok, %{code: code}} = Vize.CSS.compile(css_code, minify: bundle_opts[:minify] || false)
-    code
+    case Vize.CSS.compile(css_code, minify: bundle_opts[:minify] || false) do
+      {:ok, %{errors: [_ | _] = errors}} -> {:error, {:css_compile_failed, errors}}
+      {:ok, %{code: code}} -> {:ok, code}
+    end
   end
 
   def write_manifest(outdir, manifest) do
@@ -99,7 +119,7 @@ defmodule Volt.Builder.Writer do
     |> Map.put("#{name}.css", %{
       "file" => css_filename,
       "src" => "#{name}.css",
-      "assets" => [css_filename]
+      "assets" => css_assets(css_filename, css_result)
     })
   end
 
@@ -108,4 +128,14 @@ defmodule Volt.Builder.Writer do
   end
 
   def hashed_name(name, _content, ext, false), do: "#{name}#{ext}"
+
+  defp css_assets(css_filename, css_result) do
+    [css_filename | Map.get(css_result, :assets, [])]
+  end
+
+  defp merge_assets(left, right) do
+    Enum.reduce(right, left, fn asset, acc ->
+      if asset in acc, do: acc, else: [asset | acc]
+    end)
+  end
 end

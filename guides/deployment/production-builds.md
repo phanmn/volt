@@ -36,7 +36,7 @@ Volt handles files that are part of the frontend module graph instead:
 
 - JavaScript asset imports
 - `new URL("./asset.ext", import.meta.url)` references
-Those graph assets are copied with content hashes and rewritten in production builds. CSS files are parsed and bundled by LightningCSS through Vize, and relative CSS `url(...)` references are rewritten through Vize's parser-backed CSS AST API.
+Those graph assets are copied with content hashes and rewritten in production builds. CSS files are parsed and bundled by LightningCSS through Vize, and relative CSS `url(...)` references are rewritten through Vize's parser-backed CSS AST API. CSS-referenced emitted assets are listed on the CSS manifest entry.
 
 ## Optional Vite-style public directory
 

@@ -8,7 +8,7 @@ Volt follows Vite-style asset import semantics in both dev and production:
 - `new URL("./asset.ext", import.meta.url)` participates in the production graph.
 - Production builds copy referenced files with content-hashed names and rewrite JavaScript URLs to `/assets/...`.
 
-CSS is parsed and bundled by LightningCSS through Vize. Production builds also parse CSS with Vize's LightningCSS-backed AST API and rewrite relative `url(...)` asset references to content-hashed `/assets/...` URLs.
+CSS is parsed and bundled by LightningCSS through Vize. Production builds also parse CSS with Vize's LightningCSS-backed AST API and rewrite relative `url(...)` asset references to content-hashed `/assets/...` URLs. In dev, CSS imports are rewritten to dev-server asset URLs so injected styles resolve from the source tree.
 
 ## Default imports
 
@@ -68,7 +68,7 @@ Production builds rewrite relative CSS asset URLs through the same hashed asset 
 }
 ```
 
-The referenced file is copied to the output directory and the final CSS points at `/assets/logo-a1b2c3d4.svg`. This is parser-backed: Volt parses CSS with Vize's LightningCSS AST API and rewrites URL nodes, including nested usages such as `image-set(url(...))`.
+The referenced file is copied to the output directory and the final CSS points at `/assets/logo-a1b2c3d4.svg`. The emitted asset filename is also included in the CSS manifest entry's `assets` list. This is parser-backed: Volt parses CSS with Vize's LightningCSS AST API and rewrites URL nodes, including nested usages such as `image-set(url(...))`.
 
 Root-absolute URLs (`/images/logo.svg`), external URLs, data URLs, missing files, and unknown extensions are left unchanged. Use those forms for assets that should stay at Phoenix/static or public-directory paths.
 

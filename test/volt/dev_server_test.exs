@@ -121,6 +121,39 @@ defmodule Volt.DevServerTest do
       assert get_resp_header(conn, "content-type") |> hd() =~ "javascript"
     end
 
+    test "rewrites CSS import module asset URLs to dev-server URLs" do
+      File.mkdir_p!(Path.join(@fixture_dir, "src/images"))
+      File.write!(Path.join(@fixture_dir, "src/images/logo.svg"), "<svg></svg>")
+
+      File.write!(
+        Path.join(@fixture_dir, "src/style.css"),
+        ".logo { background: url('./images/logo.svg?v=1') }"
+      )
+
+      conn = call_dev_server("/assets/style.css?import")
+
+      assert conn.status == 200
+      assert conn.resp_body =~ "/assets/images/logo.svg?v=1"
+      refute conn.resp_body =~ "./images/logo.svg"
+    end
+
+    test "rewrites direct CSS asset URLs to dev-server URLs" do
+      File.mkdir_p!(Path.join(@fixture_dir, "src/images"))
+      File.write!(Path.join(@fixture_dir, "src/images/logo.svg"), "<svg></svg>")
+
+      File.write!(
+        Path.join(@fixture_dir, "src/style.css"),
+        ".logo { background: url('./images/logo.svg') }"
+      )
+
+      conn = call_dev_server("/assets/style.css")
+
+      assert conn.status == 200
+      assert conn.resp_body =~ "/assets/images/logo.svg"
+      refute conn.resp_body =~ "./images/logo.svg"
+      assert get_resp_header(conn, "content-type") |> hd() =~ "text/css"
+    end
+
     test "serves raw CSS and CSS import modules from separate cache entries" do
       import_conn = call_dev_server("/assets/style.css?import")
       raw_conn = call_dev_server("/assets/style.css")
@@ -134,12 +167,18 @@ defmodule Volt.DevServerTest do
     end
 
     test "serves CSS modules imported from JavaScript with styles and exports" do
-      File.write!(Path.join(@fixture_dir, "src/button.module.css"), ".btn { color: red }")
+      File.write!(Path.join(@fixture_dir, "src/logo.svg"), "<svg></svg>")
+
+      File.write!(
+        Path.join(@fixture_dir, "src/button.module.css"),
+        ".btn { color: red; background: url('./logo.svg') }"
+      )
 
       conn = call_dev_server("/assets/button.module.css?import")
       assert conn.status == 200
       assert conn.resp_body =~ "__volt_updateStyle"
       assert conn.resp_body =~ "color: red"
+      assert conn.resp_body =~ "/assets/logo.svg"
       assert conn.resp_body =~ "export default"
       assert get_resp_header(conn, "content-type") |> hd() =~ "javascript"
     end
