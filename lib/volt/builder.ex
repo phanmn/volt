@@ -32,6 +32,7 @@ defmodule Volt.Builder do
 
     * `:entry` — entry file path or list of paths (required)
     * `:outdir` — output directory (default: `"priv/static/assets"`)
+    * `:public_dir` — directory copied to the static root as-is; set `false` to disable
     * `:target` — JS target (e.g. `:es2020`)
     * `:minify` — minify output (default: `true`)
     * `:sourcemap` — generate source maps (default: `true`)
@@ -56,6 +57,7 @@ defmodule Volt.Builder do
   def build(opts) do
     entries = opts |> Keyword.fetch!(:entry) |> List.wrap() |> Enum.map(&Path.expand/1)
     outdir = Keyword.get(opts, :outdir, "priv/static/assets") |> Path.expand()
+    public_dir = opts |> Keyword.get(:public_dir, "public") |> Volt.PublicDir.resolve()
     target = opts |> Keyword.get(:target, "") |> to_string()
     minify = Keyword.get(opts, :minify, true)
     sourcemap_opt = Keyword.get(opts, :sourcemap, true)
@@ -123,6 +125,8 @@ defmodule Volt.Builder do
       sourcemap_hidden: sourcemap_opt == :hidden,
       chunks: chunks
     }
+
+    Volt.PublicDir.copy(public_dir, Path.dirname(outdir))
 
     results =
       Enum.flat_map(entries, fn entry ->

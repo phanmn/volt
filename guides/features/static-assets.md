@@ -77,6 +77,16 @@ becomes something like:
 
 Absolute paths, fragments, data URLs, and remote URLs are preserved.
 
+## Public directory
+
+Files in `public_dir` are served and copied without transformation. Use this for files that must keep stable names, such as `favicon.svg` or `robots.txt`:
+
+```text
+public/favicon.svg -> /favicon.svg
+```
+
+Public files are not hashed and are not processed by import query modes. Prefer module imports for assets referenced by JavaScript or CSS when you want hashing and dependency tracking.
+
 ## Supported formats
 
 Images (`.svg`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.avif`, `.ico`), fonts (`.woff`, `.woff2`, `.ttf`, `.otf`, `.eot`), media (`.mp4`, `.webm`, `.ogg`, `.mp3`, `.wav`), and other formats (`.pdf`, `.wasm`, `.txt`).

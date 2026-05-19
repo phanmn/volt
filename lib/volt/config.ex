@@ -85,6 +85,7 @@ defmodule Volt.Config do
   @defaults %{
     entry: "assets/js/app.ts",
     outdir: "priv/static/assets",
+    public_dir: "public",
     target: :es2020,
     minify: true,
     sourcemap: true,

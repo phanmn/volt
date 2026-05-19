@@ -14,6 +14,7 @@ defmodule Mix.Tasks.Volt.Build do
 
     * `--entry` — entry file (repeatable, default from config or `"assets/js/app.ts"`)
     * `--outdir` — output directory (default: `"priv/static/assets"`)
+    * `--public-dir` — directory copied to the static root as-is (default: `"public"`)
     * `--target` — JS target (default: `es2020`)
     * `--no-minify` — skip minification
     * `--sourcemap false` — skip source map generation
@@ -41,6 +42,7 @@ defmodule Mix.Tasks.Volt.Build do
         strict: [
           entry: [:string, :keep],
           outdir: :string,
+          public_dir: :string,
           target: :string,
           minify: :boolean,
           sourcemap: :string,
@@ -97,6 +99,7 @@ defmodule Mix.Tasks.Volt.Build do
     opts = [
       entry: if(length(entries) == 1, do: hd(entries), else: entries),
       outdir: Path.join(outdir, "js"),
+      public_dir: Keyword.get(parsed, :public_dir) || config.public_dir,
       target: Keyword.get(parsed, :target) || to_string(config.target),
       minify: minify,
       sourcemap: parse_sourcemap(Keyword.get(parsed, :sourcemap), config.sourcemap),

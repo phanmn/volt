@@ -51,6 +51,7 @@ defmodule Volt.DevServer do
 
     %{
       root: expanded_root,
+      public_dir: Volt.PublicDir.resolve(config.public_dir),
       prefix: server_config.prefix,
       target: to_string(config.target),
       import_source: to_string(config.import_source),
@@ -109,13 +110,26 @@ defmodule Volt.DevServer do
   def call(%Plug.Conn{request_path: request_path} = conn, config) do
     prefix = config.prefix
 
-    case strip_prefix(request_path, prefix) do
-      {:ok, relative} ->
-        serve(conn, relative, config)
+    case Volt.PublicDir.lookup(config.public_dir, request_path) do
+      public_path when is_binary(public_path) ->
+        serve_public(conn, public_path)
 
-      :no_match ->
-        conn
+      nil ->
+        case strip_prefix(request_path, prefix) do
+          {:ok, relative} ->
+            serve(conn, relative, config)
+
+          :no_match ->
+            conn
+        end
     end
+  end
+
+  defp serve_public(conn, path) do
+    conn
+    |> Plug.Conn.put_resp_content_type(Volt.Assets.mime_type(path))
+    |> Plug.Conn.send_file(200, path)
+    |> Plug.Conn.halt()
   end
 
   defp strip_prefix(path, prefix) do

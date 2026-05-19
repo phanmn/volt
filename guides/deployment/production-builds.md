@@ -26,6 +26,32 @@ Production builds run the same framework/plugin compilation pipeline as the dev 
 - rewrites CSS `url(...)` references to `/assets/...`
 - tree-shakes, minifies, and optionally code-splits JavaScript
 - writes a manifest that Phoenix can use for digested asset paths
+- copies the configured public directory to the static root without transforming files
+
+## Public directory
+
+Files in `public_dir` are copied as-is to the static root. With the default output directory, JavaScript and CSS are written below `priv/static/assets`, while public files are copied to `priv/static`:
+
+```text
+public/favicon.svg      -> priv/static/favicon.svg
+public/robots.txt       -> priv/static/robots.txt
+assets/js/app.ts        -> priv/static/assets/js/app-a1b2c3d4.js
+```
+
+Reference public files with root-absolute URLs such as `/favicon.svg`. They are not transformed, hashed, or included in the module graph.
+
+Configure or disable the directory with:
+
+```elixir
+config :volt,
+  public_dir: "public"
+
+# or
+config :volt,
+  public_dir: false
+```
+
+CLI: `mix volt.build --public-dir path/to/public`.
 
 ## Source Maps
 

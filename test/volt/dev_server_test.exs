@@ -32,6 +32,30 @@ defmodule Volt.DevServerTest do
     conn(:get, path) |> Volt.DevServer.call(opts)
   end
 
+  describe "public directory" do
+    test "serves public files from the root" do
+      public_dir = Path.join(@fixture_dir, "public")
+      File.mkdir_p!(public_dir)
+      File.write!(Path.join(public_dir, "favicon.svg"), "<svg>public</svg>")
+
+      conn = call_dev_server("/favicon.svg", public_dir: public_dir)
+
+      assert conn.status == 200
+      assert conn.resp_body == "<svg>public</svg>"
+      assert get_resp_header(conn, "content-type") |> hd() =~ "image/svg"
+    end
+
+    test "does not allow public path traversal" do
+      File.write!(Path.join(@fixture_dir, "secret.txt"), "secret")
+      public_dir = Path.join(@fixture_dir, "public")
+      File.mkdir_p!(public_dir)
+
+      conn = call_dev_server("/../secret.txt", public_dir: public_dir)
+
+      assert conn.status == nil
+    end
+  end
+
   describe "TypeScript files" do
     test "serves compiled TypeScript" do
       conn = call_dev_server("/assets/app.ts")

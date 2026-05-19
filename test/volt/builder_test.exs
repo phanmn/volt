@@ -693,6 +693,25 @@ defmodule Volt.BuilderTest do
       assert File.read!(result.js.path) =~ "One.vue"
     end
 
+    test "copies public directory files to static root" do
+      public_dir = Path.join(@fixture_dir, "public")
+      File.mkdir_p!(Path.join(public_dir, "nested"))
+      File.write!(Path.join(public_dir, "favicon.svg"), "<svg>public</svg>")
+      File.write!(Path.join(public_dir, "nested/robots.txt"), "User-agent: *")
+
+      {:ok, _result} =
+        Volt.Builder.build(
+          entry: Path.join(@fixture_dir, "src/app.ts"),
+          outdir: Path.join(@outdir, "js"),
+          public_dir: public_dir,
+          minify: false,
+          sourcemap: false
+        )
+
+      assert File.read!(Path.join(@outdir, "favicon.svg")) == "<svg>public</svg>"
+      assert File.read!(Path.join(@outdir, "nested/robots.txt")) == "User-agent: *"
+    end
+
     test "CSS entry url assets are copied and rewritten for production" do
       File.mkdir_p!(Path.join(@fixture_dir, "src/images"))
       File.write!(Path.join(@fixture_dir, "src/images/logo.svg"), "<svg></svg>")
