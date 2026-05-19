@@ -117,9 +117,54 @@ end
 console.log(`Build ${__BUILD_HASH__} at ${__BUILD_TIME__}`)
 ```
 
-### Example: Custom file compilation with OXC
+### Example: CSS compilation
 
-Use `compile/3` to handle a custom file format, transforming output with OXC:
+Use `compile/3` to return both a JavaScript module and extracted CSS. Volt will inject the CSS in dev, collect it into the production CSS file, and run parser-backed asset URL rewriting on the final CSS output:
+
+```elixir
+defmodule MyApp.SassPlugin do
+  @behaviour Volt.Plugin
+
+  @impl true
+  def name, do: "sass"
+
+  @impl true
+  def extensions(:compile), do: [".scss"]
+  def extensions(:resolve), do: [".scss"]
+  def extensions(:watch), do: [".scss"]
+  def extensions(_), do: []
+
+  @impl true
+  def resolve(spec, _importer) do
+    if String.ends_with?(spec, ".scss"), do: {:ok, spec}
+  end
+
+  def resolve(_, _), do: nil
+
+  @impl true
+  def compile(path, source, _opts) do
+    if Path.extname(path) == ".scss" do
+      case MyApp.Sass.compile(source, filename: path) do
+        {:ok, css} ->
+          {:ok, %{code: "export default undefined;\n", css: css, sourcemap: nil, hashes: nil}}
+
+        {:error, _} = error ->
+          error
+      end
+    end
+  end
+end
+```
+
+```javascript
+import './theme.scss'
+```
+
+If the generated CSS contains relative asset URLs such as `url('./logo.svg')`, Volt rewrites them through the same asset pipeline as normal CSS files.
+
+### Example: Custom file compilation with OXC templates
+
+Use `compile/3` to handle a custom file format. OXC templates let you generate JavaScript from real JavaScript syntax instead of string concatenation:
 
 ```elixir
 defmodule MyApp.CSVPlugin do
@@ -141,14 +186,18 @@ defmodule MyApp.CSVPlugin do
   def resolve(_, _), do: nil
 
   @impl true
-  def compile(path, source, opts) do
+  def compile(path, source, _opts) do
     if Path.extname(path) == ".csv" do
       rows =
         source
         |> String.split("\n", trim: true)
         |> Enum.map(&String.split(&1, ","))
 
-      js = "export default #{Jason.encode!(rows)};\n"
+      js =
+        "export default $rows;"
+        |> OXC.parse!("csv-template.js")
+        |> OXC.bind(rows: {:literal, rows})
+        |> OXC.codegen!()
 
       {:ok, %{code: js, sourcemap: nil, css: nil, hashes: nil}}
     end
@@ -160,6 +209,32 @@ end
 import data from './prices.csv'
 // data = [["name", "price"], ["Widget", "9.99"], ...]
 ```
+
+For larger generated modules, keep the template in a `.js` file so editors and formatters understand it:
+
+```javascript
+// priv/templates/api-client.js
+export const $name = {
+  endpoint: $endpoint,
+  columns: $columns,
+}
+```
+
+```elixir
+template = File.read!("priv/templates/api-client.js")
+
+js =
+  template
+  |> OXC.parse!("api-client-template.js")
+  |> OXC.bind(
+    name: "prices",
+    endpoint: {:literal, "/api/prices"},
+    columns: {:literal, ["name", "price"]}
+  )
+  |> OXC.codegen!()
+```
+
+Use `OXC.splice/3` when a placeholder represents multiple syntax nodes, such as object entries or function arguments. Volt uses this pattern internally for `import.meta.glob()` output generation.
 
 ### Example: AST transform with OXC
 
@@ -269,7 +344,7 @@ end
 
 ## JavaScript Runtimes
 
-Plugins can run JavaScript build tools through `Volt.JS.Runtime`, which installs npm packages into Volt's cache and executes them in QuickBEAM without requiring Node.js in the host application:
+Plugins can run JavaScript build tools through `Volt.JS.Runtime`, which installs npm packages into Volt's cache and executes them in QuickBEAM without requiring Node.js in the host application. This is useful for CSS preprocessors and other tools that do not have a native Elixir or Rust binding:
 
 ```elixir
 defmodule MyApp.SassPlugin do
