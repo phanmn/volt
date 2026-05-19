@@ -59,8 +59,13 @@ defmodule Volt.Builder.Writer do
 
   defp rewrite_css_assets({nil, css}, _outdir), do: css
 
-  defp rewrite_css_assets({source_path, css}, outdir),
-    do: Volt.CSS.AssetRewriter.rewrite(css, source_path, outdir)
+  defp rewrite_css_assets({source_path, css}, outdir) do
+    if Path.extname(source_path) == ".css" and File.regular?(source_path) do
+      Volt.CSS.AssetRewriter.rewrite_file(source_path, outdir)
+    else
+      Volt.CSS.AssetRewriter.rewrite(css, source_path, outdir)
+    end
+  end
 
   defp rewrite_css_assets(css, _outdir), do: css
 

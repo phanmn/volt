@@ -11,6 +11,19 @@ defmodule Volt.CSS.AssetRewriter do
   @asset_prefix "/assets"
 
   @doc """
+  Reads a CSS file, inlines relative CSS `@import` files, and rewrites assets.
+
+  Each imported file keeps its own URL provenance, so `url(...)` references are
+  resolved relative to the file that contains them rather than the entry file.
+  """
+  @spec rewrite_file(String.t(), String.t()) :: String.t()
+  def rewrite_file(source_path, outdir) do
+    source_path
+    |> rewrite_file(outdir, MapSet.new())
+    |> IO.iodata_to_binary()
+  end
+
+  @doc """
   Copies relative CSS URL assets to `outdir` and rewrites references.
 
   `source_path` is the CSS file that owns the URLs, so relative paths are
@@ -19,6 +32,66 @@ defmodule Volt.CSS.AssetRewriter do
   @spec rewrite(String.t(), String.t(), String.t()) :: String.t()
   def rewrite(css, source_path, outdir) do
     do_rewrite(css, String.downcase(css), source_path, outdir, 0, [])
+  end
+
+  defp rewrite_file(source_path, outdir, seen) do
+    if MapSet.member?(seen, source_path) do
+      []
+    else
+      source_path
+      |> File.read!()
+      |> inline_imports(source_path, outdir, MapSet.put(seen, source_path))
+      |> rewrite(source_path, outdir)
+    end
+  end
+
+  defp inline_imports(css, source_path, outdir, seen) do
+    do_inline_imports(css, String.downcase(css), source_path, outdir, seen, 0, [])
+  end
+
+  defp do_inline_imports(css, lower, source_path, outdir, seen, offset, acc) do
+    case :binary.match(lower, "@import", scope: {offset, byte_size(css) - offset}) do
+      {start, 7} ->
+        case parse_import(css, start + 7, source_path, outdir, seen) do
+          {:ok, finish, imported_css} ->
+            do_inline_imports(css, lower, source_path, outdir, seen, finish + 1, [
+              acc,
+              binary_part(css, offset, start - offset),
+              imported_css,
+              "\n"
+            ])
+
+          :skip ->
+            do_inline_imports(css, lower, source_path, outdir, seen, start + 7, [
+              acc,
+              binary_part(css, offset, start + 7 - offset)
+            ])
+        end
+
+      :nomatch ->
+        IO.iodata_to_binary([acc, binary_part(css, offset, byte_size(css) - offset)])
+    end
+  end
+
+  defp parse_import(css, offset, source_path, outdir, seen) do
+    offset = skip_spaces(css, offset)
+
+    with true <- offset < byte_size(css),
+         quote when quote in ["\"", "'"] <- binary_part(css, offset, 1),
+         value_start <- offset + 1,
+         {:ok, quote_end} <- find_quote(css, value_start, quote),
+         specifier <- binary_part(css, value_start, quote_end - value_start),
+         finish <- skip_spaces(css, quote_end + 1),
+         true <- finish < byte_size(css),
+         ";" <- binary_part(css, finish, 1),
+         {path, ""} <- split_suffix(specifier),
+         true <- relative_css_path?(path),
+         import_path <- Path.expand(path, Path.dirname(source_path)),
+         true <- File.regular?(import_path) do
+      {:ok, finish, rewrite_file(import_path, outdir, seen)}
+    else
+      _ -> :skip
+    end
   end
 
   defp do_rewrite(css, lower, source_path, outdir, offset, acc) do
@@ -138,6 +211,10 @@ defmodule Volt.CSS.AssetRewriter do
       _ -> "url(#{specifier})"
     end
   end
+
+  defp relative_css_path?("./" <> path), do: Path.extname(path) == ".css"
+  defp relative_css_path?("../" <> path), do: Path.extname(path) == ".css"
+  defp relative_css_path?(_path), do: false
 
   defp external_url?(""), do: true
   defp external_url?("/" <> _), do: true

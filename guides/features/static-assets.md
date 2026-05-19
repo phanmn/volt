@@ -59,7 +59,7 @@ Only relative specifiers that resolve to known asset extensions are rewritten. R
 
 ## CSS URLs
 
-Relative `url(...)` references inside CSS are copied and rewritten in production:
+Relative `url(...)` references inside CSS are copied and rewritten in production. When CSS files import other CSS files, URLs are resolved relative to the file that contains them:
 
 ```css
 .logo {
