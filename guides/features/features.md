@@ -64,7 +64,7 @@ console.log(styles.primary) // "ewq3O_primary"
 
 ## Static Assets
 
-Images, fonts, and other files are handled automatically when imported from JavaScript, referenced from CSS, or used with `new URL(..., import.meta.url)`:
+Images, fonts, and other files are handled automatically when imported from JavaScript or used with `new URL(..., import.meta.url)`:
 
 ```javascript
 import logo from './logo.svg'      // small files → data URI

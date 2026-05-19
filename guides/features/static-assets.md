@@ -1,13 +1,14 @@
 # Static Assets
 
-Images, fonts, SVGs, media, WebAssembly, PDFs, and text files are handled automatically when referenced from JavaScript or CSS.
+Images, fonts, SVGs, media, WebAssembly, PDFs, and text files are handled automatically when referenced from JavaScript.
 
-Volt follows Vite-style semantics in both dev and production:
+Volt follows Vite-style asset import semantics in both dev and production:
 
 - JavaScript imports become modules that export a string.
-- CSS `url(...)` references are resolved from the CSS file that contains them.
 - `new URL("./asset.ext", import.meta.url)` participates in the production graph.
-- Production builds copy referenced files with content-hashed names and rewrite URLs to `/assets/...`.
+- Production builds copy referenced files with content-hashed names and rewrite JavaScript URLs to `/assets/...`.
+
+CSS is parsed and bundled by LightningCSS through Vize. Relative CSS `url(...)` references are preserved today; use JavaScript asset imports or `new URL(..., import.meta.url)` when you need Volt to hash and rewrite an asset. CSS URL rewriting will be added once Volt can do it through parser-backed LightningCSS metadata rather than hand-rolled CSS parsing.
 
 ## Default imports
 
@@ -59,7 +60,7 @@ Only relative specifiers that resolve to known asset extensions are rewritten. R
 
 ## CSS URLs
 
-Relative `url(...)` references inside CSS are copied and rewritten in production. When CSS files import other CSS files, URLs are resolved relative to the file that contains them:
+CSS files are parsed, transformed, and bundled by LightningCSS through Vize. Relative `url(...)` references currently remain as CSS authored them:
 
 ```css
 .logo {
@@ -67,15 +68,12 @@ Relative `url(...)` references inside CSS are copied and rewritten in production
 }
 ```
 
-becomes something like:
+Use this for URLs that are already correct at runtime, such as Phoenix static paths (`/images/logo.svg`) or external/data URLs. For assets that need Volt-managed hashing, import the asset from JavaScript instead:
 
-```css
-.logo {
-  background-image: url('/assets/logo-a1b2c3d4.svg');
-}
+```javascript
+import logo from './images/logo.svg?url'
+document.documentElement.style.setProperty('--logo-url', `url(${logo})`)
 ```
-
-Absolute paths, fragments, data URLs, and remote URLs are preserved.
 
 ## Phoenix static files and optional public directory
 
@@ -86,7 +84,7 @@ priv/static/favicon.svg -> /favicon.svg
 priv/static/robots.txt  -> /robots.txt
 ```
 
-Volt's asset pipeline is for files referenced by JavaScript and CSS when you want dependency tracking, hashing, and URL rewriting.
+Volt's asset pipeline is for files referenced by JavaScript when you want dependency tracking, hashing, and URL rewriting.
 
 For Vite migration compatibility, Volt also supports an optional `public_dir`. It is disabled by default. When enabled, files in that directory are served and copied without transformation:
 
@@ -99,7 +97,7 @@ config :volt,
 public/favicon.svg -> /favicon.svg
 ```
 
-Public directory files are not hashed and are not processed by import query modes. Prefer module imports for assets referenced by JavaScript or CSS when you want hashing and dependency tracking.
+Public directory files are not hashed and are not processed by import query modes. Prefer module imports for assets referenced by JavaScript when you want hashing and dependency tracking.
 
 ## Supported formats
 

@@ -19,7 +19,7 @@ Phoenix ships with esbuild and a Tailwind CLI as separate binaries downloaded at
 
 Volt replaces both with a single Elixir dep. `mix phx.server` starts the frontend toolchain automatically, rebuilding Tailwind in ~40ms on template changes and hot-swapping JS modules via HMR. Compilation errors show as a browser overlay. Production builds finish in under 100ms.
 
-You also get features you'd expect from Vite: code splitting, CSS Modules, `import.meta.glob()`, dynamic import variables, `.env` variables, static asset imports, CSS asset URL rewriting, import aliases, and `import.meta.hot` with state preservation.
+You also get features you'd expect from Vite: code splitting, CSS Modules, `import.meta.glob()`, dynamic import variables, `.env` variables, static asset imports, import aliases, and `import.meta.hot` with state preservation.
 
 The pieces integrate because they run in one toolchain: template edits can trigger incremental Tailwind rebuilds, browser console output can flow back to your Elixir terminal, and project-specific JS/TS lint rules can be written as Elixir modules. See the [Features guide](https://hexdocs.pm/volt/features.html) for the full list.
 
