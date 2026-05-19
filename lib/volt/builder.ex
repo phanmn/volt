@@ -4,9 +4,11 @@ defmodule Volt.Builder do
   @moduledoc """
   Production build — resolve dependencies, split chunks, bundle, and write assets.
 
-  Walks the dependency graph from entry files, splits code at dynamic import
-  boundaries, compiles everything through the Pipeline, bundles each chunk
-  with `OXC.bundle/2`, and writes content-hashed output files with a manifest.
+  Walks the dependency graph from entry files, compiles source through
+  `Volt.Pipeline`, expands Vite-compatible features such as `import.meta.glob()`
+  and dynamic import variables, bundles chunks with `OXC.bundle/2`, rewrites CSS
+  and JavaScript asset references, and writes content-hashed output files with a
+  manifest.
   """
 
   alias Volt.Builder.{Collector, Output}

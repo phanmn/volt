@@ -7,13 +7,20 @@ defmodule Volt.Assets do
 
   ## Import patterns
 
-      // Inlined as data URI (small file)
+      // Inlined as data URI when small enough
       import icon from './icon.svg'
       // icon = "data:image/svg+xml;base64,..."
 
-      // Hashed URL (large file)
-      import photo from './photo.jpg'
+      // Forced public URL
+      import photo from './photo.jpg?url'
       // photo = "/assets/photo-a1b2c3d4.jpg"
+
+      // Raw file contents
+      import text from './message.txt?raw'
+
+  JavaScript `new URL("./asset.ext", import.meta.url)` references and CSS
+  `url("./asset.ext")` references are also routed through this asset pipeline in
+  production builds.
   """
 
   @default_inline_limit 4096
@@ -49,13 +56,18 @@ defmodule Volt.Assets do
   end
 
   @doc """
-  Generate a JS module that exports the asset URL or data URI.
+  Generate a JS module that exports asset content or a URL.
 
   ## Options
 
-    * `:inline_limit` — byte threshold for inlining (default: 4096)
-    * `:prefix` — URL prefix for hashed assets (default: `"/assets"`)
+    * `:raw` — export the file contents as a string
+    * `:url` — force a public URL instead of inlining
+    * `:inline` — force a data URI
+    * `:no_inline` — force a public URL even for small assets
+    * `:inline_limit` — byte threshold for default inlining (default: 4096)
+    * `:prefix` — URL prefix for referenced assets (default: `"/assets"`)
     * `:outdir` — output directory for copied assets (production only)
+    * `:url_path` — dev-server URL to export when no `:outdir` is provided
   """
   @spec to_js_module(String.t(), keyword()) :: {:ok, String.t()} | {:error, term()}
   def to_js_module(path, opts \\ []) do

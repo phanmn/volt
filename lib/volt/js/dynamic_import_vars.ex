@@ -1,10 +1,22 @@
 defmodule Volt.JS.DynamicImportVars do
   @moduledoc """
-  Rewrites simple variable dynamic imports into import maps.
+  Rewrites relative template-literal dynamic imports into import maps.
+
+  JavaScript bundlers cannot statically follow `import(`./pages/${name}.ts`)`
+  without first expanding the possible files. Volt rewrites those imports through
+  `import.meta.glob()` so the normal glob transform can add the matching modules
+  to the dev and production graphs.
+
+  The transform intentionally supports the same conservative shape Vite supports
+  best: relative template literals with at least one expression. Bare package
+  imports and absolute URLs are left untouched.
   """
 
   @doc """
-  Transform relative template-literal dynamic imports.
+  Transforms relative template-literal dynamic imports in `source`.
+
+  Returns the original source unchanged when parsing fails or no supported
+  dynamic import is found.
   """
   @spec transform(String.t(), String.t()) :: String.t()
   def transform(source, filename \\ "dynamic-import-vars.ts") do

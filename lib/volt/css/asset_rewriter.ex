@@ -1,12 +1,20 @@
 defmodule Volt.CSS.AssetRewriter do
   @moduledoc """
   Rewrites relative CSS `url(...)` asset references to build output URLs.
+
+  Production CSS needs the same asset treatment as JavaScript imports: files are
+  copied to the output directory with content hashes and CSS references are
+  rewritten to public `/assets/...` URLs. Absolute paths, data URLs, fragments,
+  and remote URLs are preserved.
   """
 
   @asset_prefix "/assets"
 
   @doc """
-  Copy relative CSS URL assets to `outdir` and rewrite references to public URLs.
+  Copies relative CSS URL assets to `outdir` and rewrites references.
+
+  `source_path` is the CSS file that owns the URLs, so relative paths are
+  resolved from its directory.
   """
   @spec rewrite(String.t(), String.t(), String.t()) :: String.t()
   def rewrite(css, source_path, outdir) do

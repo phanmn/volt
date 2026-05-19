@@ -2,8 +2,11 @@ defmodule Volt.Pipeline do
   @moduledoc """
   Compile source files to browser-ready JavaScript and CSS.
 
-  Dispatches to OXC for JS/TS/JSX/TSX and Vize for Vue SFCs and CSS.
-  Returns compiled output with optional sourcemaps.
+  Dispatches to OXC for JS/TS/JSX/TSX and Vize for Vue SFCs and CSS, then runs
+  the shared JavaScript post-processing phase. Framework and plugin output flows
+  through the same post-processing as ordinary source files, so features such as
+  asset URL rewriting, dynamic import variables, `import.meta.glob()`,
+  `import.meta.env`, and worker/import specifier rewriting behave consistently.
   """
 
   @type rewrite_fn :: (String.t() -> {:rewrite, String.t()} | :keep)
@@ -25,6 +28,7 @@ defmodule Volt.Pipeline do
     * `:vapor` — use Vue Vapor mode (default: `false`)
     * `:rewrite_import` — function `(specifier -> {:rewrite, new} | :keep)` for import rewriting
     * `:plugins` — list of `Volt.Plugin` modules to run
+    * `:define` — compile-time replacements for `import.meta.env`
   """
   @spec compile(String.t(), String.t(), keyword()) :: {:ok, compiled()} | {:error, term()}
   def compile(path, source, opts \\ []) do

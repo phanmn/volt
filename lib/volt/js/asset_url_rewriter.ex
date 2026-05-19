@@ -1,6 +1,22 @@
 defmodule Volt.JS.AssetURLRewriter do
-  @moduledoc false
+  @moduledoc """
+  Rewrites `new URL("./asset.ext", import.meta.url)` references to asset imports.
 
+  Vite treats relative asset URL constructors as part of the module graph so
+  production builds can copy, hash, and rewrite the referenced file. Volt does
+  the same by converting the asset argument into a generated `?url` import before
+  the normal import rewriting and bundling phases run.
+
+  Only relative specifiers that point at known static asset extensions are
+  rewritten. Absolute URLs, package URLs, and non-asset files are left unchanged.
+  """
+
+  @doc """
+  Rewrites matching asset URL constructors in `source`.
+
+  Returns the original source unchanged when parsing fails or no matching
+  constructor is found.
+  """
   @spec rewrite(String.t(), String.t()) :: String.t()
   def rewrite(source, filename) do
     case OXC.parse(source, filename) do

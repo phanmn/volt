@@ -38,11 +38,11 @@ See [HMR](hmr.md) for the `import.meta.hot` API.
 
 ## Production Builds
 
-Production builds include tree-shaking, minification, code splitting, content-hashed filenames, source maps, and a `manifest.json` ready for `mix phx.digest`.
+Production builds include tree-shaking, minification, code splitting, asset URL rewriting, content-hashed JavaScript/CSS/assets, source maps, and a `manifest.json` ready for `mix phx.digest`.
 
 ## Code Splitting
 
-Dynamic `import()` calls automatically create separate async chunks. Shared modules between chunks are extracted to avoid duplication. Manual chunk boundaries can be configured for vendor splitting.
+Dynamic `import()` calls automatically create separate async chunks. Simple relative dynamic import variables such as ``import(`./pages/${name}.ts`)`` are expanded through `import.meta.glob()` so production builds can include matching modules. Shared modules between chunks are extracted to avoid duplication. Manual chunk boundaries can be configured for vendor splitting.
 
 `Volt.Preload` can generate `<link rel="modulepreload">` tags from the production manifest to avoid chunk-loading waterfalls.
 
@@ -64,11 +64,12 @@ console.log(styles.primary) // "ewq3O_primary"
 
 ## Static Assets
 
-Images, fonts, and other files are handled automatically when imported:
+Images, fonts, and other files are handled automatically when imported from JavaScript, referenced from CSS, or used with `new URL(..., import.meta.url)`:
 
 ```javascript
-import logo from './logo.svg'  // small files → data URI
-import photo from './photo.jpg' // large files → hashed URL
+import logo from './logo.svg'      // small files → data URI
+import photo from './photo.jpg?url' // forced hashed URL
+import text from './message.txt?raw'
 ```
 
 ## JSON Imports
@@ -92,7 +93,7 @@ See [Environment Variables](environment-variables.md) for file loading order and
 const pages = import.meta.glob('./pages/*.ts', { eager: true })
 ```
 
-See [Glob Imports](glob-imports.md) for lazy vs eager loading.
+See [Glob Imports](glob-imports.md) for lazy vs eager loading, array and negative patterns, named imports, query options, and dynamic import variables.
 
 ## `Volt.entry_path/2`
 

@@ -16,6 +16,17 @@ Built in 15ms
 
 Reads configuration from `config :volt`. CLI flags override config values.
 
+## What production builds do
+
+Production builds run the same framework/plugin compilation pipeline as the dev server, then apply build-only graph and output steps:
+
+- expands `import.meta.glob()` and simple relative dynamic import variables
+- rewrites `new URL("./asset.ext", import.meta.url)` through the asset pipeline
+- copies JavaScript and CSS-referenced assets with content hashes
+- rewrites CSS `url(...)` references to `/assets/...`
+- tree-shakes, minifies, and optionally code-splits JavaScript
+- writes a manifest that Phoenix can use for digested asset paths
+
 ## Source Maps
 
 - `sourcemap: true` — write `.map` files and append `//# sourceMappingURL` comment (default)

@@ -29,7 +29,13 @@ defmodule Volt.ChunkGraph do
   """
 
   defmodule Chunk do
-    @moduledoc false
+    @moduledoc """
+    A JavaScript output chunk in the production dependency graph.
+
+    Chunks group module paths by loading behavior: the entry chunk loads first,
+    async chunks are loaded by dynamic imports, common chunks contain shared code,
+    and manual chunks follow user configured boundaries.
+    """
 
     defstruct id: "", type: :async, modules: [], imports: []
 

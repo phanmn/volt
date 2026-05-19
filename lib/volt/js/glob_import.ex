@@ -1,13 +1,21 @@
 defmodule Volt.JS.GlobImport do
   @moduledoc """
-  Transform `import.meta.glob()` calls into static import maps.
+  Transforms `import.meta.glob()` calls into static import maps.
+
+  Supported forms include lazy and eager imports, arrays of patterns, negative
+  patterns, named imports, string or object `query` options, `base`, and
+  TypeScript generic syntax. The transform runs after framework/plugin output is
+  compiled, so glob calls emitted by SFC compilers or plugins participate in the
+  same graph as source-authored calls.
   """
 
   @doc """
-  Transform `import.meta.glob()` calls in source code.
+  Transforms `import.meta.glob()` calls in source code.
 
-  `base_dir` is the directory of the file containing the glob call,
-  used to resolve the glob pattern to actual files.
+  `base_dir` is the directory of the file containing the glob call and is used to
+  resolve patterns to files. `filename` is only used for parser diagnostics.
+  Returns the original source unchanged when parsing fails or no glob call is
+  found.
   """
   @spec transform(String.t(), String.t(), String.t()) :: String.t()
   def transform(source, base_dir, filename \\ "glob.ts") do
