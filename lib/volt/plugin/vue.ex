@@ -34,7 +34,7 @@ defmodule Volt.Plugin.Vue do
              code: result.code,
              sourcemap: nil,
              css: result.css,
-             hashes: %Volt.Pipeline.Hashes{
+             hashes: %Volt.Pipeline.Result.Hashes{
                template: result.template_hash,
                style: result.style_hash,
                script: result.script_hash

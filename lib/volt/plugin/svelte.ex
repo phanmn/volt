@@ -82,7 +82,11 @@ defmodule Volt.Plugin.Svelte do
            code: js,
            sourcemap: encode_sourcemap(js_map),
            css: empty_to_nil(css),
-           hashes: %Volt.Pipeline.Hashes{template: nil, style: hash(css), script: hash(source)},
+           hashes: %Volt.Pipeline.Result.Hashes{
+             template: nil,
+             style: hash(css),
+             script: hash(source)
+           },
            warnings: Map.get(result, "warnings", [])
          }}
 

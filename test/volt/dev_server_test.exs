@@ -52,6 +52,26 @@ defmodule Volt.DevServerTest do
       assert conn.status == 200
       assert conn.resp_body =~ "msg"
     end
+
+    test "serves Vue SFCs with JavaScript postprocess transforms applied" do
+      File.mkdir_p!(Path.join(@fixture_dir, "src/pages"))
+      File.write!(Path.join(@fixture_dir, "src/pages/home.ts"), "export const page = 'home'")
+
+      File.write!(Path.join(@fixture_dir, "src/WithMeta.vue"), """
+      <script setup lang="ts">
+      const pages = import.meta.glob('./pages/*.ts', { eager: true })
+      const mode = import.meta.env.MODE
+      </script>
+      <template><p>{{ mode }}</p></template>
+      """)
+
+      conn = call_dev_server("/assets/WithMeta.vue")
+      assert conn.status == 200
+      refute conn.resp_body =~ "import.meta.glob"
+      assert conn.resp_body =~ "/assets/pages/home.ts"
+      assert conn.resp_body =~ ~s("MODE": "development")
+      assert conn.resp_body =~ "import.meta.env.MODE"
+    end
   end
 
   describe "CSS files" do

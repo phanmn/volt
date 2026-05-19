@@ -1,6 +1,18 @@
 defmodule Volt.PipelineTest do
   use ExUnit.Case, async: true
 
+  defmodule UppercasePlugin do
+    @behaviour Volt.Plugin
+
+    @impl true
+    def name, do: "uppercase"
+
+    @impl true
+    def transform(code, _path) do
+      {:ok, String.upcase(code)}
+    end
+  end
+
   describe "compile/3 with TypeScript" do
     test "strips types and returns sourcemap" do
       {:ok, result} = Volt.Pipeline.compile("app.ts", "const x: number = 42")
@@ -103,6 +115,33 @@ defmodule Volt.PipelineTest do
       assert result.hashes.template != nil
     end
 
+    test "applies JavaScript postprocess transforms to compiled SFC output" do
+      dir =
+        Path.join(System.tmp_dir!(), "volt-vue-postprocess-#{System.unique_integer([:positive])}")
+
+      File.mkdir_p!(Path.join(dir, "pages"))
+      File.write!(Path.join(dir, "pages/home.ts"), "export const page = 'home'")
+      on_exit(fn -> File.rm_rf!(dir) end)
+
+      source = """
+      <script setup lang="ts">
+      const pages = import.meta.glob('./pages/*.ts', { eager: true })
+      const mode = import.meta.env.MODE
+      </script>
+      <template><p>{{ mode }}</p></template>
+      """
+
+      {:ok, result} =
+        Volt.Pipeline.compile(Path.join(dir, "App.vue"), source,
+          define: %{"import.meta.env.MODE" => ~s("development")}
+        )
+
+      refute result.code =~ "import.meta.glob"
+      assert result.code =~ "./pages/home.ts"
+      assert result.code =~ ~s(import.meta.env = { "MODE": "development" };)
+      assert result.code =~ "import.meta.env.MODE"
+    end
+
     test "returns CSS from scoped styles" do
       source = """
       <template><div class="box">hi</div></template>
@@ -111,6 +150,108 @@ defmodule Volt.PipelineTest do
 
       {:ok, result} = Volt.Pipeline.compile("App.vue", source)
       assert is_binary(result.css)
+    end
+  end
+
+  describe "compile/3 with Svelte" do
+    test "applies JavaScript postprocess transforms to compiled Svelte output" do
+      dir =
+        Path.join(
+          System.tmp_dir!(),
+          "volt-svelte-postprocess-#{System.unique_integer([:positive])}"
+        )
+
+      File.mkdir_p!(Path.join(dir, "pages"))
+      File.write!(Path.join(dir, "pages/home.ts"), "export const page = 'home'")
+      on_exit(fn -> File.rm_rf!(dir) end)
+
+      source = """
+      <script lang="ts">
+        const pages = import.meta.glob('./pages/*.ts', { eager: true })
+        const mode = import.meta.env.MODE
+      </script>
+      <p>{mode}</p>
+      """
+
+      {:ok, result} =
+        Volt.Pipeline.compile(Path.join(dir, "App.svelte"), source,
+          define: %{"import.meta.env.MODE" => ~s("development")}
+        )
+
+      refute result.code =~ "import.meta.glob"
+      assert result.code =~ "./pages/home.ts"
+      assert result.code =~ ~s(import.meta.env = { "MODE": "development" };)
+      assert result.code =~ "import.meta.env.MODE"
+    end
+  end
+
+  describe "compile/3 with plugin output" do
+    test "applies JavaScript postprocess transforms after custom plugin compilation" do
+      dir =
+        Path.join(
+          System.tmp_dir!(),
+          "volt-plugin-postprocess-#{System.unique_integer([:positive])}"
+        )
+
+      File.mkdir_p!(Path.join(dir, "pages"))
+      File.write!(Path.join(dir, "pages/custom.ts"), "export const custom = true")
+      on_exit(fn -> File.rm_rf!(dir) end)
+
+      defmodule PostprocessCompilerPlugin do
+        @behaviour Volt.Plugin
+        def name, do: "postprocess-compiler"
+        def extensions(:compile), do: [".future"]
+        def extensions(_), do: []
+
+        def compile(path, _source, _opts) do
+          if Path.extname(path) == ".future" do
+            {:ok,
+             %{
+               code:
+                 "const pages = import.meta.glob('./pages/*.ts', { eager: true })\nconst mode = import.meta.env.MODE",
+               sourcemap: nil,
+               css: nil,
+               hashes: nil
+             }}
+          end
+        end
+      end
+
+      assert {:ok, result} =
+               Volt.Pipeline.compile(Path.join(dir, "component.future"), "ignored",
+                 plugins: [PostprocessCompilerPlugin],
+                 define: %{"import.meta.env.MODE" => ~s("development")}
+               )
+
+      refute result.code =~ "import.meta.glob"
+      assert result.code =~ "./pages/custom.ts"
+      assert result.code =~ ~s(import.meta.env = { "MODE": "development" };)
+    end
+
+    test "plugins can compile custom file types" do
+      defmodule CustomCompilerPlugin do
+        @behaviour Volt.Plugin
+        def name, do: "custom-compiler"
+        def extensions(:compile), do: [".custom"]
+        def extensions(_), do: []
+
+        def compile("component.custom", source, _opts) do
+          {:ok,
+           %{code: "export default #{inspect(source)}", sourcemap: nil, css: nil, hashes: nil}}
+        end
+
+        def compile(_, _, _), do: nil
+      end
+
+      assert {:ok, %{code: ~s(export default "hello")}} =
+               Volt.Pipeline.compile("component.custom", "hello", plugins: [CustomCompilerPlugin])
+    end
+
+    test "plugins receive compiled output" do
+      {:ok, result} =
+        Volt.Pipeline.compile("app.ts", "const x: number = 42", plugins: [UppercasePlugin])
+
+      assert result.code == String.upcase(result.code)
     end
   end
 

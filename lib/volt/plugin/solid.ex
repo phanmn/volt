@@ -161,7 +161,7 @@ defmodule Volt.Plugin.Solid do
              code: code,
              sourcemap: encode_sourcemap(map, downlevelled?),
              css: nil,
-             hashes: %Volt.Pipeline.Hashes{template: nil, style: nil, script: hash(source)}
+             hashes: %Volt.Pipeline.Result.Hashes{template: nil, style: nil, script: hash(source)}
            }}
         end
 

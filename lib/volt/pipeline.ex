@@ -37,7 +37,6 @@ defmodule Volt.Pipeline do
         nil -> {source, nil}
       end
 
-    source = Volt.JS.GlobImport.transform(source, Path.dirname(path), Path.basename(path))
     ext = Path.extname(path)
 
     result =
@@ -65,11 +64,9 @@ defmodule Volt.Pipeline do
       end
 
     with {:ok, compiled} <- result,
-         {:ok, code} <-
-           replace_defines(compiled.code, path, content_type, Keyword.get(opts, :define, %{})) do
-      compiled = %{compiled | code: code}
-      compiled = apply_transforms(compiled, path, plugins)
-
+         compiled = normalize_result(compiled),
+         compiled = apply_transforms(compiled, path, plugins),
+         {:ok, compiled} <- postprocess_javascript(compiled, path, opts) do
       case Keyword.get(opts, :rewrite_import) do
         rewrite_fn when is_function(rewrite_fn) ->
           rewrite_compiled_imports(compiled, path, rewrite_fn)
@@ -80,20 +77,13 @@ defmodule Volt.Pipeline do
     end
   end
 
-  defp replace_defines(code, _path, _content_type, define) when define in [%{}, nil],
-    do: {:ok, code}
+  defp normalize_result(%Volt.Pipeline.Result{} = compiled), do: compiled
 
-  defp replace_defines(code, path, content_type, define) do
-    ext = Path.extname(path)
-
-    if content_type in ~w(application/javascript text/javascript) or
-         ext in Volt.JS.Extensions.js() or
-         Volt.CSS.Modules.css_module?(path) or ext == @json_ext do
-      filename = Path.basename(path)
-      Volt.JS.ImportMetaEnv.inject(code, filename, define)
-    else
-      {:ok, code}
-    end
+  defp normalize_result(compiled) when is_map(compiled) do
+    struct(
+      Volt.Pipeline.Result,
+      Map.take(compiled, [:code, :type, :sourcemap, :css, :hashes, :warnings])
+    )
   end
 
   defp apply_transforms(compiled, _path, []), do: compiled
@@ -102,6 +92,21 @@ defmodule Volt.Pipeline do
     code = Volt.PluginRunner.transform(plugins, compiled.code, path)
     %{compiled | code: code}
   end
+
+  defp postprocess_javascript(%{type: :js} = compiled, path, opts) do
+    filename = Path.basename(path)
+
+    code =
+      compiled.code
+      |> Volt.JS.GlobImport.transform(Path.dirname(path), filename)
+
+    with {:ok, code} <-
+           Volt.JS.ImportMetaEnv.inject(code, filename, Keyword.get(opts, :define, %{})) do
+      {:ok, %{compiled | code: code}}
+    end
+  end
+
+  defp postprocess_javascript(compiled, _path, _opts), do: {:ok, compiled}
 
   defp rewrite_compiled_imports(compiled, path, rewrite_fn) do
     filename = Path.basename(path)
@@ -154,7 +159,7 @@ defmodule Volt.Pipeline do
         {:error, errors}
 
       {:ok, %{code: code}} ->
-        {:ok, compiled(code)}
+        {:ok, compiled(code, type: :css)}
     end
   end
 
@@ -171,6 +176,7 @@ defmodule Volt.Pipeline do
   defp compiled(code, opts \\ []) do
     %Volt.Pipeline.Result{
       code: code,
+      type: Keyword.get(opts, :type, :js),
       sourcemap: Keyword.get(opts, :sourcemap),
       css: Keyword.get(opts, :css),
       hashes: Keyword.get(opts, :hashes)
