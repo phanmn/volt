@@ -122,4 +122,10 @@ Volt rewrites simple relative template-literal dynamic imports through `import.m
 const page = await import(`./pages/${name}.ts`)
 ```
 
-This is intended for relative paths with a static prefix and suffix. Bare package imports and absolute URLs are left untouched.
+This is intended for relative paths with a static prefix and suffix. Static query suffixes are preserved through glob query options:
+
+```javascript
+const raw = await import(`./content/${slug}.md?raw`)
+```
+
+Bare package imports and absolute URLs are left untouched.

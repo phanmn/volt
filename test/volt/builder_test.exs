@@ -762,6 +762,29 @@ defmodule Volt.BuilderTest do
       assert Enum.any?(File.ls!(@outdir), &String.starts_with?(&1, "logo-"))
     end
 
+    test "dynamic import vars preserve asset query modules" do
+      File.mkdir_p!(Path.join(@fixture_dir, "src/messages"))
+      File.write!(Path.join(@fixture_dir, "src/messages/home.txt"), "hello dynamic raw")
+
+      File.write!(Path.join(@fixture_dir, "src/dynamic_raw_app.ts"), """
+      const name = 'home'
+      import(`./messages/${name}.txt?raw`).then((mod) => console.log(mod.default))
+      """)
+
+      {:ok, result} =
+        Volt.Builder.build(
+          entry: Path.join(@fixture_dir, "src/dynamic_raw_app.ts"),
+          outdir: @outdir,
+          minify: false,
+          sourcemap: false,
+          code_splitting: false
+        )
+
+      js = File.read!(result.js.path)
+      assert js =~ "hello dynamic raw"
+      refute js =~ "import.meta.glob"
+    end
+
     test "dynamic import vars compile into production graph modules" do
       File.mkdir_p!(Path.join(@fixture_dir, "src/pages"))
       File.write!(Path.join(@fixture_dir, "src/pages/home.ts"), "export const name = 'home'")

@@ -11,6 +11,15 @@ defmodule Volt.JS.DynamicImportVarsTest do
     refute result =~ "await import(`./pages/${name}.ts`)"
   end
 
+  test "preserves static query suffixes through glob query options" do
+    source = "const mod = await import(`./pages/${name}.txt?raw`)"
+
+    result = Volt.JS.DynamicImportVars.transform(source, "app.ts")
+
+    assert result =~ ~S|import.meta.glob("./pages/*.txt", { query: "?raw" });|
+    assert result =~ ~S|__volt_dynamic_import_modules_0[path.split("?")[0]]|
+  end
+
   test "ignores bare package dynamic imports" do
     source = "const mod = await import(`pkg/${name}.js`)"
 

@@ -55,14 +55,16 @@ defmodule Volt.JS.DynamicImportVars do
          _index
        ) do
     with {:ok, pattern} <- glob_pattern(source_node),
-         true <- relative_pattern?(pattern) do
+         {path_pattern, query} <- Volt.JS.Query.split(pattern),
+         true <- relative_pattern?(path_pattern) do
       {:ok,
        %{
          start: node.start,
          end: node.end,
          index: nil,
          template: String.slice(source, source_node.start, source_node.end - source_node.start),
-         pattern: pattern
+         pattern: path_pattern,
+         query: query
        }}
     else
       _ -> :skip
@@ -114,17 +116,26 @@ defmodule Volt.JS.DynamicImportVars do
       modules,
       " = import.meta.glob(",
       Jason.encode!(rewrite.pattern),
+      glob_options(rewrite),
       ");\nconst ",
       helper,
       " = (path) => {\n  const ",
       importer,
       " = ",
       modules,
-      "[path];\n  if (",
+      "[",
+      lookup_path(rewrite),
+      "];\n  if (",
       importer,
       ") return ",
       importer,
       "();\n  return Promise.reject(new Error(\"Unknown variable dynamic import: \" + path));\n};"
     ]
   end
+
+  defp glob_options(%{query: ""}), do: ""
+  defp glob_options(%{query: query}), do: [", { query: ", Jason.encode!("?" <> query), " }"]
+
+  defp lookup_path(%{query: ""}), do: "path"
+  defp lookup_path(%{query: _query}), do: "path.split(\"?\")[0]"
 end
