@@ -183,7 +183,7 @@ defmodule Volt.Tailwind do
   defp maybe_minify(css, false), do: css
 
   defp maybe_minify(css, true) do
-    {:ok, %{code: minified}} = Vize.compile_css(css, minify: true)
+    {:ok, %{code: minified}} = Vize.CSS.compile(css, minify: true)
     minified
   end
 

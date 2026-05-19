@@ -359,6 +359,77 @@ defmodule Volt.BuilderTest do
       assert manifest["site.css"]["assets"] == [manifest["site.css"]["file"]]
     end
 
+    test "rewrites standalone CSS entry asset URLs" do
+      File.write!(Path.join(@fixture_dir, "src/logo.svg"), "<svg></svg>")
+
+      File.write!(Path.join(@fixture_dir, "src/site.css"), """
+      .site { background: url('./logo.svg') }
+      """)
+
+      {:ok, result} =
+        Volt.Builder.build(
+          entry: Path.join(@fixture_dir, "src/site.css"),
+          outdir: @outdir,
+          minify: false,
+          sourcemap: false
+        )
+
+      css = File.read!(result.css.path)
+      assert css =~ ~r/url\("\/assets\/logo-[a-f0-9]{8}\.svg"\)/
+      refute css =~ "./logo.svg"
+      assert [_asset] = Path.wildcard(Path.join(@outdir, "logo-*.svg"))
+    end
+
+    test "rewrites CSS imported from JavaScript asset URLs" do
+      File.write!(Path.join(@fixture_dir, "src/hero.png"), "hero")
+
+      File.write!(Path.join(@fixture_dir, "src/app.css"), """
+      .hero { background-image: image-set(url('./hero.png') 1x) }
+      """)
+
+      File.write!(Path.join(@fixture_dir, "src/css_asset_app.ts"), """
+      import './app.css'
+      """)
+
+      {:ok, result} =
+        Volt.Builder.build(
+          entry: Path.join(@fixture_dir, "src/css_asset_app.ts"),
+          outdir: @outdir,
+          minify: false,
+          sourcemap: false
+        )
+
+      css = File.read!(result.css.path)
+      assert css =~ ~r/\/assets\/hero-[a-f0-9]{8}\.png/
+      refute css =~ "./hero.png"
+      assert [_asset] = Path.wildcard(Path.join(@outdir, "hero-*.png"))
+    end
+
+    test "rewrites Vue SFC style asset URLs relative to the component" do
+      File.write!(Path.join(@fixture_dir, "src/logo.svg"), "<svg></svg>")
+
+      File.write!(Path.join(@fixture_dir, "src/App.vue"), """
+      <template><div class=\"logo\">hi</div></template>
+      <style>.logo { background: url('./logo.svg') }</style>
+      """)
+
+      File.write!(Path.join(@fixture_dir, "src/vue_css_asset.ts"), """
+      import './App.vue'
+      """)
+
+      {:ok, result} =
+        Volt.Builder.build(
+          entry: Path.join(@fixture_dir, "src/vue_css_asset.ts"),
+          outdir: @outdir,
+          minify: false,
+          sourcemap: false
+        )
+
+      css = File.read!(result.css.path)
+      assert css =~ ~r/\/assets\/logo-[a-f0-9]{8}\.svg/
+      refute css =~ "./logo.svg"
+    end
+
     test "builds worker entry as a standalone bundle" do
       File.write!(Path.join(@fixture_dir, "src/worker.ts"), "self.postMessage('ready')")
 

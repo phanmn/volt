@@ -8,7 +8,7 @@ Volt follows Vite-style asset import semantics in both dev and production:
 - `new URL("./asset.ext", import.meta.url)` participates in the production graph.
 - Production builds copy referenced files with content-hashed names and rewrite JavaScript URLs to `/assets/...`.
 
-CSS is parsed and bundled by LightningCSS through Vize. Relative CSS `url(...)` references are preserved today; use JavaScript asset imports or `new URL(..., import.meta.url)` when you need Volt to hash and rewrite an asset. CSS URL rewriting will be added once Volt can do it through parser-backed LightningCSS metadata rather than hand-rolled CSS parsing.
+CSS is parsed and bundled by LightningCSS through Vize. Production builds also parse CSS with Vize's LightningCSS-backed AST API and rewrite relative `url(...)` asset references to content-hashed `/assets/...` URLs.
 
 ## Default imports
 
@@ -60,7 +60,7 @@ Only relative specifiers that resolve to known asset extensions are rewritten. R
 
 ## CSS URLs
 
-CSS files are parsed, transformed, and bundled by LightningCSS through Vize. Relative `url(...)` references currently remain as CSS authored them:
+Production builds rewrite relative CSS asset URLs through the same hashed asset pipeline as JavaScript references:
 
 ```css
 .logo {
@@ -68,12 +68,9 @@ CSS files are parsed, transformed, and bundled by LightningCSS through Vize. Rel
 }
 ```
 
-Use this for URLs that are already correct at runtime, such as Phoenix static paths (`/images/logo.svg`) or external/data URLs. For assets that need Volt-managed hashing, import the asset from JavaScript instead:
+The referenced file is copied to the output directory and the final CSS points at `/assets/logo-a1b2c3d4.svg`. This is parser-backed: Volt parses CSS with Vize's LightningCSS AST API and rewrites URL nodes, including nested usages such as `image-set(url(...))`.
 
-```javascript
-import logo from './images/logo.svg?url'
-document.documentElement.style.setProperty('--logo-url', `url(${logo})`)
-```
+Root-absolute URLs (`/images/logo.svg`), external URLs, data URLs, missing files, and unknown extensions are left unchanged. Use those forms for assets that should stay at Phoenix/static or public-directory paths.
 
 ## Phoenix static files and optional public directory
 

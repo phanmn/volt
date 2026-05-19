@@ -192,7 +192,7 @@ defmodule Volt.Builder do
     with {:ok, source} <- File.read(entry),
          {:ok, compiled} <-
            Volt.Pipeline.compile(entry, source, minify: bundle_opts[:minify] || false) do
-      Volt.Builder.Writer.build_style_entry(name, compiled.code, outdir, hash, entry)
+      Volt.Builder.Writer.build_style_entry(name, compiled.code, outdir, hash, entry, bundle_opts)
     end
   end
 

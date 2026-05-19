@@ -22,7 +22,8 @@ Production builds run the same framework/plugin compilation pipeline as the dev 
 
 - expands `import.meta.glob()` and simple relative dynamic import variables
 - rewrites `new URL("./asset.ext", import.meta.url)` through the asset pipeline
-- copies JavaScript-referenced assets with content hashes
+- rewrites relative CSS `url(...)` asset references through the asset pipeline
+- copies JavaScript- and CSS-referenced assets with content hashes
 - tree-shakes, minifies, and optionally code-splits JavaScript
 - writes a manifest that Phoenix can use for digested asset paths
 - optionally copies a Vite-style public directory to the static root without transforming files
@@ -35,7 +36,7 @@ Volt handles files that are part of the frontend module graph instead:
 
 - JavaScript asset imports
 - `new URL("./asset.ext", import.meta.url)` references
-Those graph assets are copied with content hashes and rewritten in production builds. CSS files are parsed and bundled by LightningCSS through Vize, but relative CSS `url(...)` references are preserved until Volt can rewrite them through parser-backed LightningCSS metadata.
+Those graph assets are copied with content hashes and rewritten in production builds. CSS files are parsed and bundled by LightningCSS through Vize, and relative CSS `url(...)` references are rewritten through Vize's parser-backed CSS AST API.
 
 ## Optional Vite-style public directory
 

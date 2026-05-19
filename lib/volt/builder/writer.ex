@@ -21,9 +21,10 @@ defmodule Volt.Builder.Writer do
   def write_css([], _outdir, _name, _hash, _bundle_opts), do: nil
 
   def write_css(css_parts, outdir, name, hash, bundle_opts) do
-    css_code = Enum.map_join(css_parts, "\n", &css_code/1)
-
-    {:ok, %{code: css_code}} = Vize.compile_css(css_code, minify: bundle_opts[:minify] || false)
+    css_code =
+      css_parts
+      |> Enum.map_join("\n", &rewrite_css_part(&1, outdir))
+      |> compile_css(bundle_opts)
 
     css_filename = hashed_name(name, css_code, ".css", hash)
     css_path = Path.join(outdir, css_filename)
@@ -31,8 +32,13 @@ defmodule Volt.Builder.Writer do
     %{path: css_path, size: byte_size(css_code)}
   end
 
-  def build_style_entry(name, css_code, outdir, hash, _source_path \\ nil) do
+  def build_style_entry(name, css_code, outdir, hash, source_path \\ nil, bundle_opts \\ []) do
     File.mkdir_p!(outdir)
+
+    css_code =
+      {source_path, css_code}
+      |> rewrite_css_part(outdir)
+      |> compile_css(bundle_opts)
 
     css_filename = hashed_name(name, css_code, ".css", hash)
     css_path = Path.join(outdir, css_filename)
@@ -56,8 +62,17 @@ defmodule Volt.Builder.Writer do
      }}
   end
 
-  defp css_code({_source_path, css}), do: css
-  defp css_code(css), do: css
+  defp rewrite_css_part({source_path, css}, outdir) do
+    {:ok, rewritten} = Volt.CSS.AssetRewriter.rewrite(css, source_path, outdir)
+    rewritten
+  end
+
+  defp rewrite_css_part(css, _outdir), do: css
+
+  defp compile_css(css_code, bundle_opts) do
+    {:ok, %{code: code}} = Vize.CSS.compile(css_code, minify: bundle_opts[:minify] || false)
+    code
+  end
 
   def write_manifest(outdir, manifest) do
     File.write!(Path.join(outdir, "manifest.json"), :json.encode(manifest))

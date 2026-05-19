@@ -158,9 +158,9 @@ defmodule Volt.Pipeline do
 
     result =
       if File.regular?(path) do
-        Vize.bundle_css(path, minify: minify)
+        Vize.CSS.bundle(path, minify: minify)
       else
-        Vize.compile_css(source, minify: minify)
+        Vize.CSS.compile(source, minify: minify)
       end
 
     case result do
