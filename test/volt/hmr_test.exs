@@ -66,6 +66,8 @@ defmodule Volt.HMRTest do
     setup %{test: test_name} do
       watch_dir = Path.expand("fixtures/watcher_test/#{test_name}", __DIR__)
       File.mkdir_p!(watch_dir)
+      Volt.DepGraph.clear()
+      Volt.Cache.clear()
       on_exit(fn -> File.rm_rf!(watch_dir) end)
       {:ok, watch_dir: watch_dir}
     end
@@ -117,6 +119,31 @@ defmodule Volt.HMRTest do
       File.write!(asset_file, "<svg><circle /></svg>")
 
       assert_receive {:volt_hmr, :update, %{path: "images/logo.svg", changes: [:full]}}, 2000
+
+      GenServer.stop(pid)
+    end
+
+    test "invalidates import.meta.glob importers when matching files are added", %{
+      watch_dir: watch_dir
+    } do
+      Registry.register(Volt.HMR.Registry, :clients, nil)
+
+      File.mkdir_p!(Path.join(watch_dir, "pages"))
+      routes_file = Path.join(watch_dir, "routes.ts")
+
+      File.write!(routes_file, """
+      export const pages = import.meta.glob('./pages/*.ts')
+      """)
+
+      dev_config = Volt.DevServer.init(root: watch_dir, prefix: "/assets")
+      Plug.Test.conn(:get, "/assets/routes.ts") |> Volt.DevServer.call(dev_config)
+
+      {:ok, pid} = Volt.Watcher.start_link(root: watch_dir, name: :test_watcher_glob_add)
+
+      Process.sleep(100)
+      File.write!(Path.join(watch_dir, "pages/home.ts"), "export const page = 'home'")
+
+      assert_receive {:volt_hmr, :update, %{path: "routes.ts", changes: [:full]}}, 2000
 
       GenServer.stop(pid)
     end

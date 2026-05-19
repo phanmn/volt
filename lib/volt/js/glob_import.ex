@@ -10,6 +10,21 @@ defmodule Volt.JS.GlobImport do
   """
 
   @doc """
+  Extracts static glob patterns from `import.meta.glob()` calls.
+
+  Returns an empty list when parsing fails or no supported glob call is found.
+  Patterns are returned exactly as authored, including negative patterns prefixed
+  with `!`.
+  """
+  @spec patterns(String.t(), String.t()) :: [String.t()]
+  def patterns(source, filename \\ "glob.ts") do
+    case OXC.parse(source, filename) do
+      {:ok, ast} -> ast |> collect_glob_calls() |> Enum.flat_map(& &1.patterns)
+      {:error, _} -> []
+    end
+  end
+
+  @doc """
   Transforms `import.meta.glob()` calls in source code.
 
   `base_dir` is the directory of the file containing the glob call and is used to

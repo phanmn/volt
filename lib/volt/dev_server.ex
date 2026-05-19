@@ -213,6 +213,8 @@ defmodule Volt.DevServer do
 
     case Volt.Pipeline.compile(file_path, source, pipeline_opts) do
       {:ok, result} ->
+        Volt.DepGraph.update_from_source(file_path, source, result.code)
+
         mod_url = Path.join(config.prefix, relative)
         code = code_for_request(result, mod_url, content_type, css_import?)
 

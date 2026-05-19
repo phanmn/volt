@@ -28,6 +28,37 @@ defmodule Volt.DepGraphTest do
     assert Volt.DepGraph.imports_of("/src/App.vue") == ["vue", "./new"]
   end
 
+  test "tracks glob dependents for matched files" do
+    Volt.DepGraph.update("/src/routes.ts", [], ["/src/pages/*.ts"])
+
+    assert Volt.DepGraph.glob_dependents("/src/pages/home.ts") == ["/src/routes.ts"]
+    assert Volt.DepGraph.glob_dependents("/src/components/home.ts") == []
+  end
+
+  test "glob dependents respect negative patterns" do
+    Volt.DepGraph.update("/src/routes.ts", [], ["/src/pages/*.ts", "!/src/pages/*.test.ts"])
+
+    assert Volt.DepGraph.glob_dependents("/src/pages/home.ts") == ["/src/routes.ts"]
+    assert Volt.DepGraph.glob_dependents("/src/pages/home.test.ts") == []
+  end
+
+  test "update_from_source extracts imports and glob patterns" do
+    source = """
+    import './setup'
+    const pages = import.meta.glob('./pages/*.ts')
+    """
+
+    compiled = """
+    import './setup'
+    const pages = { './pages/home.ts': () => import('./pages/home.ts') }
+    """
+
+    Volt.DepGraph.update_from_source("/src/routes.ts", source, compiled)
+
+    assert "./setup" in Volt.DepGraph.imports_of("/src/routes.ts")
+    assert Volt.DepGraph.glob_dependents("/src/pages/home.ts") == ["/src/routes.ts"]
+  end
+
   test "remove deletes a file from the graph" do
     Volt.DepGraph.update("/src/App.vue", ["vue"])
     Volt.DepGraph.remove("/src/App.vue")

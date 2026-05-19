@@ -108,6 +108,12 @@ Type-only generic arguments are accepted and ignored at runtime:
 const modules = import.meta.glob<PageModule>('./pages/*.ts')
 ```
 
+## HMR invalidation
+
+In development, Volt tracks glob patterns in the HMR dependency graph. When a file matching an `import.meta.glob()` pattern is added, changed, or removed, the module that owns the glob is invalidated so the next import sees the updated file list.
+
+This is especially useful for file-based routing and component auto-discovery.
+
 ## Dynamic import variables
 
 Volt rewrites simple relative template-literal dynamic imports through `import.meta.glob()` so production builds can include the possible modules:

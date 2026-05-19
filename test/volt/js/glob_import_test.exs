@@ -11,6 +11,17 @@ defmodule Volt.JS.GlobImportTest do
     :ok
   end
 
+  describe "patterns/2" do
+    test "extracts glob patterns without transforming source" do
+      source = "const modules = import.meta.glob(['./pages/*.ts', '!./pages/about.ts'])"
+
+      assert Volt.JS.GlobImport.patterns(source, "app.ts") == [
+               "./pages/*.ts",
+               "!./pages/about.ts"
+             ]
+    end
+  end
+
   describe "transform/2 lazy" do
     test "expands glob into lazy import map" do
       source = "const modules = import.meta.glob('./pages/*.ts')"

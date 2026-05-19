@@ -9,7 +9,8 @@ defmodule Volt.Watcher do
   When a JS/TS/Vue file changes, the watcher attempts to find an HMR boundary
   (a module with `import.meta.hot.accept()`) by walking up the dependency
   graph. If found, only that module is re-imported by the client. Otherwise,
-  a full page reload is triggered.
+  a full page reload is triggered. Files added to or removed from
+  `import.meta.glob()` patterns invalidate the module that owns the glob.
 
   ## Options
 
@@ -25,7 +26,7 @@ defmodule Volt.Watcher do
   use GenServer
   require Logger
 
-  @dialyzer {:nowarn_function, update_dep_graph: 2, detect_changes: 2}
+  @dialyzer {:nowarn_function, detect_changes: 2}
 
   @debounce_ms 50
   @tailwind_debounce_ms 100
@@ -191,10 +192,11 @@ defmodule Volt.Watcher do
       {:ok, source} ->
         case Volt.Pipeline.compile(path, source, Map.to_list(state.config)) do
           {:ok, result} ->
-            update_dep_graph(path, result.code)
+            Volt.DepGraph.update_from_source(path, source, result.code)
 
             changes = detect_changes(old_entry, result)
             broadcast_change(path, relative, changes, state.root)
+            broadcast_glob_dependents(path, state.root)
 
           {:error, reason} ->
             broadcast(:error, %{path: relative, reason: reason})
@@ -203,6 +205,7 @@ defmodule Volt.Watcher do
       {:error, :enoent} ->
         Volt.DepGraph.remove(path)
         broadcast(:remove, %{path: relative})
+        broadcast_glob_dependents(path, state.root)
     end
   end
 
@@ -210,6 +213,18 @@ defmodule Volt.Watcher do
     relative = Path.relative_to(path, state.root)
     Volt.Cache.evict_file(path)
     broadcast(:update, %{path: relative, changes: [:full]})
+    broadcast_glob_dependents(path, state.root)
+  end
+
+  defp broadcast_glob_dependents(path, root) do
+    path
+    |> Volt.DepGraph.glob_dependents()
+    |> Enum.reject(&(&1 == path))
+    |> Enum.each(fn importer ->
+      Volt.Cache.evict_file(importer)
+      relative = Path.relative_to(importer, root)
+      broadcast(:update, %{path: relative, changes: [:full]})
+    end)
   end
 
   defp broadcast_change(path, relative, changes, root) do
@@ -274,13 +289,6 @@ defmodule Volt.Watcher do
 
       {:error, reason} ->
         broadcast(:error, %{path: "tailwind", reason: inspect(reason)})
-    end
-  end
-
-  defp update_dep_graph(path, code) do
-    case OXC.imports(code, Path.basename(path)) do
-      {:ok, imports} -> Volt.DepGraph.update(path, imports)
-      _ -> :ok
     end
   end
 
