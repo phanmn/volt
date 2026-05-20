@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.12.0
+
+### Added
+
+- Vite-compatible asset query imports for `?raw`, `?url`, `?inline`, and `?no-inline` in development and production builds.
+- Production `new URL("./asset.ext", import.meta.url)` asset rewriting through generated asset URL imports.
+- Expanded `import.meta.glob` support, dynamic import variable rewriting, and glob importer invalidation during HMR updates.
+- Optional Vite-style public directory support for projects that want public-root compatibility.
+- Vite-style plugin `enforce` ordering for `:pre`, normal, and `:post` hooks.
+
+### Changed
+
+- CSS asset URL rewriting now uses Vize/LightningCSS AST mutation and printing instead of source-range patching.
+- JavaScript emitted by plugins and framework compilers now re-enters Volt's common post-processing pipeline.
+- Upgraded `vize` to 0.11.1 and QuickBEAM to 0.10.14.
+- Documented CSS-emitting plugins and OXC-backed template generation patterns.
+
+### Fixed
+
+- CSS-referenced assets are copied once per source asset, preserve query and fragment suffixes, and are included in build metadata.
+- Asset import module identity now preserves query modes, avoiding collisions when the same file is imported with different asset queries.
+- Mutating JavaScript post-processing steps now drop stale sourcemaps instead of returning mismatched maps.
+- Dynamic import rewriting now preserves query suffixes.
+
 ## 0.11.3
 
 ### Fixed
