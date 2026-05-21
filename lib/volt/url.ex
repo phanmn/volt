@@ -25,7 +25,13 @@ defmodule Volt.URL do
 
   def append_query(path, ""), do: path
   def append_query(path, nil), do: path
-  def append_query(path, query), do: %{URI.parse(path) | query: query} |> URI.to_string()
+
+  def append_query(path, query) do
+    path
+    |> URI.parse()
+    |> URI.append_query(query)
+    |> URI.to_string()
+  end
 
   def decode_query(""), do: %{}
   def decode_query(query), do: URI.decode_query(query)
@@ -39,6 +45,10 @@ defmodule Volt.URL do
 
   def append_fragment(path, nil), do: path
 
-  def append_fragment(path, fragment),
-    do: %{URI.parse(path) | fragment: fragment} |> URI.to_string()
+  def append_fragment(path, fragment) do
+    path
+    |> URI.parse()
+    |> Map.put(:fragment, fragment)
+    |> URI.to_string()
+  end
 end

@@ -17,9 +17,17 @@ defmodule Volt.URLTest do
     end
   end
 
+  describe "split_query/1" do
+    test "uses URI parsing to separate the path and query" do
+      assert Volt.URL.split_query("./logo.svg?url") == {"./logo.svg", "url"}
+      assert Volt.URL.split_query("/assets/app.js?raw#hash") == {"/assets/app.js", "raw"}
+    end
+  end
+
   describe "append_query/2 and append_fragment/2" do
     test "adds query and fragment with URI semantics" do
       assert Volt.URL.append_query("/assets/app.js", "import") == "/assets/app.js?import"
+      assert Volt.URL.append_query("/assets/app.js?raw", "url") == "/assets/app.js?raw&url"
 
       assert "/assets/app.js"
              |> Volt.URL.append_query("v=1")
