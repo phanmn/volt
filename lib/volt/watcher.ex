@@ -220,7 +220,7 @@ defmodule Volt.Watcher do
 
   defp broadcast_glob_dependents(path, root) do
     path
-    |> Volt.DepGraph.glob_dependents()
+    |> Volt.HMR.GlobGraph.dependents()
     |> Enum.reject(&(&1 == path))
     |> Enum.each(fn importer ->
       Volt.Cache.evict_file(importer)

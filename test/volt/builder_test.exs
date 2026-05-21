@@ -578,6 +578,76 @@ defmodule Volt.BuilderTest do
       assert File.read!(Path.join(@outdir, "dynamic-css-entry-lazy.css")) =~ "lazy"
     end
 
+    test "hashed code splitting keeps dynamic preload URLs and manifest files in sync" do
+      File.write!(Path.join(@fixture_dir, "src/common.css"), ".common { color: blue }")
+      File.write!(Path.join(@fixture_dir, "src/lazy-a.css"), ".lazy-a { color: red }")
+
+      File.write!(Path.join(@fixture_dir, "src/shared.ts"), """
+      import './common.css'
+      export const shared = 'shared-value'
+      """)
+
+      File.write!(Path.join(@fixture_dir, "src/lazy-a.ts"), """
+      import { shared } from './shared'
+      import './lazy-a.css'
+      export const value = 'a-' + shared
+      """)
+
+      File.write!(Path.join(@fixture_dir, "src/lazy-b.ts"), """
+      import { shared } from './shared'
+      export const value = 'b-' + shared
+      """)
+
+      File.write!(Path.join(@fixture_dir, "src/hashed_preload_entry.ts"), """
+      export const loadA = () => import('./lazy-a')
+      export const loadB = () => import('./lazy-b')
+      """)
+
+      {:ok, result} =
+        Volt.Builder.build(
+          entry: Path.join(@fixture_dir, "src/hashed_preload_entry.ts"),
+          outdir: @outdir,
+          name: "hashed-preload",
+          format: :esm,
+          hash: true,
+          minify: false,
+          sourcemap: false
+        )
+
+      manifest = @outdir |> Path.join("manifest.json") |> File.read!() |> :json.decode()
+      entry = manifest["hashed-preload.js"]
+      entry_js = File.read!(result.js.path)
+
+      assert entry["file"] == Path.basename(result.js.path)
+      assert entry["dynamicImports"] |> Enum.sort() == entry["dynamicImports"]
+
+      for {_key, %{"file" => file} = item} <- manifest do
+        assert File.regular?(Path.join(@outdir, file))
+
+        for css <- Map.get(item, "css", []) do
+          assert File.regular?(Path.join(@outdir, css))
+        end
+
+        for asset <- Map.get(item, "assets", []) do
+          assert File.regular?(Path.join(@outdir, asset))
+        end
+      end
+
+      lazy_a = Enum.find(entry["dynamicImports"], &String.contains?(&1, "lazy-a"))
+      lazy_b = Enum.find(entry["dynamicImports"], &String.contains?(&1, "lazy-b"))
+      common = manifest[lazy_a]["imports"] |> List.first()
+      common_css = manifest[common]["css"] |> List.first()
+      lazy_css = manifest[lazy_a]["css"] |> List.first()
+
+      assert entry_js =~ lazy_a
+      assert entry_js =~ lazy_b
+      assert entry_js =~ common
+      assert entry_js =~ common_css
+      assert entry_js =~ lazy_css
+      assert File.read!(Path.join(@outdir, common_css)) =~ "common"
+      assert File.read!(Path.join(@outdir, lazy_css)) =~ "lazy-a"
+    end
+
     test "code splitting rewrites minified dynamic import chunk URLs" do
       File.write!(
         Path.join(@fixture_dir, "src/lazy.ts"),

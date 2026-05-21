@@ -1,10 +1,10 @@
 defmodule Volt.DepGraph do
   @moduledoc """
-  ETS-backed module dependency graph.
+  ETS-backed legacy module import graph.
 
-  Tracks which files import which specifiers and which `import.meta.glob()`
-  patterns they own, enabling reverse lookups for HMR propagation — "what
-  depends on this file?"
+  Tracks raw import specifiers for compatibility fallback while the dev server
+  uses `Volt.HMR.ModuleGraph` for resolved HMR propagation. `import.meta.glob()`
+  ownership lives in `Volt.HMR.GlobGraph`.
   """
 
   @table :volt_dep_graph
@@ -19,11 +19,12 @@ defmodule Volt.DepGraph do
   @doc "Update the imports for a file path."
   @spec update(String.t(), [String.t()], [String.t()]) :: :ok
   def update(path, imports, globs \\ []) do
-    :ets.insert(@table, {path, imports, globs})
+    if globs != [], do: Volt.HMR.GlobGraph.update(path, globs)
+    :ets.insert(@table, {path, imports})
     :ok
   end
 
-  @doc "Update imports and glob patterns from source and compiled code."
+  @doc "Update imports from compiled code and glob ownership from source."
   @spec update_from_source(String.t(), String.t(), String.t()) :: :ok
   def update_from_source(path, source, compiled_code) do
     imports =
@@ -32,16 +33,9 @@ defmodule Volt.DepGraph do
         _ -> []
       end
 
-    globs =
-      source
-      |> Volt.JS.Transforms.GlobImports.patterns(Path.basename(path))
-      |> Enum.map(&expand_glob_pattern(&1, Path.dirname(path)))
-
-    update(path, imports, globs)
+    Volt.HMR.GlobGraph.update_from_source(path, source)
+    update(path, imports)
   end
-
-  defp expand_glob_pattern("!" <> pattern, base_dir), do: "!" <> Path.expand(pattern, base_dir)
-  defp expand_glob_pattern(pattern, base_dir), do: Path.expand(pattern, base_dir)
 
   @doc "Get the imports for a file path."
   @spec imports_of(String.t()) :: [String.t()]
@@ -96,39 +90,13 @@ defmodule Volt.DepGraph do
 
   @doc "Find all files with an `import.meta.glob()` pattern matching `path`."
   @spec glob_dependents(String.t()) :: [String.t()]
-  def glob_dependents(path) do
-    :ets.foldl(
-      fn
-        {_importer, _imports}, acc ->
-          acc
-
-        {importer, _imports, globs}, acc ->
-          if glob_match?(globs, path), do: [importer | acc], else: acc
-      end,
-      [],
-      @table
-    )
-  end
-
-  defp glob_match?(globs, path) do
-    {negative, positive} = Enum.split_with(globs, &String.starts_with?(&1, "!"))
-
-    positive_match? = Enum.any?(positive, &pattern_match?(&1, path))
-    negative_match? = Enum.any?(negative, fn "!" <> pattern -> pattern_match?(pattern, path) end)
-
-    positive_match? and not negative_match?
-  end
-
-  defp pattern_match?(pattern, path) do
-    pattern
-    |> GlobEx.compile!()
-    |> GlobEx.match?(path)
-  end
+  def glob_dependents(path), do: Volt.HMR.GlobGraph.dependents(path)
 
   @doc "Remove a file from the graph."
   @spec remove(String.t()) :: :ok
   def remove(path) do
     :ets.delete(@table, path)
+    Volt.HMR.GlobGraph.remove(path)
     :ok
   end
 
@@ -136,6 +104,7 @@ defmodule Volt.DepGraph do
   @spec clear :: :ok
   def clear do
     :ets.delete_all_objects(@table)
+    Volt.HMR.GlobGraph.clear()
     :ok
   end
 end

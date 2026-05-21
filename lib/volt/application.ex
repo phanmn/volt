@@ -6,6 +6,7 @@ defmodule Volt.Application do
   def start(_type, _args) do
     Volt.Cache.create_table()
     Volt.DepGraph.create_table()
+    Volt.HMR.GlobGraph.create_table()
     Volt.HMR.ModuleGraph.create_table()
 
     children = [
