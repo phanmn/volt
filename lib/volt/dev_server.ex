@@ -390,15 +390,15 @@ defmodule Volt.DevServer do
   end
 
   defp css_update_module(mod_url, css, exports) do
-    """
-    import { updateStyle as __volt_updateStyle, removeStyle as __volt_removeStyle } from "/@volt/client.js";
-    const __volt_id = #{inspect(mod_url)};
-    const __volt_css = #{inspect(css)};
-    __volt_updateStyle(__volt_id, __volt_css);
-    import.meta.hot.accept();
-    import.meta.hot.dispose(() => __volt_removeStyle(__volt_id));
-    #{exports}
-    """
+    [
+      Volt.JS.Asset.compiled_template!("css-update-module.ts", %{
+        "__VOLT_CSS_ID__" => mod_url,
+        "__VOLT_CSS__" => css
+      }),
+      "\n",
+      exports
+    ]
+    |> IO.iodata_to_binary()
   end
 
   # ── Import rewriting ──────────────────────────────────────────────
@@ -493,10 +493,7 @@ defmodule Volt.DevServer do
   defp maybe_inject_hmr_preamble(code, _relative, _content_type), do: code
 
   defp hmr_preamble(mod_url) do
-    """
-    import { createHotContext as __volt_createHotContext } from "/@volt/client.js";
-    import.meta.hot = __volt_createHotContext(#{inspect(mod_url)});
-    """
+    Volt.JS.Asset.compiled_template!("hmr-preamble.ts", %{"__VOLT_MOD_URL__" => mod_url})
   end
 
   # ── Vendor pre-bundling ───────────────────────────────────────────
@@ -566,6 +563,12 @@ defmodule Volt.DevServer do
       end)
 
     overlay = Volt.JS.Asset.compiled!("error-overlay.ts")
-    overlay <> "\nrenderErrorOverlay(#{inspect(msg)})\n"
+
+    invocation =
+      Volt.JS.Asset.compiled_template!("error-overlay-invocation.ts", %{
+        "__VOLT_ERROR_MESSAGE__" => msg
+      })
+
+    overlay <> "\n" <> invocation
   end
 end

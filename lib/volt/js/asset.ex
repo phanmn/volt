@@ -34,6 +34,14 @@ defmodule Volt.JS.Asset do
     end
   end
 
+  @doc "Compile a TypeScript support asset and replace string placeholders with JavaScript literals."
+  @spec compiled_template!(String.t(), %{String.t() => String.t()}) :: String.t()
+  def compiled_template!(filename, replacements) do
+    Enum.reduce(replacements, compiled!(filename), fn {placeholder, value}, code ->
+      String.replace(code, Jason.encode!(placeholder), Jason.encode!(value))
+    end)
+  end
+
   @spec path_for(String.t()) :: String.t()
   def path_for(filename), do: Path.join(@priv_ts, filename)
 
