@@ -303,8 +303,6 @@ All hooks are optional. Return `nil` to pass to the next plugin.
 | `extract_imports/3` | Extract import specifiers from source |
 | `transform/2` | Transform compiled JS before serving or bundling |
 | `define/1` | Compile-time variable replacements |
-| `prebundle_alias/1` | Canonical prebundle specifier for an import |
-| `prebundle_entry/1` | Generated prebundle entry module |
 | `render_chunk/2` | Transform final output chunks |
 
 ### Hook execution order
@@ -320,30 +318,57 @@ During compilation, hooks run in this order:
 
 `define/1` runs once at build start. `extensions/1` is checked throughout to determine which files a plugin handles.
 
-`extract_imports/3` returns structured import metadata:
+`extract_imports/3` returns structured import metadata when a plugin owns a source format whose dependencies are not visible to Volt's normal JavaScript parser:
 
 ```elixir
-def extract_imports(".widget" <> _ = path, source, _opts) do
-  {:ok,
-   %Volt.JS.ImportExtractor.Result{
-     imports: [{:static, "./runtime"}],
-     workers: []
-   }}
+alias Volt.JS.ImportExtractor.Result
+
+def extract_imports(".widget" <> _ = _path, _source, _opts) do
+  {:ok, %Result{imports: [{:static, "./runtime"}], workers: []}}
 end
+
+def extract_imports(_path, _source, _opts), do: nil
 ```
 
-`prebundle_entry/1` proxy entries use descriptor structs:
+### Advanced framework runtime integration
+
+Framework plugins can also coordinate Volt's dev dependency prebundling. These hooks are Volt-specific; Vite framework plugins achieve similar results through dependency optimization, resolution, and virtual modules rather than direct hooks with these names.
+
+| Hook | Purpose |
+| --- | --- |
+| `prebundle_alias/1` | Normalize related package entrypoints to one dev prebundle |
+| `prebundle_entry/1` | Generate a source or proxy entry for that dev prebundle |
+
+Use `prebundle_alias/1` when several package entrypoints should share one generated dev vendor module:
 
 ```elixir
-def prebundle_entry("my-runtime") do
-  {:proxy, "my-runtime.js",
-   imports: [Volt.JS.PrebundleEntry.Import.default("Runtime", from: "my-runtime")],
+def prebundle_alias("my-framework/runtime"), do: "my-framework"
+def prebundle_alias("my-framework/jsx-runtime"), do: "my-framework"
+def prebundle_alias(_specifier), do: nil
+```
+
+Use `prebundle_entry/1` when the canonical specifier needs a generated proxy module:
+
+```elixir
+alias Volt.JS.PrebundleEntry.{Export, Import}
+
+def prebundle_entry("my-framework") do
+  {:proxy, "my-framework.js",
+   imports: [Import.default("Framework", from: "my-framework")],
    exports: [
-     Volt.JS.PrebundleEntry.Export.default("Runtime"),
-     Volt.JS.PrebundleEntry.Export.members([{"create", "Runtime.create"}])
+     Export.default("Framework"),
+     Export.members([
+       {"createApp", "Framework.createApp"},
+       {"hydrate", "Framework.hydrate"}
+     ]),
+     Export.all_from("my-framework/runtime")
    ]}
 end
+
+def prebundle_entry(_specifier), do: nil
 ```
+
+Return `nil` from either hook to let Volt keep the original specifier or generate a normal package prebundle.
 
 ### Plugin options
 
