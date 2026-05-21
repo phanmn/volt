@@ -1,5 +1,5 @@
 defmodule Volt.Config.Build do
-  @moduledoc false
+  @moduledoc "Normalized production build configuration."
 
   defstruct entry: "assets/js/app.ts",
             outdir: "priv/static/assets",

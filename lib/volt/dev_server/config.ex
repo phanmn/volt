@@ -1,5 +1,5 @@
 defmodule Volt.DevServer.Config do
-  @moduledoc false
+  @moduledoc "Resolved runtime configuration for the development server plug."
 
   defstruct root: nil,
             public_dir: nil,

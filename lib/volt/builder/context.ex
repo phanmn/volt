@@ -1,5 +1,5 @@
 defmodule Volt.Builder.Context do
-  @moduledoc false
+  @moduledoc "Shared build graph context used while collecting and compiling modules."
 
   defstruct node_modules: nil,
             resolve_dirs: [],

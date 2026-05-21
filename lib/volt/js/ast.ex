@@ -1,5 +1,5 @@
 defmodule Volt.JS.AST do
-  @moduledoc false
+  @moduledoc "Helpers for matching and editing OXC JavaScript AST nodes."
 
   def string_literal_span(node) when is_map(node) do
     case literal_value(node) do

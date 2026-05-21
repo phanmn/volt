@@ -1,5 +1,5 @@
 defmodule Volt.Builder.BuildContext do
-  @moduledoc false
+  @moduledoc "Options required while rendering production build output."
 
   defstruct outdir: nil,
             target: "",

@@ -26,9 +26,12 @@ defmodule Volt.CSS.AssetURLRewriter do
   def rewrite_with_assets(css, nil, _outdir, _opts), do: {:ok, %{code: css, assets: []}}
 
   def rewrite_with_assets(css, source_path, outdir, opts) do
-    rewrite_css_ast(css, source_path, fn ast ->
-      rewrite_build_ast(ast, source_path, outdir, opts)
-    end)
+    with {:ok, %{code: code, metadata: assets}} <-
+           Volt.CSS.AST.transform(css, source_path, fn ast ->
+             rewrite_build_ast(ast, source_path, outdir, opts)
+           end) do
+      {:ok, %{code: code, assets: assets}}
+    end
   end
 
   @doc "Rewrite relative CSS asset URLs to dev-server URLs without copying files."
@@ -37,28 +40,10 @@ defmodule Volt.CSS.AssetURLRewriter do
 
   def rewrite_dev(css, source_path, root, prefix) do
     with {:ok, %{code: code}} <-
-           rewrite_css_ast(css, source_path, fn ast ->
+           Volt.CSS.AST.transform(css, source_path, fn ast ->
              {rewrite_dev_ast(ast, source_path, root, prefix), []}
            end) do
       {:ok, code}
-    end
-  end
-
-  defp rewrite_css_ast(css, source_path, rewrite_fn) do
-    with {:parse, {:ok, %{ast: ast, errors: []}}} <-
-           {:parse, Vize.CSS.parse_ast(css, filename: source_path)},
-         {ast, assets} <- rewrite_fn.(ast),
-         {:print, {:ok, %{code: code, errors: []}}} <- {:print, Vize.CSS.print_ast(ast)} do
-      {:ok, %{code: code, assets: assets}}
-    else
-      {:parse, {:ok, %{errors: errors}}} when errors != [] ->
-        {:error, {:css_parse_failed, errors}}
-
-      {:parse, {:ok, %{ast: nil}}} ->
-        {:error, :css_parse_failed}
-
-      {:print, {:ok, %{errors: errors}}} when errors != [] ->
-        {:error, {:css_print_failed, errors}}
     end
   end
 
@@ -66,35 +51,27 @@ defmodule Volt.CSS.AssetURLRewriter do
     prefix = Keyword.get(opts, :prefix, "/assets")
 
     {ast, {assets, _emitted}} =
-      Vize.CSS.postwalk(ast, {[], %{}}, fn
-        %{"url" => url} = node, {assets, emitted} when is_binary(url) ->
-          case build_url(url, source_path, outdir, prefix, emitted) do
-            {:ok, ^url, emitted} ->
-              {node, {assets, emitted}}
+      Volt.CSS.AST.postwalk_urls(ast, {[], %{}}, fn url, node, {assets, emitted} ->
+        case build_url(url, source_path, outdir, prefix, emitted) do
+          {:ok, ^url, emitted} ->
+            {node, {assets, emitted}}
 
-            {:ok, rewritten, emitted} ->
-              asset = emitted_asset(rewritten)
-              assets = if asset in assets, do: assets, else: [asset | assets]
-              {Map.put(node, "url", rewritten), {assets, emitted}}
-          end
-
-        node, acc ->
-          {node, acc}
+          {:ok, rewritten, emitted} ->
+            asset = emitted_asset(rewritten)
+            assets = if asset in assets, do: assets, else: [asset | assets]
+            {Map.put(node, "url", rewritten), {assets, emitted}}
+        end
       end)
 
     {ast, Enum.reverse(assets)}
   end
 
   defp rewrite_dev_ast(ast, source_path, root, prefix) do
-    Vize.CSS.postwalk(ast, fn
-      %{"url" => url} = node when is_binary(url) ->
-        case dev_url(url, source_path, root, prefix) do
-          {:ok, ^url} -> node
-          {:ok, rewritten} -> Map.put(node, "url", rewritten)
-        end
-
-      node ->
-        node
+    Volt.CSS.AST.postwalk_urls(ast, fn url, node ->
+      case dev_url(url, source_path, root, prefix) do
+        {:ok, ^url} -> node
+        {:ok, rewritten} -> Map.put(node, "url", rewritten)
+      end
     end)
   end
 

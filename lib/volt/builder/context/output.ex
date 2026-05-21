@@ -1,5 +1,5 @@
 defmodule Volt.Builder.OutputContext do
-  @moduledoc false
+  @moduledoc "Context passed to final JavaScript and CSS output rendering."
 
   defstruct plugins: [],
             external_set: MapSet.new(),

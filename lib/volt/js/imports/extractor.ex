@@ -1,5 +1,5 @@
 defmodule Volt.JS.ImportExtractor do
-  @moduledoc false
+  @moduledoc "Extracts static, dynamic, CJS, and worker imports from JavaScript source."
 
   @type import_type :: :static | :dynamic
   @type result :: Volt.JS.ImportExtractor.Result.t()

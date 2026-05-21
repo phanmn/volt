@@ -1,5 +1,5 @@
 defmodule Volt.JS.PrebundleEntry do
-  @moduledoc false
+  @moduledoc "Generates synthetic JavaScript entry modules for vendor prebundling."
 
   def source({:proxy, _filename, opts}) do
     code =

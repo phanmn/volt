@@ -1,5 +1,5 @@
 defmodule Volt.JS.Runtime.Bundler do
-  @moduledoc false
+  @moduledoc "Bundles QuickBEAM runtime entry files and their dependencies."
 
   alias Volt.JS.Transforms.Specifiers
 

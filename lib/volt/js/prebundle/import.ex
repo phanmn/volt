@@ -1,5 +1,5 @@
 defmodule Volt.JS.PrebundleEntry.Import do
-  @moduledoc false
+  @moduledoc "Import descriptor used by synthetic prebundle entries."
 
   @type t :: %__MODULE__{default: String.t(), from: String.t()}
 

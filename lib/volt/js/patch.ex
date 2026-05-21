@@ -1,5 +1,5 @@
 defmodule Volt.JS.Patch do
-  @moduledoc false
+  @moduledoc "Small struct wrapper for source patches applied through OXC."
 
   defstruct [:start, :end, :change]
 

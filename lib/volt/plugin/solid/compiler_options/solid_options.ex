@@ -1,5 +1,5 @@
 defmodule Volt.Plugin.Solid.CompilerOptions.SolidOptions do
-  @moduledoc false
+  @moduledoc "Nested Solid preset options passed to Babel."
 
   defstruct generate: "dom", hydratable: false, dev: false
 

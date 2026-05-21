@@ -1,5 +1,5 @@
 defmodule Volt.JS.Transforms.Workers do
-  @moduledoc false
+  @moduledoc "Finds and rewrites `new Worker(new URL(..., import.meta.url))` module specifiers."
 
   alias Volt.JS.AST
 

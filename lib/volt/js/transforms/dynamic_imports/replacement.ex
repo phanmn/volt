@@ -1,5 +1,5 @@
 defmodule Volt.JS.Transforms.DynamicImports.Replacement do
-  @moduledoc false
+  @moduledoc "Patch metadata for dynamic import variable replacements."
 
   defstruct start: nil,
             end: nil,

@@ -1,5 +1,5 @@
 defmodule Volt.JS.Transforms.GlobImports.File do
-  @moduledoc false
+  @moduledoc "Resolved file entry for `import.meta.glob` expansion."
 
   defstruct [:specifier, :key]
 end

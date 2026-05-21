@@ -1,5 +1,5 @@
 defmodule Volt.JS.Transforms.ImportMetaEnv do
-  @moduledoc false
+  @moduledoc "Injects `import.meta.env` values into JavaScript modules when referenced."
 
   @prefix "import.meta.env."
 

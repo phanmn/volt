@@ -1,5 +1,5 @@
 defmodule Volt.JS.Helpers do
-  @moduledoc false
+  @moduledoc "Shared JavaScript file discovery helpers for Mix tasks."
 
   @format_extensions ~w(.js .ts .jsx .tsx)
 

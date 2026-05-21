@@ -1,5 +1,5 @@
 defmodule Volt.JS.Transforms.Specifiers do
-  @moduledoc false
+  @moduledoc "Rewrites JavaScript import and require specifiers while collecting resolved paths."
 
   @type rewrite_result :: :skip | {:ok, String.t() | nil, String.t()} | {:error, term()}
   @type rewrite_fun :: (String.t(), String.t(), term() -> rewrite_result())

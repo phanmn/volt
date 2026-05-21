@@ -1,5 +1,5 @@
 defmodule Volt.JS.Runtime.Installer do
-  @moduledoc false
+  @moduledoc "Installs isolated npm runtime packages for QuickBEAM-backed plugins."
 
   require Logger
 

@@ -1,5 +1,5 @@
 defmodule Volt.DevServer.CacheEntry do
-  @moduledoc false
+  @moduledoc "Cached development-server compilation result."
 
   defstruct code: "",
             sourcemap: nil,

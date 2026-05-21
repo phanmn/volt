@@ -1,5 +1,5 @@
 defmodule Volt.JS.PrebundleEntry.Export do
-  @moduledoc false
+  @moduledoc "Export descriptor used by synthetic prebundle entries."
 
   @type t :: %__MODULE__{
           default: String.t() | nil,

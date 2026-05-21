@@ -1,5 +1,5 @@
 defmodule Volt.JS.Resolution do
-  @moduledoc false
+  @moduledoc "Shared JavaScript package resolution defaults."
 
   @browser_conditions ["browser", "import", "default"]
 

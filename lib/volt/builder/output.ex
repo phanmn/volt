@@ -1,5 +1,5 @@
 defmodule Volt.Builder.Output do
-  @moduledoc false
+  @moduledoc "Builds final production output files from compiled module graphs."
 
   alias Volt.Builder.{Writer, Rewriter}
 

@@ -1,5 +1,5 @@
 defmodule Volt.Builder.Collector.State do
-  @moduledoc false
+  @moduledoc "State accumulated while walking the production dependency graph."
 
   defstruct root: nil,
             ctx: nil,

@@ -1,5 +1,5 @@
 defmodule Volt.JS.Asset do
-  @moduledoc false
+  @moduledoc "Access to JavaScript and TypeScript support assets bundled with Volt."
 
   @priv_ts Application.app_dir(:volt, "priv/ts")
 

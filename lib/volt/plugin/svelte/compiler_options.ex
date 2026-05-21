@@ -1,5 +1,5 @@
 defmodule Volt.Plugin.Svelte.CompilerOptions do
-  @moduledoc false
+  @moduledoc "Svelte compiler options encoded for the JavaScript runtime."
 
   defstruct filename: nil,
             generate: "client",

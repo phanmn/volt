@@ -1,5 +1,5 @@
 defmodule Volt.JS.Extensions do
-  @moduledoc false
+  @moduledoc "JavaScript, TypeScript, CSS, and asset extension groups used by Volt."
 
   @js ~w(.ts .tsx .js .jsx .mts .mjs)
   @cjs ~w(.cjs .cts)

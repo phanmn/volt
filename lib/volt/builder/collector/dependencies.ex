@@ -1,5 +1,5 @@
 defmodule Volt.Builder.Dependencies do
-  @moduledoc false
+  @moduledoc "Static and dynamic dependency lists for one collected module."
 
   defstruct static: [], dynamic: []
 end

@@ -1,5 +1,5 @@
 defmodule Volt.JS.Transforms.GlobImports.Call do
-  @moduledoc false
+  @moduledoc "Parsed `import.meta.glob` call options."
 
   defstruct start: nil,
             end: nil,

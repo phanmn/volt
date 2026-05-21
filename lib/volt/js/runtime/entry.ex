@@ -1,5 +1,5 @@
 defmodule Volt.JS.Runtime.Entry do
-  @moduledoc false
+  @moduledoc "Materializes JavaScript runtime entry assets for QuickBEAM."
 
   @spec materialize(term(), String.t()) :: String.t()
   def materialize({:volt_asset, filename}, install_dir) do

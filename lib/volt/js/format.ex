@@ -1,5 +1,5 @@
 defmodule Volt.JS.Format do
-  @moduledoc false
+  @moduledoc "Loads JavaScript formatter configuration for oxfmt."
 
   @json_config_files ~w(.oxfmtrc.json .oxfmtrc .prettierrc.json .prettierrc)
 

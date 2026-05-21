@@ -1,5 +1,5 @@
 defmodule Volt.Builder.Rewriter do
-  @moduledoc false
+  @moduledoc "Rewrites production bundle imports, workers, externals, and chunk references."
 
   alias Volt.Builder.Externals
 

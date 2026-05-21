@@ -1,5 +1,5 @@
 defmodule Volt.Plugin.Solid.CompilerOptions do
-  @moduledoc false
+  @moduledoc "Solid compiler options encoded for the JavaScript runtime."
 
   alias Volt.Plugin.Solid.CompilerOptions.SolidOptions
 

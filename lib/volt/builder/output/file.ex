@@ -1,5 +1,5 @@
 defmodule Volt.Builder.OutputFile do
-  @moduledoc false
+  @moduledoc "Metadata for one generated production output file."
 
   defstruct path: nil,
             size: 0,

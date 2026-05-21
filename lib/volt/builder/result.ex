@@ -1,5 +1,5 @@
 defmodule Volt.Builder.Result do
-  @moduledoc false
+  @moduledoc "Production build result returned from `Volt.Builder`."
 
   defstruct js: [], css: nil, manifest: %{}, chunks: []
 

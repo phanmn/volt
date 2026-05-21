@@ -1,5 +1,5 @@
 defmodule Volt.Builder.Writer do
-  @moduledoc false
+  @moduledoc "Writes production JavaScript, CSS, assets, sourcemaps, and manifests."
 
   def write_js(outdir, filename, code, sourcemap, opts \\ []) do
     hidden = Keyword.get(opts, :hidden, false)
