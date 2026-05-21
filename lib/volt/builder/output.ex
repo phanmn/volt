@@ -4,7 +4,7 @@ defmodule Volt.Builder.Output do
   alias Volt.Builder.{Writer, Rewriter}
 
   @doc "Bundle modules into a single JS file and write output."
-  def build_single(entry, name, {js_files, css_parts}, build_ctx) do
+  def build_single(entry, name, {js_files, css_parts, assets}, build_ctx) do
     %{
       outdir: outdir,
       hash: hash,
@@ -35,8 +35,7 @@ defmodule Volt.Builder.Output do
         css_opts = Keyword.put(bundle_opts, :asset_url_prefix, asset_url_prefix)
 
         with {:ok, css_result} <- Writer.write_css(css_parts, outdir, name, hash, css_opts) do
-          manifest = Writer.build_manifest(name, js_filename, css_result)
-          Writer.write_manifest(outdir, manifest)
+          manifest = Writer.build_manifest(name, js_filename, css_result, assets)
 
           {:ok,
            %Volt.Builder.Result{
@@ -55,7 +54,7 @@ defmodule Volt.Builder.Output do
   end
 
   @doc "Bundle modules into separate chunks based on the chunk graph."
-  def build_chunks(entry, name, {js_files, css_parts}, {modules, dep_map}, build_ctx) do
+  def build_chunks(entry, name, {js_files, css_parts, assets}, {modules, dep_map}, build_ctx) do
     %{
       outdir: outdir,
       hash: hash,
@@ -130,9 +129,8 @@ defmodule Volt.Builder.Output do
               chunk_url_map
             )
             |> add_chunk_css(entry_css)
+            |> add_chunk_assets(assets)
           )
-
-        Writer.write_manifest(outdir, manifest)
 
         {:ok,
          %Volt.Builder.Result{
@@ -303,6 +301,12 @@ defmodule Volt.Builder.Output do
     entry
     |> Map.put("css", [css_file])
     |> Map.put("assets", Enum.uniq([css_file | css_result.assets]))
+  end
+
+  defp add_chunk_assets(entry, []), do: entry
+
+  defp add_chunk_assets(entry, assets) do
+    Map.update(entry, "assets", Enum.uniq(assets), &Enum.uniq(&1 ++ assets))
   end
 
   defp maybe_put_chunk_files(entry, _key, [], _chunk_url_map), do: entry

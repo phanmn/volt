@@ -63,6 +63,68 @@ defmodule Volt.BuilderTest do
       assert js =~ "Hello"
     end
 
+    test "single bundle emits JS asset imports and records them in manifest" do
+      File.write!(Path.join(@fixture_dir, "src/logo.svg"), "<svg><path /></svg>")
+
+      File.write!(Path.join(@fixture_dir, "src/asset_app.ts"), """
+      import logo from './logo.svg?url'
+      document.body.dataset.logo = logo
+      """)
+
+      {:ok, result} =
+        Volt.Builder.build(
+          entry: Path.join(@fixture_dir, "src/asset_app.ts"),
+          outdir: @outdir,
+          name: "asset-app",
+          hash: false,
+          minify: false,
+          sourcemap: false
+        )
+
+      manifest = @outdir |> Path.join("manifest.json") |> File.read!() |> :json.decode()
+      [asset] = manifest["asset-app.js"]["assets"]
+
+      assert asset =~ ~r/logo-[a-f0-9]{8}\.svg/
+      assert File.regular?(Path.join(@outdir, asset))
+      assert File.read!(result.js.path) =~ "/assets/#{asset}"
+    end
+
+    test "multi-entry builds write one merged manifest" do
+      File.write!(Path.join(@fixture_dir, "src/admin.ts"), "console.log('admin')")
+
+      {:ok, result} =
+        Volt.Builder.build(
+          entry: [Path.join(@fixture_dir, "src/app.ts"), Path.join(@fixture_dir, "src/admin.ts")],
+          outdir: @outdir,
+          hash: false,
+          minify: false,
+          sourcemap: false
+        )
+
+      manifest = @outdir |> Path.join("manifest.json") |> File.read!() |> :json.decode()
+
+      assert Map.has_key?(manifest, "app.js")
+      assert Map.has_key?(manifest, "admin.js")
+      assert length(result.js) == 2
+    end
+
+    test "worker build errors fail the parent build" do
+      File.write!(Path.join(@fixture_dir, "src/bad-worker.ts"), "export const =")
+
+      File.write!(Path.join(@fixture_dir, "src/worker_parent.ts"), """
+      new Worker(new URL('./bad-worker.ts', import.meta.url), { type: 'module' })
+      """)
+
+      assert {:error, _reason} =
+               Volt.Builder.build(
+                 entry: Path.join(@fixture_dir, "src/worker_parent.ts"),
+                 outdir: @outdir,
+                 hash: false,
+                 minify: false,
+                 sourcemap: false
+               )
+    end
+
     test "empty entry builds without sourcemap when Rolldown omits one" do
       File.write!(Path.join(@fixture_dir, "src/empty.js"), "")
 
@@ -870,7 +932,7 @@ defmodule Volt.BuilderTest do
         )
 
       js = File.read!(result.js.path)
-      assert js =~ "/assets/logo.svg"
+      assert js =~ ~r(/assets/logo-[a-f0-9]{8}\.svg)
       refute js =~ "./logo.svg"
     end
 
@@ -892,7 +954,7 @@ defmodule Volt.BuilderTest do
         )
 
       js = File.read!(result.js.path)
-      assert js =~ "https://cdn.example.com/assets/logo.svg"
+      assert js =~ ~r(https://cdn\.example\.com/assets/logo-[a-f0-9]{8}\.svg)
       refute js =~ "https:/cdn.example.com"
     end
 
@@ -916,7 +978,7 @@ defmodule Volt.BuilderTest do
 
       js = File.read!(result.js.path)
       assert js =~ "hello from raw"
-      assert js =~ "/assets/logo.svg"
+      assert js =~ ~r(/assets/logo-[a-f0-9]{8}\.svg)
       refute js =~ "data:image/svg+xml"
     end
 

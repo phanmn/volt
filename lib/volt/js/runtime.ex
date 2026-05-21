@@ -100,6 +100,7 @@ defmodule Volt.JS.Runtime do
   end
 
   defp runtime_for_existing(name, pid, opts) do
+    verify_named_runtime_signature!(name, opts)
     packages = Keyword.get(opts, :packages, %{})
     install = Installer.install!(packages, opts)
     runtime_struct(opts, packages, install, pid) |> Map.put(:name, name)
@@ -139,9 +140,16 @@ defmodule Volt.JS.Runtime do
       |> Keyword.put(:define, define)
 
     case QuickBEAM.start(quickbeam_opts) do
-      {:ok, pid} -> {:ok, pid}
-      {:error, {:already_started, pid}} -> {:ok, pid}
-      {:error, reason} -> {:error, Error.exception(stage: :start, reason: reason)}
+      {:ok, pid} ->
+        remember_named_runtime_signature(opts)
+        {:ok, pid}
+
+      {:error, {:already_started, pid}} ->
+        verify_named_runtime_signature!(Keyword.get(opts, :name), opts)
+        {:ok, pid}
+
+      {:error, reason} ->
+        {:error, Error.exception(stage: :start, reason: reason)}
     end
   end
 
@@ -225,6 +233,41 @@ defmodule Volt.JS.Runtime do
       },
       define
     )
+  end
+
+  defp remember_named_runtime_signature(opts) do
+    case Keyword.get(opts, :name) do
+      nil -> :ok
+      name -> :persistent_term.put(named_runtime_key(name), runtime_signature(opts))
+    end
+  end
+
+  defp verify_named_runtime_signature!(nil, _opts), do: :ok
+
+  defp verify_named_runtime_signature!(name, opts) do
+    signature = runtime_signature(opts)
+
+    case :persistent_term.get(named_runtime_key(name), nil) do
+      nil ->
+        :ok
+
+      ^signature ->
+        :ok
+
+      _other ->
+        raise ArgumentError,
+              "named Volt JS runtime #{inspect(name)} already started with different options"
+    end
+  end
+
+  defp named_runtime_key(name), do: {__MODULE__, :runtime_signature, name}
+
+  defp runtime_signature(opts) do
+    opts
+    |> Keyword.take([:packages, :install_dir, :entry, :bundle])
+    |> Enum.sort()
+    |> :erlang.term_to_binary()
+    |> :erlang.md5()
   end
 
   defp maybe_put(opts, _key, nil), do: opts

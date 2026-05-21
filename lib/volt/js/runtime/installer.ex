@@ -13,15 +13,18 @@ defmodule Volt.JS.Runtime.Installer do
     install_dir = Keyword.get(opts, :install_dir, default_install_dir(id))
     node_modules = Path.join(install_dir, "node_modules")
     lockfile_path = Path.join(install_dir, "npm.lock")
+    metadata_path = Path.join(install_dir, "volt-runtime.json")
+    signature = install_signature(packages)
 
-    with_lock(id, fn ->
-      if Keyword.get(opts, :force, false) do
+    with_lock(install_dir, fn ->
+      if Keyword.get(opts, :force, false) or metadata_mismatch?(metadata_path, signature) do
         File.rm_rf!(install_dir)
       end
 
-      unless install_intact?(lockfile_path, node_modules) do
+      unless install_intact?(lockfile_path, node_modules, metadata_path, signature) do
         File.mkdir_p!(install_dir)
         resolve_and_link!(packages, node_modules, lockfile_path)
+        write_metadata!(metadata_path, signature, packages)
       end
     end)
 
@@ -76,8 +79,9 @@ defmodule Volt.JS.Runtime.Installer do
     end
   end
 
-  defp install_intact?(lockfile_path, node_modules) do
-    with {:ok, policy} <- Lockfile.read_policy(lockfile_path),
+  defp install_intact?(lockfile_path, node_modules, metadata_path, signature) do
+    with true <- metadata_matches?(metadata_path, signature),
+         {:ok, policy} <- Lockfile.read_policy(lockfile_path),
          true <- Lockfile.policy_matches?(policy),
          {:ok, lockfile} when lockfile != %{} <- Lockfile.read(lockfile_path) do
       Enum.all?(lockfile, fn {name, _} ->
@@ -92,12 +96,42 @@ defmodule Volt.JS.Runtime.Installer do
     :global.trans({__MODULE__, id}, fun, [node()], :infinity)
   end
 
-  defp install_id(packages) do
+  defp metadata_mismatch?(metadata_path, signature) do
+    File.exists?(metadata_path) and not metadata_matches?(metadata_path, signature)
+  end
+
+  defp metadata_matches?(metadata_path, signature) do
+    case File.read(metadata_path) do
+      {:ok, json} ->
+        case Jason.decode(json) do
+          {:ok, %{"signature" => ^signature}} -> true
+          _ -> false
+        end
+
+      {:error, _} ->
+        false
+    end
+  end
+
+  defp write_metadata!(metadata_path, signature, packages) do
+    File.write!(
+      metadata_path,
+      Jason.encode!(%{"signature" => signature, "packages" => stringify_packages(packages)})
+    )
+  end
+
+  defp install_id(packages), do: install_signature(packages)
+
+  defp install_signature(packages) do
     packages
     |> Enum.sort()
     |> :erlang.term_to_binary()
     |> :erlang.md5()
     |> Base.encode16(case: :lower)
+  end
+
+  defp stringify_packages(packages) do
+    Map.new(packages, fn {name, requirement} -> {to_string(name), to_string(requirement)} end)
   end
 
   defp default_install_dir(id) do

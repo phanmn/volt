@@ -81,7 +81,7 @@ defmodule Mix.Tasks.Volt.BuildTest do
     ])
 
     js_path = Path.join([outdir, "js", "app.js"])
-    assert File.read!(js_path) =~ "/cdn/assets/logo.svg"
+    assert File.read!(js_path) =~ ~r(/cdn/assets/logo-[a-f0-9]{8}\.svg)
   end
 
   test "--sourcemap false disables production sourcemaps", %{tmp_dir: tmp_dir} do

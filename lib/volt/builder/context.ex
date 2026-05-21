@@ -12,5 +12,6 @@ defmodule Volt.Builder.Context do
             import_source: nil,
             target: "",
             define: %{},
-            asset_url_prefix: "/assets"
+            asset_url_prefix: "/assets",
+            asset_outdir: nil
 end

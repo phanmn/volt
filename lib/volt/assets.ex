@@ -71,6 +71,16 @@ defmodule Volt.Assets do
   """
   @spec to_js_module(String.t(), keyword()) :: {:ok, String.t()} | {:error, term()}
   def to_js_module(path, opts \\ []) do
+    case emit_js_module(path, opts) do
+      {:ok, %{code: code}} -> {:ok, code}
+      {:error, _} = error -> error
+    end
+  end
+
+  @doc "Generate a JS module for an asset and return emitted asset filenames."
+  @spec emit_js_module(String.t(), keyword()) ::
+          {:ok, %{code: String.t(), assets: [String.t()]}} | {:error, term()}
+  def emit_js_module(path, opts \\ []) do
     cond do
       Keyword.get(opts, :raw, false) ->
         raw_asset(path)
@@ -128,7 +138,7 @@ defmodule Volt.Assets do
 
   defp raw_asset(path) do
     case File.read(path) do
-      {:ok, content} -> {:ok, export_default_literal(content)}
+      {:ok, content} -> {:ok, asset_module(content)}
       {:error, reason} -> {:error, reason}
     end
   end
@@ -137,7 +147,7 @@ defmodule Volt.Assets do
     content = File.read!(path)
     mime = mime_type(path)
     encoded = Base.encode64(content)
-    {:ok, export_default_literal("data:#{mime};base64,#{encoded}")}
+    {:ok, asset_module("data:#{mime};base64,#{encoded}")}
   end
 
   defp reference_asset(path, opts) do
@@ -146,12 +156,16 @@ defmodule Volt.Assets do
     case Keyword.get(opts, :outdir) do
       nil ->
         url = Keyword.get(opts, :url_path) || Volt.URL.join(prefix, Path.basename(path))
-        {:ok, export_default_literal(url)}
+        {:ok, asset_module(url)}
 
       outdir ->
         {:ok, filename} = copy_hashed(path, outdir)
-        {:ok, export_default_literal(Volt.URL.join(prefix, filename))}
+        {:ok, asset_module(Volt.URL.join(prefix, filename), [filename])}
     end
+  end
+
+  defp asset_module(value, assets \\ []) do
+    %{code: export_default_literal(value), assets: assets}
   end
 
   defp export_default_literal(value) do

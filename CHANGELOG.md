@@ -13,6 +13,10 @@
 - Production builds now tree-shake JavaScript by default, with `tree_shaking: false` and `mix volt.build --no-tree-shaking` available to preserve unused exports.
 - Code-split dynamic imports now preload dependency chunks and chunk-local CSS when doing so avoids loading waterfalls.
 - HMR boundary lookup now uses a served module graph, with a dedicated glob graph for `import.meta.glob()` invalidation.
+- Production builds now write the final merged manifest once after all entries are built.
+- Production JavaScript asset URL imports now emit hashed files and include them in manifest asset metadata.
+- Worker build failures now fail the parent build instead of being ignored.
+- JavaScript runtime installs now validate package signatures for reused install directories, and named runtimes reject option mismatches.
 
 ### Breaking changes
 

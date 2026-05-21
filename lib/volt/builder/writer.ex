@@ -56,8 +56,6 @@ defmodule Volt.Builder.Writer do
         }
       }
 
-      write_manifest(outdir, manifest)
-
       {:ok,
        %Volt.Builder.Result{
          js: [],
@@ -106,16 +104,21 @@ defmodule Volt.Builder.Writer do
     File.write!(Path.join(outdir, "manifest.json"), :json.encode(manifest))
   end
 
-  def build_manifest(name, js_filename, css_result) do
+  def build_manifest(name, js_filename, css_result, assets \\ []) do
     manifest = %{
-      "#{name}.js" => %{
-        "file" => js_filename,
-        "src" => "#{name}.js"
-      }
+      "#{name}.js" =>
+        %{
+          "file" => js_filename,
+          "src" => "#{name}.js"
+        }
+        |> add_js_assets(assets)
     }
 
     add_css_to_manifest(manifest, name, css_result)
   end
+
+  defp add_js_assets(entry, []), do: entry
+  defp add_js_assets(entry, assets), do: Map.put(entry, "assets", Enum.uniq(assets))
 
   def add_css_to_manifest(manifest, _name, nil), do: manifest
 

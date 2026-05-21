@@ -111,7 +111,8 @@ defmodule Volt.Builder do
       import_source: import_source,
       target: target,
       define: all_define,
-      asset_url_prefix: asset_url_prefix
+      asset_url_prefix: asset_url_prefix,
+      asset_outdir: outdir
     }
 
     bundle_opts =
@@ -145,10 +146,9 @@ defmodule Volt.Builder do
         end)
       end)
 
-    case Enum.split_with(results, &match?({:ok, _}, &1)) do
-      {[single], []} -> single
-      {successes, []} when successes != [] -> {:ok, merge_build_results(successes)}
-      {_, [first_error | _]} -> first_error
+    with {:ok, result} <- finalize_build_results(results) do
+      Volt.Builder.Writer.write_manifest(outdir, result.manifest)
+      {:ok, result}
     end
   end
 
@@ -163,7 +163,8 @@ defmodule Volt.Builder do
 
     with {:ok, modules, dep_map, workers, specifier_labels, path_labels} <-
            Collector.collect(entry, ctx),
-         {:ok, compiled} <- compile_all(modules, target, ctx) do
+         {:ok, compiled} <- compile_all(modules, target, ctx),
+         {:ok, worker_results} <- build_worker_results(workers, ctx, build_ctx) do
       compiled = rewrite_nonlocal_labels(compiled, specifier_labels, path_labels)
 
       output_ctx = %Volt.Builder.OutputContext{
@@ -171,7 +172,7 @@ defmodule Volt.Builder do
         external_set: ctx.external,
         external_globals: ctx.external_globals,
         workers: workers,
-        worker_results: build_worker_results(workers, ctx, build_ctx)
+        worker_results: worker_results
       }
 
       out = %Volt.Builder.BuildContext{
@@ -222,9 +223,9 @@ defmodule Volt.Builder do
     workers
     |> Enum.flat_map(fn {_importer, spec_map} -> Map.to_list(spec_map) end)
     |> Enum.uniq_by(fn {_specifier, resolved_path} -> resolved_path end)
-    |> Enum.reduce(%{}, fn {_specifier, resolved_path}, acc ->
+    |> Enum.reduce_while({:ok, %{}}, fn {_specifier, resolved_path}, {:ok, acc} ->
       if Map.has_key?(acc, resolved_path) do
-        acc
+        {:cont, {:ok, acc}}
       else
         worker_name = resolved_path |> Path.basename() |> Path.rootname()
 
@@ -235,8 +236,14 @@ defmodule Volt.Builder do
                ctx,
                %{build_ctx | code_splitting: false}
              ) do
-          {:ok, %{js: %{path: path}}} -> Map.put(acc, resolved_path, Path.basename(path))
-          _ -> acc
+          {:ok, %{js: %{path: path}}} ->
+            {:cont, {:ok, Map.put(acc, resolved_path, Path.basename(path))}}
+
+          {:ok, _result} ->
+            {:halt, {:error, {:worker_build_failed, resolved_path, :missing_js_output}}}
+
+          {:error, reason} ->
+            {:halt, {:error, {:worker_build_failed, resolved_path, reason}}}
         end
       end
     end)
@@ -253,7 +260,7 @@ defmodule Volt.Builder do
   defp compile_modules(modules, ctx) do
     Enum.reduce_while(modules, {:ok, []}, fn {path, label, source}, {:ok, acc} ->
       case compile_module(path, label, source, ctx) do
-        {:ok, js, css} -> {:cont, {:ok, [{label, js, css_part(path, css)} | acc]}}
+        {:ok, js, css, assets} -> {:cont, {:ok, [{label, js, css_part(path, css), assets} | acc]}}
         {:error, _} = error -> {:halt, error}
       end
     end)
@@ -263,14 +270,14 @@ defmodule Volt.Builder do
   defp css_part(path, css), do: {path, css}
 
   defp merge_compiled(compiled) do
-    {js_files, css_parts} =
+    {js_files, css_parts, assets} =
       compiled
       |> Enum.reverse()
-      |> Enum.reduce({[], []}, fn {label, js, css}, {js_acc, css_acc} ->
-        {[{label, js} | js_acc], if(css, do: [css | css_acc], else: css_acc)}
+      |> Enum.reduce({[], [], []}, fn {label, js, css, assets}, {js_acc, css_acc, asset_acc} ->
+        {[{label, js} | js_acc], if(css, do: [css | css_acc], else: css_acc), assets ++ asset_acc}
       end)
 
-    {:ok, {Enum.reverse(js_files), Enum.reverse(css_parts)}}
+    {:ok, {Enum.reverse(js_files), Enum.reverse(css_parts), Enum.uniq(assets)}}
   end
 
   defp compile_module(module_id, _label, source, ctx) do
@@ -288,11 +295,12 @@ defmodule Volt.Builder do
           url: Map.has_key?(query_params, "url"),
           inline: Map.has_key?(query_params, "inline"),
           no_inline: Map.has_key?(query_params, "no-inline"),
-          prefix: ctx.asset_url_prefix
+          prefix: ctx.asset_url_prefix,
+          outdir: ctx.asset_outdir
         ]
 
-        case Volt.Assets.to_js_module(path, asset_opts) do
-          {:ok, js} -> {:ok, js, nil}
+        case Volt.Assets.emit_js_module(path, asset_opts) do
+          {:ok, %{code: js, assets: assets}} -> {:ok, js, nil, assets}
           {:error, _} = error -> error
         end
 
@@ -304,7 +312,7 @@ defmodule Volt.Builder do
                plugins: ctx.plugins,
                loaders: ctx.loaders
              ) do
-          {:ok, %{code: code, css: css}} -> {:ok, code, css}
+          {:ok, %{code: code, css: css}} -> {:ok, code, css, []}
           {:error, _} = error -> error
         end
     end
@@ -318,12 +326,12 @@ defmodule Volt.Builder do
            plugins: ctx.plugins,
            loaders: ctx.loaders
          ) do
-      {:ok, %{code: css}} -> {:ok, "export default undefined;", css}
+      {:ok, %{code: css}} -> {:ok, "export default undefined;", css, []}
       {:error, _} = error -> error
     end
   end
 
-  defp rewrite_nonlocal_labels({js_files, css_parts}, specifier_labels, path_labels) do
+  defp rewrite_nonlocal_labels({js_files, css_parts, assets}, specifier_labels, path_labels) do
     label_to_path = Map.new(path_labels, fn {path, label} -> {label, path} end)
 
     global_specifier_map =
@@ -355,7 +363,7 @@ defmodule Volt.Builder do
         {label, new_code}
       end)
 
-    {js_files, css_parts}
+    {js_files, css_parts, assets}
   end
 
   defp relative_label(from_label, to_label) do
@@ -463,6 +471,14 @@ defmodule Volt.Builder do
 
   defp to_string_or_nil(nil), do: nil
   defp to_string_or_nil(value), do: to_string(value)
+
+  defp finalize_build_results(results) do
+    case Enum.split_with(results, &match?({:ok, _}, &1)) do
+      {[{:ok, single}], []} -> {:ok, single}
+      {successes, []} when successes != [] -> {:ok, merge_build_results(successes)}
+      {_, [first_error | _]} -> first_error
+    end
+  end
 
   defp merge_build_results(results) do
     Enum.reduce(results, %Volt.Builder.Result{}, fn {:ok, result}, acc ->
