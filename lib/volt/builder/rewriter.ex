@@ -142,7 +142,7 @@ defmodule Volt.Builder.Rewriter do
   end
 
   defp preload_helper do
-    "const __voltPreload = (load, deps) => Promise.all(deps.map((dep) => { const link = document.createElement(\"link\"); link.rel = dep.endsWith(\".css\") ? \"stylesheet\" : \"modulepreload\"; link.href = dep; document.head.appendChild(link); return link.rel === \"stylesheet\" ? new Promise((resolve, reject) => { link.onload = resolve; link.onerror = reject; }) : Promise.resolve(); })).then(load);\n"
+    Volt.JS.Asset.compiled!("preload-helper.ts") <> "\n"
   end
 
   defp collect_external_chunk_imports(code, module_to_chunk, current_chunk_id) do
