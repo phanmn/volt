@@ -80,7 +80,7 @@ defmodule Volt.DevServer do
   def call(%Conn{request_path: "/@volt/client.js"} = conn, _config) do
     conn
     |> Conn.put_resp_content_type("application/javascript")
-    |> Conn.send_resp(200, Volt.HMR.Client.js())
+    |> Conn.send_resp(200, Volt.JS.Asset.compiled!("hmr-client.ts"))
     |> Conn.halt()
   end
 

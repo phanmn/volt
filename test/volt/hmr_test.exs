@@ -1,34 +1,6 @@
 defmodule Volt.HMRTest do
   use ExUnit.Case, async: false
 
-  describe "Volt.HMR.Client" do
-    test "returns JavaScript string" do
-      js = Volt.HMR.Client.js()
-      assert is_binary(js)
-      assert js =~ "WebSocket"
-      assert js =~ "@volt/ws"
-      assert js =~ "HMR connected"
-    end
-
-    test "handles style-only updates without reload" do
-      js = Volt.HMR.Client.js()
-      assert js =~ "updateStyles"
-      assert js =~ "style"
-    end
-
-    test "handles error overlay" do
-      js = Volt.HMR.Client.js()
-      assert js =~ "showOverlay"
-      assert js =~ "volt-error-overlay"
-    end
-
-    test "reconnects on close" do
-      js = Volt.HMR.Client.js()
-      assert js =~ "Reconnecting"
-      assert js =~ "setTimeout"
-    end
-  end
-
   describe "Volt.HMR.Socket" do
     test "init registers with registry" do
       {:ok, _state} = Volt.HMR.Socket.init(nil)
