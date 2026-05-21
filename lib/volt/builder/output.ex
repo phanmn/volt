@@ -74,76 +74,70 @@ defmodule Volt.Builder.Output do
 
     with {:ok, chunk_bundles} <-
            build_chunk_bundles(graph.chunks, js_map, module_labels, bundle_opts, ctx, graph) do
-      chunk_url_map =
-        Map.new(chunk_bundles, fn {chunk_id, {_code, _sourcemap}} ->
-          chunk = graph.chunks[chunk_id]
-          chunk_name = if chunk.type == :entry, do: name, else: "#{name}-#{chunk_id}"
-
-          {chunk_id,
-           Writer.hashed_name(chunk_name, elem(chunk_bundles[chunk_id], 0), ".js", hash)}
-        end)
-
-      js_results =
-        Enum.map(chunk_bundles, fn {chunk_id, {code, sourcemap}} ->
-          chunk = graph.chunks[chunk_id]
-          chunk_js = select_chunk_files(chunk.modules, js_map, module_labels)
-          code = Rewriter.inject_external_preamble(code, chunk_js, ctx)
-          code = Rewriter.rewrite_chunk_imports(code, graph.module_to_chunk, chunk_url_map)
-
-          code =
-            Rewriter.rewrite_worker_urls(code, Rewriter.entry_worker_map(chunk_js, ctx), chunk_id)
-
-          code =
-            Volt.PluginRunner.render_chunk(ctx.plugins, code, %{name: chunk_id, type: chunk.type})
-
-          filename =
-            Writer.hashed_name(
-              if(chunk.type == :entry, do: name, else: "#{name}-#{chunk_id}"),
-              code,
-              ".js",
-              hash
-            )
-
-          Writer.write_js(outdir, filename, code, sourcemap, hidden: sourcemap_hidden)
-
-          %Volt.Builder.OutputFile{
-            path: Path.join(outdir, filename),
-            size: byte_size(code),
-            chunk_id: chunk_id,
-            type: chunk.type
-          }
-        end)
-
       css_opts = Keyword.put(bundle_opts, :asset_url_prefix, asset_url_prefix)
 
-      with {:ok, css_result} <- Writer.write_css(css_parts, outdir, name, hash, css_opts) do
+      with {:ok, css_results} <-
+             write_chunk_css(css_parts, graph, outdir, name, hash, css_opts) do
+        {chunk_url_map, processed_chunks} =
+          finalize_chunk_urls(
+            chunk_bundles,
+            graph,
+            js_map,
+            module_labels,
+            css_results,
+            ctx,
+            name,
+            hash
+          )
+
+        js_results =
+          Enum.map(processed_chunks, fn {chunk_id, {code, sourcemap}} ->
+            chunk = graph.chunks[chunk_id]
+            filename = chunk_url_map[chunk_id]
+
+            Writer.write_js(outdir, filename, code, sourcemap, hidden: sourcemap_hidden)
+
+            %Volt.Builder.OutputFile{
+              path: Path.join(outdir, filename),
+              size: byte_size(code),
+              chunk_id: chunk_id,
+              type: chunk.type
+            }
+          end)
+
         entry_js = Enum.find(js_results, &(&1.type == :entry)) || hd(js_results)
+        entry_css = css_results[entry_js.chunk_id]
 
         manifest =
           js_results
           |> Enum.reduce(%{}, fn js, acc ->
             chunk = graph.chunks[js.chunk_id]
             filename = Path.basename(js.path)
-            Map.put(acc, filename, chunk_manifest_entry(filename, filename, chunk, chunk_url_map))
+
+            entry =
+              filename
+              |> chunk_manifest_entry(filename, chunk, chunk_url_map)
+              |> add_chunk_css(css_results[js.chunk_id])
+
+            Map.put(acc, filename, entry)
           end)
           |> Map.put(
             "#{name}.js",
-            chunk_manifest_entry(
-              "#{name}.js",
+            "#{name}.js"
+            |> chunk_manifest_entry(
               Path.basename(entry_js.path),
               graph.chunks[entry_js.chunk_id],
               chunk_url_map
             )
+            |> add_chunk_css(entry_css)
           )
-
-        manifest = Writer.add_css_to_manifest(manifest, name, css_result)
 
         Writer.write_manifest(outdir, manifest)
 
         {:ok,
          %Volt.Builder.Result{
            js: entry_js,
-           css: css_result,
+           css: entry_css,
            manifest: manifest,
            chunks: js_results
          }}
@@ -151,10 +145,164 @@ defmodule Volt.Builder.Output do
     end
   end
 
+  defp finalize_chunk_urls(
+         chunk_bundles,
+         graph,
+         js_map,
+         module_labels,
+         css_results,
+         ctx,
+         name,
+         hash
+       ) do
+    initial_url_map = chunk_url_map(chunk_bundles, graph.chunks, name, hash)
+
+    do_finalize_chunk_urls(
+      chunk_bundles,
+      graph,
+      js_map,
+      module_labels,
+      css_results,
+      ctx,
+      name,
+      hash,
+      initial_url_map,
+      0
+    )
+  end
+
+  defp do_finalize_chunk_urls(
+         chunk_bundles,
+         graph,
+         js_map,
+         module_labels,
+         css_results,
+         ctx,
+         name,
+         hash,
+         url_map,
+         iteration
+       ) do
+    processed =
+      process_chunks(chunk_bundles, graph, js_map, module_labels, css_results, ctx, url_map)
+
+    next_url_map = chunk_url_map(processed, graph.chunks, name, hash)
+
+    if next_url_map == url_map or iteration >= 5 do
+      {next_url_map, processed}
+    else
+      do_finalize_chunk_urls(
+        chunk_bundles,
+        graph,
+        js_map,
+        module_labels,
+        css_results,
+        ctx,
+        name,
+        hash,
+        next_url_map,
+        iteration + 1
+      )
+    end
+  end
+
+  defp process_chunks(
+         chunk_bundles,
+         graph,
+         js_map,
+         module_labels,
+         css_results,
+         ctx,
+         chunk_url_map
+       ) do
+    preload_map = dynamic_preload_map(graph.chunks, chunk_url_map, css_results)
+
+    Map.new(chunk_bundles, fn {chunk_id, {code, sourcemap}} ->
+      chunk = graph.chunks[chunk_id]
+      chunk_js = select_chunk_files(chunk.modules, js_map, module_labels)
+      code = Rewriter.inject_external_preamble(code, chunk_js, ctx)
+      code = Rewriter.rewrite_chunk_imports(code, graph.module_to_chunk, chunk_url_map)
+      code = Rewriter.rewrite_dynamic_preloads(code, preload_map)
+
+      code =
+        Rewriter.rewrite_worker_urls(
+          code,
+          Rewriter.entry_worker_map(chunk_js, ctx),
+          chunk_id
+        )
+
+      code =
+        Volt.PluginRunner.render_chunk(ctx.plugins, code, %{
+          name: chunk_id,
+          type: chunk.type
+        })
+
+      {chunk_id, {code, sourcemap}}
+    end)
+  end
+
+  defp chunk_url_map(chunk_bundles, chunks, name, hash) do
+    Map.new(chunk_bundles, fn {chunk_id, {code, _sourcemap}} ->
+      chunk = chunks[chunk_id]
+      {chunk_id, Writer.hashed_name(chunk_output_name(chunk, name), code, ".js", hash)}
+    end)
+  end
+
+  defp dynamic_preload_map(chunks, chunk_url_map, css_results) do
+    chunks
+    |> Enum.flat_map(fn {_chunk_id, chunk} -> chunk.dynamic_imports end)
+    |> Enum.uniq()
+    |> Map.new(fn chunk_id ->
+      {"./#{chunk_url_map[chunk_id]}", preload_deps(chunks[chunk_id], chunk_url_map, css_results)}
+    end)
+  end
+
+  defp preload_deps(chunk, chunk_url_map, css_results) do
+    chunk.imports
+    |> Enum.flat_map(fn import_id ->
+      chunk_file = chunk_url_map[import_id]
+      css_files = css_files(css_results[import_id])
+      List.wrap(chunk_file) ++ css_files
+    end)
+    |> Kernel.++(css_files(css_results[chunk.id]))
+    |> Enum.map(&"./#{&1}")
+    |> Enum.uniq()
+  end
+
+  defp css_files(nil), do: []
+  defp css_files(css_result), do: [Path.basename(css_result.path) | css_result.assets]
+
+  defp write_chunk_css(css_parts, graph, outdir, name, hash, css_opts) do
+    css_parts
+    |> Enum.group_by(fn {path, _css} -> Map.get(graph.module_to_chunk, path, "entry") end)
+    |> Enum.reduce_while({:ok, %{}}, fn {chunk_id, parts}, {:ok, acc} ->
+      chunk = graph.chunks[chunk_id]
+
+      case Writer.write_css(parts, outdir, chunk_output_name(chunk, name), hash, css_opts) do
+        {:ok, nil} -> {:cont, {:ok, acc}}
+        {:ok, css_result} -> {:cont, {:ok, Map.put(acc, chunk_id, css_result)}}
+        {:error, _} = error -> {:halt, error}
+      end
+    end)
+  end
+
+  defp chunk_output_name(%{type: :entry}, name), do: name
+  defp chunk_output_name(chunk, name), do: "#{name}-#{chunk.id}"
+
   defp chunk_manifest_entry(src, filename, chunk, chunk_url_map) do
     %{"file" => filename, "src" => src}
     |> maybe_put_chunk_files("imports", chunk.imports, chunk_url_map)
     |> maybe_put_chunk_files("dynamicImports", chunk.dynamic_imports, chunk_url_map)
+  end
+
+  defp add_chunk_css(entry, nil), do: entry
+
+  defp add_chunk_css(entry, css_result) do
+    css_file = Path.basename(css_result.path)
+
+    entry
+    |> Map.put("css", [css_file])
+    |> Map.put("assets", Enum.uniq([css_file | css_result.assets]))
   end
 
   defp maybe_put_chunk_files(entry, _key, [], _chunk_url_map), do: entry

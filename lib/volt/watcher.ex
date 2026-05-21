@@ -186,6 +186,7 @@ defmodule Volt.Watcher do
 
     old_entry = Volt.Cache.get_file(path)
     Volt.Cache.evict_file(path)
+    Volt.HMR.ModuleGraph.invalidate_file(path)
 
     case File.read(path) do
       {:ok, source} ->
@@ -203,6 +204,7 @@ defmodule Volt.Watcher do
 
       {:error, :enoent} ->
         Volt.DepGraph.remove(path)
+        Volt.HMR.ModuleGraph.remove_file(path)
         broadcast(:remove, %{path: relative})
         broadcast_glob_dependents(path, state.root)
     end
@@ -211,6 +213,7 @@ defmodule Volt.Watcher do
   defp handle_asset_change(path, state) do
     relative = Path.relative_to(path, state.root)
     Volt.Cache.evict_file(path)
+    Volt.HMR.ModuleGraph.invalidate_file(path)
     broadcast(:update, %{path: relative, changes: [:full]})
     broadcast_glob_dependents(path, state.root)
   end

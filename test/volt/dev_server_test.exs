@@ -16,6 +16,7 @@ defmodule Volt.DevServerTest do
     """)
 
     Volt.Cache.clear()
+    Volt.HMR.ModuleGraph.clear()
 
     on_exit(fn -> File.rm_rf!(@fixture_dir) end)
     :ok
@@ -243,6 +244,27 @@ defmodule Volt.DevServerTest do
   end
 
   describe "caching" do
+    test "records served modules in HMR module graph" do
+      call_dev_server("/assets/app.ts")
+
+      node = Volt.HMR.ModuleGraph.get_by_url("/assets/app.ts")
+
+      assert node.file == Path.join(@fixture_dir, "src/app.ts")
+      assert node.type == :js
+    end
+
+    test "records CSS import query variants separately in HMR module graph" do
+      call_dev_server("/assets/style.css")
+      call_dev_server("/assets/style.css?import")
+
+      nodes = Volt.HMR.ModuleGraph.get_by_file(Path.join(@fixture_dir, "src/style.css"))
+
+      assert Enum.map(nodes, & &1.url) |> Enum.sort() == [
+               "/assets/style.css",
+               "/assets/style.css?import"
+             ]
+    end
+
     test "serves from cache on second request" do
       call_dev_server("/assets/app.ts")
       conn = call_dev_server("/assets/app.ts")

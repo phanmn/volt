@@ -78,6 +78,24 @@ defmodule Volt.Builder.Rewriter do
     |> Map.new()
   end
 
+  def rewrite_dynamic_preloads(code, preload_map) when preload_map == %{}, do: code
+
+  def rewrite_dynamic_preloads(code, preload_map) do
+    case OXC.parse(code, "chunk.js") do
+      {:ok, ast} ->
+        patches = collect_dynamic_preload_patches(ast, code, preload_map)
+
+        if patches == [] do
+          code
+        else
+          preload_helper() <> Volt.JS.Patch.apply(code, patches)
+        end
+
+      {:error, _} ->
+        code
+    end
+  end
+
   def rewrite_worker_urls(code, worker_map, _filename) when worker_map == %{}, do: code
 
   def rewrite_worker_urls(code, worker_map, filename) do
@@ -90,6 +108,41 @@ defmodule Volt.Builder.Rewriter do
       {:ok, rewritten} -> rewritten
       {:error, _} -> code
     end
+  end
+
+  defp collect_dynamic_preload_patches(ast, code, preload_map) do
+    {_ast, patches} =
+      OXC.postwalk(ast, [], fn
+        %{type: :import_expression, source: source, start: start, end: finish} = node, patches
+        when is_integer(start) and is_integer(finish) ->
+          case Volt.JS.AST.string_literal_span(source) do
+            {:ok, specifier, _s, _e} ->
+              case Map.get(preload_map, specifier) do
+                deps when is_list(deps) and deps != [] ->
+                  import_expression = binary_part(code, start, finish - start)
+
+                  replacement =
+                    "__voltPreload(() => #{import_expression}, #{Jason.encode!(deps)})"
+
+                  {node, [Volt.JS.Patch.new(start, finish, replacement) | patches]}
+
+                _ ->
+                  {node, patches}
+              end
+
+            nil ->
+              {node, patches}
+          end
+
+        node, patches ->
+          {node, patches}
+      end)
+
+    patches
+  end
+
+  defp preload_helper do
+    "const __voltPreload = (load, deps) => Promise.all(deps.map((dep) => { const link = document.createElement(\"link\"); link.rel = dep.endsWith(\".css\") ? \"stylesheet\" : \"modulepreload\"; link.href = dep; document.head.appendChild(link); return link.rel === \"stylesheet\" ? new Promise((resolve, reject) => { link.onload = resolve; link.onerror = reject; }) : Promise.resolve(); })).then(load);\n"
   end
 
   defp collect_external_chunk_imports(code, module_to_chunk, current_chunk_id) do

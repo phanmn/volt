@@ -543,6 +543,41 @@ defmodule Volt.BuilderTest do
       assert manifest["dynamic-entry-lazy.js"]["file"] == "dynamic-entry-lazy.js"
     end
 
+    test "code splitting records async chunk css in manifest and preloads it" do
+      File.write!(Path.join(@fixture_dir, "src/lazy.css"), ".lazy { color: red }")
+
+      File.write!(Path.join(@fixture_dir, "src/lazy.ts"), """
+      import './lazy.css'
+      export const lazyValue = 'lazy-loaded'
+      """)
+
+      File.write!(Path.join(@fixture_dir, "src/dynamic_css_entry.ts"), """
+      import('./lazy').then((mod) => {
+        document.body.dataset.lazy = mod.lazyValue
+      })
+      """)
+
+      {:ok, result} =
+        Volt.Builder.build(
+          entry: Path.join(@fixture_dir, "src/dynamic_css_entry.ts"),
+          outdir: @outdir,
+          name: "dynamic-css-entry",
+          format: :esm,
+          hash: false,
+          minify: false,
+          sourcemap: false
+        )
+
+      entry_js = File.read!(result.js.path)
+      assert entry_js =~ "__voltPreload"
+      assert entry_js =~ "./dynamic-css-entry-lazy.css"
+
+      manifest = Path.join(@outdir, "manifest.json") |> File.read!() |> :json.decode()
+      assert manifest["dynamic-css-entry-lazy.js"]["css"] == ["dynamic-css-entry-lazy.css"]
+      assert manifest["dynamic-css-entry.js"]["dynamicImports"] == ["dynamic-css-entry-lazy.js"]
+      assert File.read!(Path.join(@outdir, "dynamic-css-entry-lazy.css")) =~ "lazy"
+    end
+
     test "code splitting rewrites minified dynamic import chunk URLs" do
       File.write!(
         Path.join(@fixture_dir, "src/lazy.ts"),

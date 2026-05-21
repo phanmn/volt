@@ -232,6 +232,8 @@ defmodule Volt.DevServer do
         result = rewrite_dev_css_urls(result, file_path, config)
         mod_url = Volt.URL.join(config.prefix, relative)
         code = code_for_request(result, mod_url, content_type, css_import?)
+        graph_url = if css_import?, do: URL.append_query(mod_url, "import"), else: mod_url
+        update_module_graph(graph_url, graph_url, file_path, code, source, content_type)
 
         entry = %Volt.DevServer.CacheEntry{
           code: code,
@@ -251,6 +253,22 @@ defmodule Volt.DevServer do
         |> Conn.halt()
     end
   end
+
+  defp update_module_graph(mod_url, cache_key, file_path, code, source, content_type) do
+    imports =
+      case OXC.imports(code, Path.basename(file_path)) do
+        {:ok, imports} -> imports
+        {:error, _} -> []
+      end
+
+    Volt.HMR.ModuleGraph.update_module(mod_url, cache_key, file_path, imports,
+      type: module_graph_type(content_type),
+      self_accepting: Volt.HMR.Boundary.self_accepting?(source)
+    )
+  end
+
+  defp module_graph_type("text/css"), do: :css
+  defp module_graph_type(_content_type), do: :js
 
   defp send_compiled(conn, code, sourcemap, content_type) do
     body =
