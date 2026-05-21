@@ -391,10 +391,7 @@ defmodule Volt.DevServer do
 
   defp css_update_module(mod_url, css, exports) do
     [
-      Volt.JS.Asset.compiled_template!("css-update-module.ts", %{
-        "__VOLT_CSS_ID__" => mod_url,
-        "__VOLT_CSS__" => css
-      }),
+      Volt.JS.Asset.compiled_template!("css-update-module.ts", id: mod_url, css: css),
       "\n",
       exports
     ]
@@ -493,7 +490,7 @@ defmodule Volt.DevServer do
   defp maybe_inject_hmr_preamble(code, _relative, _content_type), do: code
 
   defp hmr_preamble(mod_url) do
-    Volt.JS.Asset.compiled_template!("hmr-preamble.ts", %{"__VOLT_MOD_URL__" => mod_url})
+    Volt.JS.Asset.compiled_template!("hmr-preamble.ts", mod_url: mod_url)
   end
 
   # ── Vendor pre-bundling ───────────────────────────────────────────
@@ -565,9 +562,7 @@ defmodule Volt.DevServer do
     overlay = Volt.JS.Asset.compiled!("error-overlay.ts")
 
     invocation =
-      Volt.JS.Asset.compiled_template!("error-overlay-invocation.ts", %{
-        "__VOLT_ERROR_MESSAGE__" => msg
-      })
+      Volt.JS.Asset.compiled_template!("error-overlay-invocation.ts", message: msg)
 
     overlay <> "\n" <> invocation
   end

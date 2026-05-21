@@ -34,16 +34,35 @@ defmodule Volt.JS.Asset do
     end
   end
 
-  @doc "Compile a TypeScript support asset and replace string placeholders with JavaScript literals."
-  @spec compiled_template!(String.t(), %{String.t() => String.t()}) :: String.t()
-  def compiled_template!(filename, replacements) do
-    Enum.reduce(replacements, compiled!(filename), fn {placeholder, value}, code ->
-      String.replace(code, Jason.encode!(placeholder), Jason.encode!(value))
-    end)
+  @doc "Compile a TypeScript support asset after binding OXC `$placeholder` literals."
+  @spec compiled_template!(String.t(), keyword() | map()) :: String.t()
+  def compiled_template!(filename, bindings) do
+    filename
+    |> template_ast!()
+    |> OXC.bind(literal_bindings(bindings))
+    |> OXC.codegen!()
   end
 
   @spec path_for(String.t()) :: String.t()
   def path_for(filename), do: Path.join(@priv_ts, filename)
+
+  defp template_ast!(filename) do
+    key = {__MODULE__, :template_ast, filename}
+
+    case :persistent_term.get(key, nil) do
+      nil ->
+        ast = filename |> read!() |> OXC.parse!(filename)
+        :persistent_term.put(key, ast)
+        ast
+
+      ast ->
+        ast
+    end
+  end
+
+  defp literal_bindings(bindings) do
+    Enum.map(bindings, fn {key, value} -> {key, {:literal, value}} end)
+  end
 
   # OXC.transform returns a plain string with sourcemap: false,
   # or %{code: string, sourcemap: string} with sourcemap: true.

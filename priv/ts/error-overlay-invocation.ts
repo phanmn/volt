@@ -1,1 +1,1 @@
-renderErrorOverlay('__VOLT_ERROR_MESSAGE__')
+renderErrorOverlay($message)
