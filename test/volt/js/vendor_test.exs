@@ -65,6 +65,43 @@ defmodule Volt.JS.VendorTest do
       refute Map.has_key?(vendor_map, "./app")
     end
 
+    test "rebuilds cached synthetic entries when plugin prebundle source changes" do
+      defmodule SyntheticVendorOne do
+        @behaviour Volt.Plugin
+
+        def name, do: "synthetic-one"
+
+        def prebundle_entry("synthetic-lib"),
+          do: {:source, "synthetic-lib.js", "export const value = 'one'"}
+
+        def prebundle_entry(_specifier), do: nil
+      end
+
+      defmodule SyntheticVendorTwo do
+        @behaviour Volt.Plugin
+
+        def name, do: "synthetic-two"
+
+        def prebundle_entry("synthetic-lib"),
+          do: {:source, "synthetic-lib.js", "export const value = 'two'"}
+
+        def prebundle_entry(_specifier), do: nil
+      end
+
+      {:ok, one} =
+        Volt.JS.Vendor.bundle_on_demand("synthetic-lib", @node_modules,
+          plugins: [SyntheticVendorOne]
+        )
+
+      {:ok, two} =
+        Volt.JS.Vendor.bundle_on_demand("synthetic-lib", @node_modules,
+          plugins: [SyntheticVendorTwo]
+        )
+
+      assert one =~ "one"
+      assert two =~ "two"
+    end
+
     test "outputs valid ESM (export, no module.exports)" do
       Volt.JS.Vendor.prebundle(
         root: Path.join(@fixture_dir, "src"),

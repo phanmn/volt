@@ -68,6 +68,72 @@ defmodule Volt.ChunkGraphTest do
       assert "/app/shared.ts" in common.modules
     end
 
+    test "extracts modules shared by async chunks even when entry does not import them" do
+      modules = [
+        {"/app/main.ts", "main.ts", ""},
+        {"/app/lazy-a.ts", "lazy-a.ts", ""},
+        {"/app/lazy-b.ts", "lazy-b.ts", ""},
+        {"/app/shared.ts", "shared.ts", ""}
+      ]
+
+      dep_map = %{
+        "/app/main.ts" => %{static: [], dynamic: ["/app/lazy-a.ts", "/app/lazy-b.ts"]},
+        "/app/lazy-a.ts" => %{static: ["/app/shared.ts"], dynamic: []},
+        "/app/lazy-b.ts" => %{static: ["/app/shared.ts"], dynamic: []},
+        "/app/shared.ts" => %{static: [], dynamic: []}
+      }
+
+      graph = ChunkGraph.build("/app/main.ts", modules, dep_map)
+
+      assert "/app/shared.ts" in graph.chunks["common"].modules
+
+      refute Enum.any?(Map.values(graph.chunks), fn chunk ->
+               chunk.type == :async and "/app/shared.ts" in chunk.modules
+             end)
+    end
+
+    test "maps dynamic entries shared by multiple chunks to common chunk" do
+      modules = [
+        {"/app/main.ts", "main.ts", ""},
+        {"/app/entry-a.ts", "entry-a.ts", ""},
+        {"/app/entry-b.ts", "entry-b.ts", ""},
+        {"/app/shared-lazy.ts", "shared-lazy.ts", ""}
+      ]
+
+      dep_map = %{
+        "/app/main.ts" => %{static: [], dynamic: ["/app/entry-a.ts", "/app/entry-b.ts"]},
+        "/app/entry-a.ts" => %{static: ["/app/shared-lazy.ts"], dynamic: []},
+        "/app/entry-b.ts" => %{static: ["/app/shared-lazy.ts"], dynamic: []},
+        "/app/shared-lazy.ts" => %{static: [], dynamic: []}
+      }
+
+      graph = ChunkGraph.build("/app/main.ts", modules, dep_map)
+
+      assert graph.module_to_chunk["/app/shared-lazy.ts"] == "common"
+    end
+
+    test "creates chunks for nested dynamic imports" do
+      modules = [
+        {"/app/main.ts", "main.ts", ""},
+        {"/app/lazy-parent.ts", "lazy-parent.ts", ""},
+        {"/app/lazy-child.ts", "lazy-child.ts", ""}
+      ]
+
+      dep_map = %{
+        "/app/main.ts" => %{static: [], dynamic: ["/app/lazy-parent.ts"]},
+        "/app/lazy-parent.ts" => %{static: [], dynamic: ["/app/lazy-child.ts"]},
+        "/app/lazy-child.ts" => %{static: [], dynamic: []}
+      }
+
+      graph = ChunkGraph.build("/app/main.ts", modules, dep_map)
+
+      assert graph.module_to_chunk["/app/lazy-parent.ts"] != nil
+      assert graph.module_to_chunk["/app/lazy-child.ts"] != nil
+
+      assert graph.module_to_chunk["/app/lazy-parent.ts"] !=
+               graph.module_to_chunk["/app/lazy-child.ts"]
+    end
+
     test "module_to_chunk maps dynamic entry to async chunk" do
       modules = [
         {"/app/main.ts", "main.ts", ""},

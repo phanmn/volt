@@ -493,16 +493,19 @@ defmodule Volt.DevServer do
   end
 
   defp serve_vendor(specifier, config) do
-    case Volt.JS.Vendor.read(specifier) do
+    vendor_opts = [
+      node_modules: config.node_modules,
+      plugins: config.plugins,
+      resolve_dirs: config.resolve_dirs,
+      module_types: config.module_types
+    ]
+
+    case Volt.JS.Vendor.read(specifier, vendor_opts) do
       {:ok, _} = ok ->
         ok
 
       {:error, :not_found} ->
-        Volt.JS.Vendor.bundle_on_demand(specifier, config.node_modules,
-          plugins: config.plugins,
-          resolve_dirs: config.resolve_dirs,
-          module_types: config.module_types
-        )
+        Volt.JS.Vendor.bundle_on_demand(specifier, config.node_modules, vendor_opts)
     end
   end
 

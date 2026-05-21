@@ -184,8 +184,7 @@ defmodule Volt.Watcher do
   defp handle_js_change(path, state) do
     relative = Path.relative_to(path, state.root)
 
-    old_mtime = Volt.Format.file_mtime(path)
-    old_entry = Volt.Cache.get(path, old_mtime)
+    old_entry = Volt.Cache.get_file(path)
     Volt.Cache.evict_file(path)
 
     case File.read(path) do
@@ -295,7 +294,7 @@ defmodule Volt.Watcher do
   defp detect_changes(nil, _new), do: [:full]
 
   defp detect_changes(old_entry, new_result) do
-    if new_result.hashes && old_entry[:hashes] do
+    if new_result.hashes && old_entry.hashes do
       old_h = old_entry.hashes
       new_h = new_result.hashes
       changes = []

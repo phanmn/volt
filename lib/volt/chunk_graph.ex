@@ -66,37 +66,10 @@ defmodule Volt.ChunkGraph do
   def build(entry_path, modules, dep_map, opts \\ []) do
     module_set = MapSet.new(modules, fn {path, _, _} -> path end)
 
-    static_reachable = reachable_static(entry_path, dep_map, module_set)
+    entry_modules = reachable_static(entry_path, dep_map, module_set)
+    async_chunks = discover_async_chunks(entry_modules, dep_map, module_set)
 
-    dynamic_entries =
-      dep_map
-      |> Enum.flat_map(fn {from, %{dynamic: dyn}} ->
-        if MapSet.member?(static_reachable, from) do
-          Enum.filter(dyn, &MapSet.member?(module_set, &1))
-        else
-          []
-        end
-      end)
-      |> Enum.uniq()
-
-    async_chunks =
-      dynamic_entries
-      |> Enum.reject(&MapSet.member?(static_reachable, &1))
-      |> Enum.map(fn dyn_entry ->
-        chunk_modules = reachable_static(dyn_entry, dep_map, module_set)
-        chunk_id = dyn_entry |> Path.basename() |> Path.rootname()
-        {dyn_entry, chunk_id, chunk_modules}
-      end)
-
-    entry_modules = static_reachable
-
-    all_async_modules =
-      Enum.flat_map(async_chunks, fn {_, _, mods} -> MapSet.to_list(mods) end) |> MapSet.new()
-
-    shared =
-      entry_modules
-      |> MapSet.intersection(all_async_modules)
-      |> MapSet.to_list()
+    shared = shared_modules([entry_modules | Enum.map(async_chunks, &elem(&1, 2))])
 
     {entry_modules, common_chunk} =
       if shared == [] do
@@ -142,18 +115,26 @@ defmodule Volt.ChunkGraph do
 
     {chunks, module_to_chunk} =
       Enum.reduce(async_chunks, {chunks, %{}}, fn {dyn_entry, id, mods}, {ch, m2c} ->
-        id = unique_id(id, ch)
-        deps = if common_chunk, do: ["common"], else: []
+        cond do
+          MapSet.size(mods) == 0 and common_member?(common_chunk, dyn_entry) ->
+            {ch, Map.put(m2c, dyn_entry, "common")}
 
-        chunk = %Chunk{
-          id: id,
-          type: :async,
-          modules: order.(mods),
-          imports: deps
-        }
+          MapSet.size(mods) == 0 ->
+            {ch, m2c}
 
-        m2c = Map.put(m2c, dyn_entry, id)
-        {Map.put(ch, id, chunk), m2c}
+          true ->
+            id = unique_id(id, ch)
+            deps = if common_chunk, do: ["common"], else: []
+
+            chunk = %Chunk{
+              id: id,
+              type: :async,
+              modules: order.(mods),
+              imports: deps
+            }
+
+            {Map.put(ch, id, chunk), Map.put(m2c, dyn_entry, id)}
+        end
       end)
 
     manual_chunks = Keyword.get(opts, :manual_chunks, %{})
@@ -166,6 +147,9 @@ defmodule Volt.ChunkGraph do
 
     %__MODULE__{chunks: chunks, module_to_chunk: module_to_chunk}
   end
+
+  defp common_member?(nil, _module), do: false
+  defp common_member?(common_chunk, module), do: MapSet.member?(common_chunk, module)
 
   defp apply_manual_chunks(chunks, module_to_chunk, manual_chunks, _order)
        when map_size(manual_chunks) == 0 do
@@ -213,6 +197,47 @@ defmodule Volt.ChunkGraph do
 
       {Map.put(ch, chunk_name, manual), m2c}
     end)
+  end
+
+  defp discover_async_chunks(entry_modules, dep_map, module_set) do
+    entry_modules
+    |> dynamic_entries(dep_map, module_set)
+    |> do_discover_async_chunks(dep_map, module_set, MapSet.new(), [])
+    |> Enum.reverse()
+  end
+
+  defp do_discover_async_chunks([], _dep_map, _module_set, _seen, chunks), do: chunks
+
+  defp do_discover_async_chunks([entry | rest], dep_map, module_set, seen, chunks) do
+    if MapSet.member?(seen, entry) do
+      do_discover_async_chunks(rest, dep_map, module_set, seen, chunks)
+    else
+      modules = reachable_static(entry, dep_map, module_set)
+      chunk = {entry, entry |> Path.basename() |> Path.rootname(), modules}
+      nested = dynamic_entries(modules, dep_map, module_set)
+
+      do_discover_async_chunks(rest ++ nested, dep_map, module_set, MapSet.put(seen, entry), [
+        chunk | chunks
+      ])
+    end
+  end
+
+  defp dynamic_entries(modules, dep_map, module_set) do
+    modules
+    |> Enum.flat_map(fn module ->
+      dep_map |> Map.get(module, %Volt.Builder.Dependencies{}) |> Map.get(:dynamic, [])
+    end)
+    |> Enum.filter(&MapSet.member?(module_set, &1))
+    |> Enum.uniq()
+  end
+
+  defp shared_modules(module_sets) do
+    module_sets
+    |> Enum.reduce(%{}, fn modules, counts ->
+      Enum.reduce(modules, counts, fn module, acc -> Map.update(acc, module, 1, &(&1 + 1)) end)
+    end)
+    |> Enum.filter(fn {_module, count} -> count > 1 end)
+    |> Enum.map(fn {module, _count} -> module end)
   end
 
   defp append_unique(items, item) do

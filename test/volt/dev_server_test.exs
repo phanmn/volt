@@ -261,6 +261,38 @@ defmodule Volt.DevServerTest do
       refute conn.resp_body =~ ~s(import "phoenix_html")
     end
 
+    test "watcher compares changed files against previous cached hashes" do
+      source_dir = Path.join(@fixture_dir, "src")
+      vue_path = Path.join(source_dir, "App.vue")
+      Registry.register(Volt.HMR.Registry, :clients, nil)
+
+      File.write!(vue_path, """
+      <template><div>{{ msg }}</div></template>
+      <script setup>const msg = 'hi'</script>
+      <style>.foo { color: red }</style>
+      """)
+
+      File.touch!(vue_path, {{2026, 1, 1}, {0, 0, 0}})
+
+      conn = call_dev_server("/assets/App.vue")
+      assert conn.status == 200
+
+      File.write!(vue_path, """
+      <template><div>{{ msg }}</div></template>
+      <script setup>const msg = 'hi'</script>
+      <style>.foo { color: green }</style>
+      """)
+
+      File.touch!(vue_path, {{2026, 1, 1}, {0, 0, 1}})
+
+      watcher =
+        start_supervised!({Volt.Watcher, root: source_dir, name: :test_hmr_cached_hashes})
+
+      send(watcher, {:rebuild, vue_path})
+
+      assert_receive {:volt_hmr, :update, %{path: "App.vue", changes: [:style]}}, 1000
+    end
+
     test "watcher invalidation evicts CSS import cache" do
       source_dir = Path.join(@fixture_dir, "src")
       css_path = Path.join(source_dir, "style.css")

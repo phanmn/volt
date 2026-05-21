@@ -92,12 +92,20 @@ defmodule Volt.JS.Vendor do
   Read a pre-bundled vendor file by specifier.
   """
   @spec read(String.t()) :: {:ok, String.t()} | {:error, :not_found}
-  def read(specifier) do
-    path = cache_path(specifier)
+  def read(specifier), do: read_cached(specifier)
 
-    case File.read(path) do
-      {:ok, _} = ok -> ok
-      {:error, _} -> {:error, :not_found}
+  @doc "Read a pre-bundled vendor file when its cache signature matches the current options."
+  @spec read(String.t(), keyword()) :: {:ok, String.t()} | {:error, :not_found}
+  def read(specifier, opts) do
+    {plugins, resolve_dirs, module_types} = normalize_on_demand_opts(opts)
+    node_modules = Keyword.get(opts, :node_modules)
+    module_dirs = module_dirs(node_modules, resolve_dirs)
+    specifier = Volt.PluginRunner.prebundle_alias(plugins, specifier)
+
+    if cache_fresh?(specifier, module_dirs, plugins, module_types) do
+      read_cached(specifier)
+    else
+      {:error, :not_found}
     end
   end
 
@@ -146,7 +154,8 @@ defmodule Volt.JS.Vendor do
   defp bundle_vendor(specifier, module_dirs, force, plugins, module_types) do
     path = cache_path(specifier)
 
-    if not force and File.regular?(path) do
+    if not force and File.regular?(path) and
+         cache_fresh?(specifier, module_dirs, plugins, module_types) do
       {:ok, path}
     else
       do_bundle_vendor(specifier, module_dirs, path, plugins, module_types)
@@ -170,6 +179,7 @@ defmodule Volt.JS.Vendor do
         case OXC.bundle(entry_path, bundle_opts) do
           {:ok, result} ->
             File.write!(output_path, extract_code(result))
+            write_cache_meta!(specifier, module_dirs, plugins, module_types)
             {:ok, output_path}
 
           {:error, _} = error ->
@@ -199,12 +209,12 @@ defmodule Volt.JS.Vendor do
     end
   end
 
-  defp synthetic_prebundle_entry(specifier, filename, source, module_dirs) do
-    dir = Path.join([cache_dir(), "entries", encode_specifier(specifier)])
+  defp synthetic_prebundle_entry(specifier, filename, source, _module_dirs) do
+    dir = Path.expand(Path.join([cache_dir(), "entries", encode_specifier(specifier)]))
     path = Path.join(dir, filename)
     File.mkdir_p!(dir)
     File.write!(path, source)
-    {:ok, path, project_root(module_dirs)}
+    {:ok, path, dir}
   end
 
   defp package_prebundle_entry(specifier, module_dirs) do
@@ -347,9 +357,91 @@ defmodule Volt.JS.Vendor do
     :ok
   end
 
+  defp read_cached(specifier) do
+    specifier
+    |> cache_path()
+    |> File.read()
+    |> case do
+      {:ok, _} = ok -> ok
+      {:error, _} -> {:error, :not_found}
+    end
+  end
+
+  defp cache_fresh?(specifier, module_dirs, plugins, module_types) do
+    File.regular?(cache_path(specifier)) and
+      File.read(cache_meta_path(specifier)) ==
+        {:ok, cache_signature(specifier, module_dirs, plugins, module_types)}
+  end
+
+  defp write_cache_meta!(specifier, module_dirs, plugins, module_types) do
+    File.write!(
+      cache_meta_path(specifier),
+      cache_signature(specifier, module_dirs, plugins, module_types)
+    )
+  end
+
+  defp cache_signature(specifier, module_dirs, plugins, module_types) do
+    :crypto.hash(
+      :sha256,
+      :erlang.term_to_binary(signature_terms(specifier, module_dirs, plugins, module_types))
+    )
+    |> Base.encode16(case: :lower)
+  end
+
+  defp signature_terms(specifier, module_dirs, plugins, module_types) do
+    %{
+      specifier: specifier,
+      module_dirs: module_dirs,
+      module_types: module_types,
+      plugins: Enum.map(plugins, &plugin_signature(&1, specifier)),
+      package: package_signature(specifier, module_dirs)
+    }
+  end
+
+  defp plugin_signature({module, opts}, specifier),
+    do: {module, opts, plugin_entry_signature(module, specifier)}
+
+  defp plugin_signature(module, specifier),
+    do: {module, plugin_entry_signature(module, specifier)}
+
+  defp plugin_entry_signature(module, specifier) do
+    if function_exported?(module, :prebundle_entry, 1) do
+      module.prebundle_entry(specifier)
+    end
+  end
+
+  defp package_signature(specifier, module_dirs) do
+    case resolve_package_entry(specifier, module_dirs) do
+      {:ok, entry_path} ->
+        {entry_path, file_signature(entry_path), package_json_signature(entry_path)}
+
+      :error ->
+        :error
+    end
+  end
+
+  defp package_json_signature(entry_path) do
+    entry_path
+    |> Path.dirname()
+    |> NPM.Resolution.PackageResolver.nearest_package()
+    |> case do
+      {:ok, package_dir, _package} -> file_signature(Path.join(package_dir, "package.json"))
+      :error -> nil
+    end
+  end
+
+  defp file_signature(path) do
+    case File.read(path) do
+      {:ok, contents} -> :crypto.hash(:sha256, contents) |> Base.encode16(case: :lower)
+      {:error, _} -> nil
+    end
+  end
+
   defp cache_path(specifier) do
     Path.join(cache_dir(), encode_specifier(specifier) <> ".js")
   end
+
+  defp cache_meta_path(specifier), do: cache_path(specifier) <> ".meta"
 
   @doc "Encode a specifier for use in URLs (escaping @ and /)."
   def encode_specifier(specifier) do

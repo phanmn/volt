@@ -32,6 +32,15 @@ defmodule Volt.Cache do
     end
   end
 
+  @doc "Look up any cached entry for a file path regardless of mtime."
+  @spec get_file(String.t()) :: entry() | nil
+  def get_file(path) do
+    case :ets.match_object(@table, {{path, :_}, :_}) do
+      [{{^path, _mtime}, entry} | _] -> entry
+      [] -> nil
+    end
+  end
+
   @doc "Store a compiled entry."
   @spec put(String.t(), integer(), entry()) :: :ok
   def put(path, mtime, entry) do

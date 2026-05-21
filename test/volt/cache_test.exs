@@ -22,6 +22,18 @@ defmodule Volt.CacheTest do
     assert Volt.Cache.get("/app.ts", 100) == entry
   end
 
+  test "get_file returns an entry regardless of mtime" do
+    entry = %{
+      code: "const x = 1",
+      sourcemap: nil,
+      css: nil,
+      content_type: "application/javascript"
+    }
+
+    Volt.Cache.put("/app.ts", 100, entry)
+    assert Volt.Cache.get_file("/app.ts") == entry
+  end
+
   test "different mtime is a miss" do
     entry = %{
       code: "const x = 1",
