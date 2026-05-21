@@ -62,7 +62,7 @@ defmodule Volt.MixProject do
         "format --check-formatted",
         "volt.js.check",
         "credo --strict",
-        "ex_dna",
+        "ex_dna --min-mass 20",
         "reach.check --dead-code --smells --strict",
         "dialyzer"
       ],

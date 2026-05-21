@@ -217,7 +217,7 @@ defmodule Volt.DevServer do
         Volt.DepGraph.update_from_source(file_path, source, result.code)
 
         result = rewrite_dev_css_urls(result, file_path, config)
-        mod_url = Path.join(config.prefix, relative)
+        mod_url = Volt.URL.join(config.prefix, relative)
         code = code_for_request(result, mod_url, content_type, css_import?)
 
         entry = %{
@@ -267,7 +267,7 @@ defmodule Volt.DevServer do
 
   defp serve_asset_module(conn, file_path, relative, config) do
     query = Volt.JS.Query.decode(conn.query_string)
-    url_path = Path.join(config.prefix, relative)
+    url_path = Volt.URL.join(config.prefix, relative)
     prefix = Path.dirname(url_path)
 
     opts = [
@@ -318,7 +318,7 @@ defmodule Volt.DevServer do
     |> Map.has_key?("import")
   end
 
-  defp cache_key_for(file_path, true), do: file_path <> "?import"
+  defp cache_key_for(file_path, true), do: Volt.JS.Query.append(file_path, "import")
   defp cache_key_for(file_path, false), do: file_path
 
   defp rewrite_dev_css_urls(%{type: :css, code: code} = result, file_path, config) do
@@ -340,7 +340,7 @@ defmodule Volt.DevServer do
   defp code_for_request(result, mod_url, content_type, true) do
     result
     |> css_import_module(mod_url)
-    |> maybe_inject_hmr_preamble(mod_url <> "?import", content_type)
+    |> maybe_inject_hmr_preamble(Volt.JS.Query.append(mod_url, "import"), content_type)
     |> maybe_inject_dev_console_forwarder(content_type)
   end
 
@@ -404,18 +404,15 @@ defmodule Volt.DevServer do
     {path_specifier, query} = Volt.JS.Query.split(specifier)
     resolved = Path.expand(Path.join(Path.dirname(importer), path_specifier))
 
-    if String.starts_with?(resolved, config.root) do
-      resolved = resolve_with_extension(resolved, config.plugins)
-      relative = Path.relative_to(resolved, config.root)
-      {:rewrite, dev_url_for(config.prefix, relative, resolved, query)}
-    else
-      :keep
-    end
+    rewrite_root_path(resolved, query, config)
   end
 
   defp rewrite_resolved_path(resolved, config) do
     {resolved, query} = Volt.JS.Query.split(resolved)
+    rewrite_root_path(resolved, query, config)
+  end
 
+  defp rewrite_root_path(resolved, query, config) do
     if String.starts_with?(resolved, config.root) do
       resolved = resolve_with_extension(resolved, config.plugins)
       relative = Path.relative_to(resolved, config.root)
@@ -431,12 +428,12 @@ defmodule Volt.DevServer do
   end
 
   defp dev_url_for(prefix, relative, resolved, query) do
-    url = Path.join(prefix, relative)
+    url = Volt.URL.join(prefix, relative)
 
     cond do
       query != "" -> Volt.JS.Query.append(url, query)
-      Path.extname(resolved) == ".css" -> url <> "?import"
-      Volt.Assets.asset?(resolved) -> url <> "?import"
+      Path.extname(resolved) == ".css" -> Volt.JS.Query.append(url, "import")
+      Volt.Assets.asset?(resolved) -> Volt.JS.Query.append(url, "import")
       true -> url
     end
   end

@@ -184,7 +184,11 @@ defmodule Volt.HMRTest do
     import Plug.Conn
 
     test "serves HMR client JS" do
-      opts = Volt.DevServer.init(root: "/tmp")
+      root = Path.join(System.tmp_dir!(), "volt-hmr-client-#{System.unique_integer([:positive])}")
+      File.mkdir_p!(root)
+      on_exit(fn -> File.rm_rf!(root) end)
+
+      opts = Volt.DevServer.init(root: root)
       conn = conn(:get, "/@volt/client.js") |> Volt.DevServer.call(opts)
       assert conn.status == 200
       assert conn.resp_body =~ "WebSocket"

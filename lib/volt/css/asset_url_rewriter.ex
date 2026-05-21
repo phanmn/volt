@@ -26,21 +26,9 @@ defmodule Volt.CSS.AssetURLRewriter do
   def rewrite_with_assets(css, nil, _outdir, _opts), do: {:ok, %{code: css, assets: []}}
 
   def rewrite_with_assets(css, source_path, outdir, opts) do
-    with {:parse, {:ok, %{ast: ast, errors: []}}} <-
-           {:parse, Vize.CSS.parse_ast(css, filename: source_path)},
-         {ast, assets} <- rewrite_build_ast(ast, source_path, outdir, opts),
-         {:print, {:ok, %{code: code, errors: []}}} <- {:print, Vize.CSS.print_ast(ast)} do
-      {:ok, %{code: code, assets: assets}}
-    else
-      {:parse, {:ok, %{errors: errors}}} when errors != [] ->
-        {:error, {:css_parse_failed, errors}}
-
-      {:parse, {:ok, %{ast: nil}}} ->
-        {:error, :css_parse_failed}
-
-      {:print, {:ok, %{errors: errors}}} when errors != [] ->
-        {:error, {:css_print_failed, errors}}
-    end
+    rewrite_css_ast(css, source_path, fn ast ->
+      rewrite_build_ast(ast, source_path, outdir, opts)
+    end)
   end
 
   @doc "Rewrite relative CSS asset URLs to dev-server URLs without copying files."
@@ -48,11 +36,20 @@ defmodule Volt.CSS.AssetURLRewriter do
   def rewrite_dev(css, nil, _root, _prefix), do: {:ok, css}
 
   def rewrite_dev(css, source_path, root, prefix) do
+    with {:ok, %{code: code}} <-
+           rewrite_css_ast(css, source_path, fn ast ->
+             {rewrite_dev_ast(ast, source_path, root, prefix), []}
+           end) do
+      {:ok, code}
+    end
+  end
+
+  defp rewrite_css_ast(css, source_path, rewrite_fn) do
     with {:parse, {:ok, %{ast: ast, errors: []}}} <-
            {:parse, Vize.CSS.parse_ast(css, filename: source_path)},
-         ast <- rewrite_dev_ast(ast, source_path, root, prefix),
+         {ast, assets} <- rewrite_fn.(ast),
          {:print, {:ok, %{code: code, errors: []}}} <- {:print, Vize.CSS.print_ast(ast)} do
-      {:ok, code}
+      {:ok, %{code: code, assets: assets}}
     else
       {:parse, {:ok, %{errors: errors}}} when errors != [] ->
         {:error, {:css_parse_failed, errors}}
@@ -108,7 +105,7 @@ defmodule Volt.CSS.AssetURLRewriter do
 
       if Volt.Assets.asset?(asset_path) and File.regular?(asset_path) do
         {filename, emitted} = emitted_filename(asset_path, outdir, emitted)
-        {:ok, append_suffix(join_url(prefix, filename), uri), emitted}
+        {:ok, append_suffix(Volt.URL.join(prefix, filename), uri), emitted}
       else
         {:ok, url, emitted}
       end
@@ -125,7 +122,7 @@ defmodule Volt.CSS.AssetURLRewriter do
       if Volt.Assets.asset?(asset_path) and File.regular?(asset_path) and
            String.starts_with?(asset_path, root) do
         relative = Path.relative_to(asset_path, root)
-        {:ok, append_suffix(join_url(prefix, relative), uri)}
+        {:ok, append_suffix(Volt.URL.join(prefix, relative), uri)}
       else
         {:ok, url}
       end
@@ -159,29 +156,9 @@ defmodule Volt.CSS.AssetURLRewriter do
     |> Path.basename()
   end
 
-  defp join_url(prefix, path) do
-    prefix = to_string(prefix)
-    path = "/" <> (path |> to_string() |> String.trim_leading("/"))
-
-    if prefix == "" do
-      String.trim_leading(path, "/")
-    else
-      prefix
-      |> URI.parse()
-      |> URI.append_path(path)
-      |> URI.to_string()
-    end
-  end
-
   defp append_suffix(path, %{query: query, fragment: fragment}) do
     path
-    |> append_query(query)
-    |> append_fragment(fragment)
+    |> Volt.URL.append_query(query)
+    |> Volt.URL.append_fragment(fragment)
   end
-
-  defp append_query(path, nil), do: path
-  defp append_query(path, query), do: path <> "?" <> query
-
-  defp append_fragment(path, nil), do: path
-  defp append_fragment(path, fragment), do: path <> "#" <> fragment
 end

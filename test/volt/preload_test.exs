@@ -17,6 +17,15 @@ defmodule Volt.PreloadTest do
       refute result =~ ".css"
     end
 
+    test "joins prefix with URI semantics" do
+      manifest = %{"app.js" => "app-abc123.js"}
+
+      result = Volt.Preload.tags(manifest, prefix: "https://cdn.example.com/assets/js/")
+
+      assert result =~ ~s(href="https://cdn.example.com/assets/js/app-abc123.js")
+      refute result =~ "https:/cdn.example.com"
+    end
+
     test "reads from manifest file" do
       dir = Path.expand("fixtures/preload", __DIR__)
       File.mkdir_p!(dir)

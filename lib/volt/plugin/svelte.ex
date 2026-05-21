@@ -186,7 +186,5 @@ defmodule Volt.Plugin.Svelte do
   defp empty_to_nil(""), do: nil
   defp empty_to_nil(value), do: value
 
-  defp hash(nil), do: nil
-  defp hash(""), do: nil
-  defp hash(value), do: :erlang.phash2(value) |> Integer.to_string(16)
+  defp hash(value), do: Volt.Plugin.Helpers.cache_hash(value)
 end

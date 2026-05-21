@@ -146,26 +146,12 @@ defmodule Volt.Assets do
 
     case Keyword.get(opts, :outdir) do
       nil ->
-        url = Keyword.get(opts, :url_path) || join_url(prefix, Path.basename(path))
+        url = Keyword.get(opts, :url_path) || Volt.URL.join(prefix, Path.basename(path))
         {:ok, ~s(export default "#{url}";\n)}
 
       outdir ->
         {:ok, filename} = copy_hashed(path, outdir)
-        {:ok, ~s(export default "#{join_url(prefix, filename)}";\n)}
-    end
-  end
-
-  defp join_url(prefix, path) do
-    prefix = to_string(prefix)
-    path = "/" <> (path |> to_string() |> String.trim_leading("/"))
-
-    if prefix == "" do
-      String.trim_leading(path, "/")
-    else
-      prefix
-      |> URI.parse()
-      |> URI.append_path(path)
-      |> URI.to_string()
+        {:ok, ~s(export default "#{Volt.URL.join(prefix, filename)}";\n)}
     end
   end
 end

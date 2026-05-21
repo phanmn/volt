@@ -25,8 +25,7 @@ defmodule Volt.JS.Query do
   Appends a query string to `path`, preserving paths with no query.
   """
   @spec append(String.t(), String.t()) :: String.t()
-  def append(path, ""), do: path
-  def append(path, query), do: path <> "?" <> query
+  def append(path, query), do: Volt.URL.append_query(path, query)
 
   @doc """
   Decodes a query string into a map.

@@ -254,7 +254,5 @@ defmodule Volt.Plugin.Solid do
   defp encode_sourcemap(map, false) when is_map(map), do: Jason.encode!(map)
   defp encode_sourcemap(value, false) when is_binary(value), do: value
 
-  defp hash(nil), do: nil
-  defp hash(""), do: nil
-  defp hash(value), do: :erlang.phash2(value) |> Integer.to_string(16)
+  defp hash(value), do: Volt.Plugin.Helpers.cache_hash(value)
 end
