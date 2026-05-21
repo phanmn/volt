@@ -320,6 +320,31 @@ During compilation, hooks run in this order:
 
 `define/1` runs once at build start. `extensions/1` is checked throughout to determine which files a plugin handles.
 
+`extract_imports/3` returns structured import metadata:
+
+```elixir
+def extract_imports(".widget" <> _ = path, source, _opts) do
+  {:ok,
+   %Volt.JS.ImportExtractor.Result{
+     imports: [{:static, "./runtime"}],
+     workers: []
+   }}
+end
+```
+
+`prebundle_entry/1` proxy entries use descriptor structs:
+
+```elixir
+def prebundle_entry("my-runtime") do
+  {:proxy, "my-runtime.js",
+   imports: [Volt.JS.PrebundleEntry.Import.default("Runtime", from: "my-runtime")],
+   exports: [
+     Volt.JS.PrebundleEntry.Export.default("Runtime"),
+     Volt.JS.PrebundleEntry.Export.members([{"create", "Runtime.create"}])
+   ]}
+end
+```
+
 ### Plugin options
 
 When configured as a `{module, opts}` tuple, the opts are passed as an extra argument to callbacks that support it. Define a callback with one additional arity to receive them:

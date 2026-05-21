@@ -53,10 +53,15 @@ defmodule Volt.JS.AST do
       ),
       do: true
 
-  def import_meta_property?(%{type: :member_expression, property: %{name: property}}, property),
-    do: true
-
   def import_meta_property?(_node, _property), do: false
+
+  def import_meta_call_arguments(node, property) when is_map(node) do
+    if node[:type] == :call_expression and import_meta_property?(node[:callee], property) do
+      {:ok, node[:arguments] || []}
+    end
+  end
+
+  def import_meta_call_arguments(_node, _property), do: nil
 
   def call_member_arguments(node, object, property) when is_map(node) do
     if node[:type] == :call_expression and member_expression?(node[:callee], object, property) do
@@ -76,6 +81,8 @@ defmodule Volt.JS.AST do
   def property_key(%{name: name}) when is_binary(name), do: {:ok, name}
   def property_key(%{value: value}) when is_binary(value), do: {:ok, value}
   def property_key(_key), do: :error
+
+  def string_literal(value) when is_binary(value), do: Jason.encode!(value)
 
   def replace_literal(ast, old_value, new_value) do
     OXC.postwalk(ast, fn

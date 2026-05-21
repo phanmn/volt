@@ -57,6 +57,24 @@ defmodule Volt.DevServerTest do
   end
 
   describe "TypeScript files" do
+    test "does not allow source path traversal" do
+      File.write!(Path.join(@fixture_dir, "secret.ts"), "export const secret = true")
+
+      conn = call_dev_server("/assets/../secret.ts")
+
+      assert conn.status == nil
+    end
+
+    test "does not allow sibling-root prefix traversal" do
+      sibling = Path.join(@fixture_dir, "src-other")
+      File.mkdir_p!(sibling)
+      File.write!(Path.join(sibling, "secret.ts"), "export const secret = true")
+
+      conn = call_dev_server("/assets/../src-other/secret.ts")
+
+      assert conn.status == nil
+    end
+
     test "serves compiled TypeScript" do
       conn = call_dev_server("/assets/app.ts")
       assert conn.status == 200

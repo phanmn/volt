@@ -62,7 +62,7 @@ defmodule Volt.JS.PrebundleEntry do
   end
 
   defp literal!(value) when is_binary(value) do
-    :json.encode(value)
+    Jason.encode!(value)
   end
 
   defp expression!(expression) when is_binary(expression) do

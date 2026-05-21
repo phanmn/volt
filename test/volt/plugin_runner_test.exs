@@ -135,6 +135,15 @@ defmodule Volt.PluginRunnerTest do
   end
 
   describe "extensions/2" do
+    test "configured built-in plugins replace defaults instead of being dropped" do
+      plugins = Volt.PluginRunner.plugins([{Volt.Plugin.Svelte, marker: true}])
+
+      refute Volt.Plugin.Svelte in plugins
+      assert {Volt.Plugin.Svelte, marker: true} in plugins
+      assert Volt.Plugin.Vue in plugins
+      assert Volt.Plugin.React in plugins
+    end
+
     test "passes tuple options to plugins with arity-aware callbacks" do
       defmodule ConfiguredExtensionsPlugin do
         @behaviour Volt.Plugin

@@ -78,6 +78,24 @@ defmodule Volt.CSS.AssetURLRewriterTest do
     assert [] = Path.wildcard(Path.join(@outdir, "logo-*.svg"))
   end
 
+  test "does not rewrite dev URLs outside root with sibling prefix" do
+    sibling_dir = Path.join(@fixture_dir, "src-other")
+    File.mkdir_p!(sibling_dir)
+    File.write!(Path.join(sibling_dir, "logo.svg"), "<svg></svg>")
+    source_path = Path.join(@fixture_dir, "src/app.css")
+
+    {:ok, css} =
+      Volt.CSS.AssetURLRewriter.rewrite_dev(
+        ".logo { background: url('../src-other/logo.svg') }",
+        source_path,
+        Path.join(@fixture_dir, "src"),
+        "/assets"
+      )
+
+    assert css =~ "../src-other/logo.svg"
+    refute css =~ "/assets/../src-other/logo.svg"
+  end
+
   test "rewrites image-set url nodes and preserves query and fragment suffixes" do
     File.write!(Path.join(@fixture_dir, "src/one.png"), "one")
     File.write!(Path.join(@fixture_dir, "src/two.png"), "two")

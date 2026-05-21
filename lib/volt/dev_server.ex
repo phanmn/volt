@@ -147,9 +147,12 @@ defmodule Volt.DevServer do
   end
 
   defp serve(conn, relative, config) do
-    file_path = Path.join(config.root, relative)
+    file_path = config.root |> Path.join(relative) |> Path.expand()
 
     cond do
+      not Volt.Path.inside?(file_path, config.root) ->
+        conn
+
       compilable?(file_path, config) and File.regular?(file_path) ->
         serve_compiled(conn, file_path, relative, config)
 
@@ -269,7 +272,7 @@ defmodule Volt.DevServer do
   end
 
   defp serve_asset_module(conn, file_path, relative, config) do
-    query = URL.decode_query(conn.query_string)
+    query = Volt.Assets.Query.decode(conn.query_string)
     url_path = Volt.URL.join(config.prefix, relative)
     prefix = Path.dirname(url_path)
 
@@ -311,7 +314,7 @@ defmodule Volt.DevServer do
   end
 
   defp asset_import_request?(conn) do
-    URL.asset_module_query?(conn.query_string) or
+    Volt.Assets.Query.module_request?(conn.query_string) or
       Enum.member?(Conn.get_req_header(conn, "sec-fetch-dest"), "script")
   end
 
@@ -417,7 +420,7 @@ defmodule Volt.DevServer do
   end
 
   defp rewrite_root_path(resolved, query, config) do
-    if String.starts_with?(resolved, config.root) do
+    if Volt.Path.inside?(resolved, config.root) do
       resolved = resolve_with_extension(resolved, config.plugins)
       relative = Path.relative_to(resolved, config.root)
       {:rewrite, dev_url_for(config.prefix, relative, resolved, query)}

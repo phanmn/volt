@@ -238,7 +238,7 @@ defmodule Mix.Tasks.Volt.Build do
   defp parse_sourcemap(nil, default), do: default
   defp parse_sourcemap(_, default), do: default
 
-  defp parse_profile(args), do: Mix.Tasks.Volt.Profile.from_args(args)
+  defp parse_profile(args), do: Volt.Config.Profile.from_args(args)
 
   defp format_file(path) do
     Volt.Format.format_with_gzip(File.read!(path))

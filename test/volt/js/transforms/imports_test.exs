@@ -40,7 +40,7 @@ defmodule Volt.JS.Transforms.ImportsTest do
           _ -> :keep
         end)
 
-      assert result =~ "'./bar.js'"
+      assert result =~ ~s("./bar.js")
     end
 
     test "rewrites export *" do
@@ -52,7 +52,7 @@ defmodule Volt.JS.Transforms.ImportsTest do
           _ -> :keep
         end)
 
-      assert result =~ "'./utils.js'"
+      assert result =~ ~s("./utils.js")
     end
 
     test "handles dynamic imports" do
@@ -65,6 +65,19 @@ defmodule Volt.JS.Transforms.ImportsTest do
         end)
 
       assert result =~ "/@vendor/lodash.js"
+    end
+
+    test "escapes rewritten specifiers as JavaScript strings" do
+      source = "import x from 'pkg'"
+
+      {:ok, result} =
+        Volt.JS.Transforms.Imports.rewrite(source, "test.ts", fn
+          "pkg" -> {:rewrite, "./has'quote\\file.js"}
+          _ -> :keep
+        end)
+
+      assert result =~ ~s("./has'quote\\\\file.js")
+      assert {:ok, _ast} = OXC.parse(result, "test.ts")
     end
 
     test "keeps unmatched imports unchanged" do
@@ -116,7 +129,7 @@ defmodule Volt.JS.Transforms.ImportsTest do
           _ -> :keep
         end)
 
-      assert result =~ "'y'"
+      assert result =~ ~s("y")
     end
 
     test "raises on parse error" do

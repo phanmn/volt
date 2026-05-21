@@ -80,7 +80,7 @@ defmodule Volt.PipelineTest do
     end
 
     test "does not inject import.meta.env for string literals or unrelated import.meta properties" do
-      source = "console.log('import.meta.env', import.meta.url)"
+      source = "console.log('import.meta.env', import.meta.url, foo.env)"
 
       {:ok, result} =
         Volt.Pipeline.compile("app.ts", source,

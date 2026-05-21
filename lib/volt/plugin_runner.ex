@@ -6,9 +6,12 @@ defmodule Volt.PluginRunner do
   @default_plugins [Volt.Plugin.Vue, Volt.Plugin.Svelte, Volt.Plugin.React]
 
   def plugins(plugins) do
-    (@default_plugins ++ List.wrap(plugins))
-    |> Enum.reject(&is_nil/1)
-    |> Enum.uniq_by(&plugin_module/1)
+    plugins = plugins |> List.wrap() |> Enum.reject(&is_nil/1)
+    user_modules = plugins |> Enum.map(&plugin_module/1) |> MapSet.new()
+
+    @default_plugins
+    |> Enum.reject(&MapSet.member?(user_modules, plugin_module(&1)))
+    |> Kernel.++(plugins)
     |> order_plugins()
   end
 

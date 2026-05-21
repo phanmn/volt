@@ -97,7 +97,7 @@ defmodule Volt.CSS.AssetURLRewriter do
       asset_path = Path.expand(uri.path || "", Path.dirname(source_path))
 
       if Volt.Assets.asset?(asset_path) and File.regular?(asset_path) and
-           String.starts_with?(asset_path, root) do
+           Volt.Path.inside?(asset_path, root) do
         relative = Path.relative_to(asset_path, root)
         {:ok, append_suffix(Volt.URL.join(prefix, relative), uri)}
       else

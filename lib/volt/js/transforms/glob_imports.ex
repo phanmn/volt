@@ -49,7 +49,7 @@ defmodule Volt.JS.Transforms.GlobImports do
   defp collect_glob_calls(ast) do
     {_ast, calls} =
       OXC.postwalk(ast, [], fn node, acc ->
-        case AST.call_member_arguments(node, "meta", "glob") do
+        case AST.import_meta_call_arguments(node, "glob") do
           {:ok, args} -> collect_glob_call(node, args, acc)
           nil -> {node, acc}
         end

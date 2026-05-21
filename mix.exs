@@ -128,11 +128,11 @@ defmodule Volt.MixProject do
         ],
         JavaScript: [
           Volt.JS.Runtime,
-          Volt.JS.GlobImport,
-          Volt.JS.DynamicImportVars,
-          Volt.JS.AssetURLRewriter,
-          Volt.JS.Query,
-          Volt.JS.PackageResolver,
+          Volt.JS.Transforms.GlobImports,
+          Volt.JS.Transforms.DynamicImports,
+          Volt.JS.Transforms.AssetURLs,
+          Volt.JS.Transforms.Imports,
+          Volt.JS.Transforms.Workers,
           Volt.Env,
           Volt.Assets
         ],

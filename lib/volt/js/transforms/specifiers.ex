@@ -69,7 +69,7 @@ defmodule Volt.JS.Transforms.Specifiers do
         {patches, [resolved_path | paths]}
 
       {:ok, replacement, resolved_path} ->
-        patch = Volt.JS.Patch.new(start_pos, end_pos, inspect(replacement))
+        patch = Volt.JS.Patch.new(start_pos, end_pos, Volt.JS.AST.string_literal(replacement))
         {[patch | patches], [resolved_path | paths]}
 
       {:error, _reason} ->

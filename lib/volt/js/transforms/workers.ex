@@ -21,7 +21,7 @@ defmodule Volt.JS.Transforms.Workers do
   def extract_specifier(node) do
     case AST.new_arguments(node, ["URL"]) do
       {:ok, _name, [source_node, meta_url | _]} ->
-        if AST.import_meta_property?(meta_url, "url") do
+        if worker_url_base?(meta_url) do
           AST.string_literal_span(source_node)
         end
 
@@ -29,6 +29,20 @@ defmodule Volt.JS.Transforms.Workers do
         nil
     end
   end
+
+  defp worker_url_base?(node) do
+    AST.import_meta_property?(node, "url") or generated_import_meta_url?(node)
+  end
+
+  defp generated_import_meta_url?(%{
+         type: :member_expression,
+         computed: false,
+         property: %{type: :identifier, name: "url"},
+         object: %{type: :object_expression, properties: []}
+       }),
+       do: true
+
+  defp generated_import_meta_url?(_node), do: false
 
   defp collect_worker_patches(ast, rewrite_fn) do
     {_ast, patches} =
@@ -50,7 +64,7 @@ defmodule Volt.JS.Transforms.Workers do
     case extract_specifier(first_arg) do
       {:ok, specifier, s, e} ->
         case rewrite_fn.(specifier) do
-          {:rewrite, new} -> {node, [Volt.JS.Patch.new(s, e, "'#{new}'") | patches]}
+          {:rewrite, new} -> {node, [Volt.JS.Patch.new(s, e, AST.string_literal(new)) | patches]}
           :keep -> {node, patches}
         end
 

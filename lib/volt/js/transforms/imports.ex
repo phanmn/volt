@@ -21,7 +21,7 @@ defmodule Volt.JS.Transforms.Imports do
       ...>   "vue" -> {:rewrite, "/@vendor/vue.js"}
       ...>   _ -> :keep
       ...> end)
-      {:ok, "import { ref } from '/@vendor/vue.js'\\nimport a from './utils'"}
+      {:ok, "import { ref } from \\\"/@vendor/vue.js\\\"\\nimport a from './utils'"}
   """
   @spec rewrite(String.t(), String.t(), (String.t() -> {:rewrite, String.t()} | :keep)) ::
           {:ok, String.t()} | {:error, term()}
@@ -58,7 +58,7 @@ defmodule Volt.JS.Transforms.Imports do
       ...>   "vue" => "/@vendor/vue.js",
       ...>   "preact" => "/@vendor/preact.js"
       ...> })
-      {:ok, "import { ref } from '/@vendor/vue.js'\\nimport { h } from '/@vendor/preact.js'"}
+      {:ok, "import { ref } from \\\"/@vendor/vue.js\\\"\\nimport { h } from \\\"/@vendor/preact.js\\\""}
   """
   @spec rewrite_map(String.t(), String.t(), %{String.t() => String.t()}) ::
           {:ok, String.t()} | {:error, term()}
@@ -101,8 +101,7 @@ defmodule Volt.JS.Transforms.Imports do
       {:ok, specifier, s, e} ->
         case rewrite_fn.(specifier) do
           {:rewrite, new_specifier} ->
-            quote_char = "'"
-            [Volt.JS.Patch.new(s, e, "#{quote_char}#{new_specifier}#{quote_char}") | patches]
+            [Volt.JS.Patch.new(s, e, Volt.JS.AST.string_literal(new_specifier)) | patches]
 
           :keep ->
             patches

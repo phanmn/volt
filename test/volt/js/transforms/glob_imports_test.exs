@@ -20,6 +20,11 @@ defmodule Volt.JS.Transforms.GlobImportsTest do
                "!./pages/about.ts"
              ]
     end
+
+    test "does not treat arbitrary .glob calls as import.meta.glob" do
+      assert Volt.JS.Transforms.GlobImports.patterns("const modules = meta.glob('./pages/*.ts')") ==
+               []
+    end
   end
 
   describe "transform/2 lazy" do

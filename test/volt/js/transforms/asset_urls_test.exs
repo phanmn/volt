@@ -15,4 +15,10 @@ defmodule Volt.JS.Transforms.AssetURLsTest do
 
     assert Volt.JS.Transforms.AssetURLs.rewrite(source, "app.ts") == source
   end
+
+  test "does not treat arbitrary .url members as import.meta.url" do
+    source = "const logo = new URL('./logo.svg', obj.url).href"
+
+    assert Volt.JS.Transforms.AssetURLs.rewrite(source, "app.ts") == source
+  end
 end

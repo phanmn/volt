@@ -24,8 +24,17 @@ defmodule Volt.CSS.AST do
       {:parse, {:ok, %{ast: nil}}} ->
         {:error, :css_parse_failed}
 
+      {:parse, {:error, reason}} ->
+        {:error, {:css_parse_failed, reason}}
+
       {:print, {:ok, %{errors: errors}}} when errors != [] ->
         {:error, {:css_print_failed, errors}}
+
+      {:print, {:error, reason}} ->
+        {:error, {:css_print_failed, reason}}
+
+      other ->
+        {:error, {:css_transform_failed, other}}
     end
   end
 
