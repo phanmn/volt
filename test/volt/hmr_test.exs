@@ -38,7 +38,7 @@ defmodule Volt.HMRTest do
     setup %{test: test_name} do
       watch_dir = Path.expand("fixtures/watcher_test/#{test_name}", __DIR__)
       File.mkdir_p!(watch_dir)
-      Volt.DepGraph.clear()
+      Volt.HMR.ImportGraph.clear()
       Volt.Cache.clear()
       on_exit(fn -> File.rm_rf!(watch_dir) end)
       {:ok, watch_dir: watch_dir}

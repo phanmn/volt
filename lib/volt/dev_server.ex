@@ -228,7 +228,7 @@ defmodule Volt.DevServer do
     case Volt.Pipeline.compile(file_path, source, pipeline_opts) do
       {:ok, result} ->
         Volt.HMR.GlobGraph.update_from_source(file_path, source)
-        Volt.DepGraph.update_from_compiled(file_path, result.code)
+        Volt.HMR.ImportGraph.update_from_compiled(file_path, result.code)
 
         result = rewrite_dev_css_urls(result, file_path, config)
         mod_url = Volt.URL.join(config.prefix, relative)

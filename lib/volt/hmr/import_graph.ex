@@ -1,14 +1,15 @@
-defmodule Volt.DepGraph do
+defmodule Volt.HMR.ImportGraph do
   @moduledoc """
-  ETS-backed legacy module import graph.
+  ETS-backed raw import graph for HMR boundary fallback.
 
-  Tracks raw import specifiers for fallback boundary lookup while the dev server
-  uses `Volt.HMR.ModuleGraph` for resolved HMR propagation.
+  The dev server records resolved module relationships in `Volt.HMR.ModuleGraph`.
+  This graph keeps parser-extracted import specifiers as a fallback for files
+  that have not been served through the dev module graph yet.
   """
 
-  @table :volt_dep_graph
+  @table :volt_hmr_import_graph
 
-  @doc "Create the dependency graph ETS table. Called once from Application.start/2."
+  @doc "Create the import graph ETS table. Called once from Application.start/2."
   @spec create_table :: :ok
   def create_table, do: Volt.ETS.create_named_set(@table)
 
@@ -33,7 +34,6 @@ defmodule Volt.DepGraph do
   def imports_of(path) do
     case :ets.lookup(@table, path) do
       [{_, imports}] -> imports
-      [{_, imports, _globs}] -> imports
       [] -> []
     end
   end
@@ -41,17 +41,13 @@ defmodule Volt.DepGraph do
   @doc """
   Find all files that import the given specifier.
 
-  Used by HMR to propagate changes upward through the dependency tree.
+  Used by fallback HMR boundary lookup to propagate changes upward through raw imports.
   """
   @spec dependents(String.t()) :: [String.t()]
   def dependents(specifier) do
     :ets.foldl(
-      fn
-        {path, imports}, acc ->
-          if specifier in imports, do: [path | acc], else: acc
-
-        {path, imports, _globs}, acc ->
-          if specifier in imports, do: [path | acc], else: acc
+      fn {path, imports}, acc ->
+        if specifier in imports, do: [path | acc], else: acc
       end,
       [],
       @table
@@ -67,12 +63,8 @@ defmodule Volt.DepGraph do
   @spec dependents_matching((String.t() -> boolean())) :: [String.t()]
   def dependents_matching(predicate) do
     :ets.foldl(
-      fn
-        {path, imports}, acc ->
-          if Enum.any?(imports, predicate), do: [path | acc], else: acc
-
-        {path, imports, _globs}, acc ->
-          if Enum.any?(imports, predicate), do: [path | acc], else: acc
+      fn {path, imports}, acc ->
+        if Enum.any?(imports, predicate), do: [path | acc], else: acc
       end,
       [],
       @table

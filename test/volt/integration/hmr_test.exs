@@ -58,7 +58,7 @@ defmodule Volt.Integration.HMRTest do
     File.rm_rf!(@fixture_dir)
     File.mkdir_p!(@fixture_dir)
     Volt.Cache.clear()
-    Volt.DepGraph.clear()
+    Volt.HMR.ImportGraph.clear()
 
     write_fixture("index.html", """
     <!DOCTYPE html>

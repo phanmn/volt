@@ -110,7 +110,7 @@ const modules = import.meta.glob<PageModule>('./pages/*.ts')
 
 ## HMR invalidation
 
-In development, Volt tracks glob patterns in the HMR dependency graph. When a file matching an `import.meta.glob()` pattern is added, changed, or removed, the module that owns the glob is invalidated so the next import sees the updated file list.
+In development, Volt tracks glob patterns in the HMR glob graph. When a file matching an `import.meta.glob()` pattern is added, changed, or removed, the module that owns the glob is invalidated so the next import sees the updated file list.
 
 This is especially useful for file-based routing and component auto-discovery.
 

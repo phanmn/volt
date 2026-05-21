@@ -28,7 +28,7 @@ defmodule Volt.HMR.BoundaryTest do
 
   describe "find_boundary/2" do
     setup do
-      Volt.DepGraph.clear()
+      Volt.HMR.ImportGraph.clear()
       Volt.HMR.ModuleGraph.clear()
       :ok
     end
@@ -81,8 +81,8 @@ defmodule Volt.HMR.BoundaryTest do
                Boundary.find_boundary("/app/Button.tsx", read)
     end
 
-    test "falls back to legacy dependency graph" do
-      Volt.DepGraph.update("/app/App.tsx", ["./Button"])
+    test "falls back to raw import graph" do
+      Volt.HMR.ImportGraph.update("/app/App.tsx", ["./Button"])
 
       read = fn
         "/app/App.tsx" ->

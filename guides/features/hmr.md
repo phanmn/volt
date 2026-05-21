@@ -31,7 +31,7 @@ if (import.meta.hot) {
 }
 ```
 
-When a file changes, Volt walks the dependency graph upward to find the nearest module with `import.meta.hot.accept()`. Only that module is re-imported — no full page reload. If no boundary is found, falls back to `location.reload()`.
+When a file changes, Volt walks the dev module graph upward to find the nearest module with `import.meta.hot.accept()`. Only that module is re-imported — no full page reload. If no boundary is found, the client falls back to `location.reload()`.
 
 ## API
 

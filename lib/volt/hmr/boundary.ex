@@ -1,11 +1,12 @@
 defmodule Volt.HMR.Boundary do
   @moduledoc """
-  Detect HMR boundaries by scanning for `import.meta.hot.accept()` calls.
+  Detects HMR boundaries from the dev module graph and source ASTs.
 
-  When a file changes, walks the dependency graph upward from the changed
-  file to find the nearest module that self-accepts HMR updates. If found,
-  only that module is re-imported by the client. Otherwise, a full reload
-  is triggered.
+  When a file changes, Volt first checks `Volt.HMR.ModuleGraph` for served
+  importers and self-accepting modules. If the file has not entered the dev
+  module graph yet, boundary lookup falls back to `Volt.HMR.ImportGraph` raw
+  specifiers. If no self-accepting boundary is found, the client performs a full
+  reload.
   """
 
   @doc """
@@ -22,7 +23,7 @@ defmodule Volt.HMR.Boundary do
   @doc """
   Find the HMR boundary for a changed file.
 
-  Walks upward through the dependency graph from `changed_path`. Returns
+  Walks upward through the module graph from `changed_path`. Returns
   `{:ok, boundary_path}` if a self-accepting module is found, or
   `:full_reload` if the change bubbles up to the root without finding
   a boundary.
@@ -147,7 +148,7 @@ defmodule Volt.HMR.Boundary do
     basename = Path.basename(path)
     rootname = Path.rootname(basename)
 
-    Volt.DepGraph.dependents_matching(fn specifier ->
+    Volt.HMR.ImportGraph.dependents_matching(fn specifier ->
       spec_base = specifier |> String.split("/") |> List.last()
 
       spec_base == basename or
