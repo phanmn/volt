@@ -112,31 +112,26 @@ defmodule Volt.MixProject do
         Cheatsheets: ~r/guides\/cheatsheets\//
       ],
       groups_for_modules: [
-        Core: [Volt, Volt.Pipeline, Volt.Config],
+        Core: [Volt, Volt.Preload, Volt.Config, Volt.Plugin],
         "Dev Server": [Volt.DevServer, Volt.Watcher, Volt.Dev.ConsoleForwarder],
-        HMR: [Volt.HMR.Boundary, Volt.HMR.Client, Volt.HMR.Socket],
-        "Production Build": [Volt.Builder, Volt.ChunkGraph, Volt.Preload, Volt.PublicDir],
+        "Production Build": [Volt.Builder, Volt.ChunkGraph, Volt.PublicDir],
         "Tailwind CSS": [Volt.Tailwind],
-        CSS: [Volt.CSS.Modules, Volt.CSS.AssetURLRewriter],
+        CSS: [Volt.CSS.Modules],
         Plugins: [
-          Volt.Plugin,
           Volt.Plugin.Vue,
           Volt.Plugin.Svelte,
           Volt.Plugin.React,
           Volt.Plugin.Solid,
+          Volt.Plugin.Helpers,
           Volt.PluginRunner
         ],
         JavaScript: [
-          Volt.JS.Runtime,
-          Volt.JS.Transforms.GlobImports,
-          Volt.JS.Transforms.DynamicImports,
-          Volt.JS.Transforms.AssetURLs,
-          Volt.JS.Transforms.Imports,
-          Volt.JS.Transforms.Workers,
+          Volt.Assets,
           Volt.Env,
-          Volt.Assets
+          Volt.JS.Runtime,
+          Volt.JS.Format
         ],
-        Formatting: [Volt.Formatter],
+        Formatting: [Volt.Formatter, Volt.Format],
         "Mix Tasks": [
           Mix.Tasks.Volt.Build,
           Mix.Tasks.Volt.Dev,
@@ -144,6 +139,90 @@ defmodule Volt.MixProject do
           Mix.Tasks.Volt.Js.Format,
           Mix.Tasks.Volt.Js.Check,
           Mix.Tasks.Volt.Install
+        ],
+        "Internals: Builder": [
+          Volt.Builder.Collector,
+          Volt.Builder.Collector.State,
+          Volt.Builder.Context,
+          Volt.Builder.BuildContext,
+          Volt.Builder.Dependencies,
+          Volt.Builder.Externals,
+          Volt.Builder.Output,
+          Volt.Builder.OutputContext,
+          Volt.Builder.OutputFile,
+          Volt.Builder.Resolver,
+          Volt.Builder.Result,
+          Volt.Builder.Rewriter,
+          Volt.Builder.Writer,
+          Volt.HTMLEntry,
+          Volt.Pipeline,
+          Volt.Pipeline.Result
+        ],
+        "Internals: Config": [
+          Volt.Config.Build,
+          Volt.Config.Profile,
+          Volt.Config.Server
+        ],
+        "Internals: CSS": [
+          Volt.CSS.AST,
+          Volt.CSS.AssetURLRewriter
+        ],
+        "Internals: Dev Server": [
+          Volt.Cache,
+          Volt.DevServer.CacheEntry,
+          Volt.DevServer.Config
+        ],
+        "Internals: HMR": [
+          Volt.HMR.Boundary,
+          Volt.HMR.GlobGraph,
+          Volt.HMR.ImportGraph,
+          Volt.HMR.ModuleGraph,
+          Volt.HMR.ModuleGraph.Node,
+          Volt.HMR.Socket
+        ],
+        "Internals: JavaScript": [
+          Volt.Assets.Query,
+          Volt.JS.Asset,
+          Volt.JS.AST,
+          Volt.JS.Extensions,
+          Volt.JS.Helpers,
+          Volt.JS.ImportExtractor,
+          Volt.JS.ImportExtractor.Result,
+          Volt.JS.Patch,
+          Volt.JS.PrebundleEntry,
+          Volt.JS.PrebundleEntry.Export,
+          Volt.JS.PrebundleEntry.Import,
+          Volt.JS.Resolution,
+          Volt.JS.Resolver,
+          Volt.JS.Runtime.Bundler,
+          Volt.JS.Runtime.Entry,
+          Volt.JS.Runtime.Error,
+          Volt.JS.Runtime.Installer,
+          Volt.JS.Transforms.AssetURLs,
+          Volt.JS.Transforms.DynamicImports,
+          Volt.JS.Transforms.DynamicImports.Replacement,
+          Volt.JS.Transforms.GlobImports,
+          Volt.JS.Transforms.GlobImports.Call,
+          Volt.JS.Transforms.GlobImports.File,
+          Volt.JS.Transforms.ImportMetaEnv,
+          Volt.JS.Transforms.Imports,
+          Volt.JS.Transforms.Specifiers,
+          Volt.JS.Transforms.Workers,
+          Volt.JS.TSConfig,
+          Volt.JS.Vendor
+        ],
+        "Internals: Support": [
+          Volt.Application,
+          Volt.ETS,
+          Volt.Path,
+          Volt.Tailwind.Loader,
+          Volt.Tailwind.Resolver,
+          Volt.URL
+        ],
+        "Internals: Plugin Options": [
+          Volt.Plugin.Solid.CompilerOptions,
+          Volt.Plugin.Solid.CompilerOptions.SolidOptions,
+          Volt.Plugin.Svelte.CompilerOptions
         ]
       ],
       skip_undefined_reference_warnings_on: ["CHANGELOG.md"]
