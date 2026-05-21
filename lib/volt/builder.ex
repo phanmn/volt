@@ -274,10 +274,12 @@ defmodule Volt.Builder do
       compiled
       |> Enum.reverse()
       |> Enum.reduce({[], [], []}, fn {label, js, css, assets}, {js_acc, css_acc, asset_acc} ->
-        {[{label, js} | js_acc], if(css, do: [css | css_acc], else: css_acc), assets ++ asset_acc}
+        {[{label, js} | js_acc], if(css, do: [css | css_acc], else: css_acc),
+         [assets | asset_acc]}
       end)
 
-    {:ok, {Enum.reverse(js_files), Enum.reverse(css_parts), Enum.uniq(assets)}}
+    {:ok,
+     {Enum.reverse(js_files), Enum.reverse(css_parts), assets |> List.flatten() |> Enum.uniq()}}
   end
 
   defp compile_module(module_id, _label, source, ctx) do

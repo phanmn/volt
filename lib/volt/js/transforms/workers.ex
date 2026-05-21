@@ -34,15 +34,9 @@ defmodule Volt.JS.Transforms.Workers do
     AST.import_meta_property?(node, "url") or generated_import_meta_url?(node)
   end
 
-  defp generated_import_meta_url?(%{
-         type: :member_expression,
-         computed: false,
-         property: %{type: :identifier, name: "url"},
-         object: %{type: :object_expression, properties: []}
-       }),
-       do: true
-
-  defp generated_import_meta_url?(_node), do: false
+  defp generated_import_meta_url?(node) do
+    AST.member_expression?(node, :empty_object, "url")
+  end
 
   defp collect_worker_patches(ast, rewrite_fn) do
     {_ast, patches} =

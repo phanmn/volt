@@ -269,7 +269,7 @@ defmodule Mix.Tasks.Volt.Lint do
     prefix = binary_part(source, 0, min(offset, byte_size(source)))
     lines = String.split(prefix, "\n")
     line = length(lines)
-    col = lines |> Enum.reverse() |> hd() |> String.length() |> Kernel.+(1)
+    col = lines |> List.last() |> String.length() |> Kernel.+(1)
     {line, col}
   end
 

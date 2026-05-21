@@ -108,15 +108,11 @@ defmodule Volt.JS.Runtime.Installer do
   end
 
   defp metadata_matches?(metadata_path, signature) do
-    case File.read(metadata_path) do
-      {:ok, json} ->
-        case Jason.decode(json) do
-          {:ok, %{"signature" => ^signature}} -> true
-          _ -> false
-        end
-
-      {:error, _} ->
-        false
+    with {:ok, json} <- File.read(metadata_path),
+         {:ok, decoded} <- Jason.decode(json) do
+      match?(%{"signature" => ^signature}, decoded)
+    else
+      _ -> false
     end
   end
 

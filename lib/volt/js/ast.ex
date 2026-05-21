@@ -42,18 +42,9 @@ defmodule Volt.JS.AST do
 
   def new_arguments(_, _), do: nil
 
-  def import_meta_property?(
-        %{
-          type: :member_expression,
-          computed: false,
-          property: %{type: :identifier, name: property},
-          object: %{type: :meta_property, meta: %{name: "import"}, property: %{name: "meta"}}
-        },
-        property
-      ),
-      do: true
-
-  def import_meta_property?(_node, _property), do: false
+  def import_meta_property?(node, property) do
+    member_expression?(node, {:meta_property, "import", "meta"}, property)
+  end
 
   def import_meta_call_arguments(node, property) when is_map(node) do
     if node[:type] == :call_expression and import_meta_property?(node[:callee], property) do
@@ -72,7 +63,7 @@ defmodule Volt.JS.AST do
   def call_member_arguments(_node, _object, _property), do: nil
 
   def member_expression?(%{type: :member_expression} = node, object, property) do
-    node[:computed] == false and node_name(node[:object]) == object and
+    node[:computed] == false and node_matches?(node[:object], object) and
       node_name(node[:property]) == property
   end
 
@@ -96,6 +87,19 @@ defmodule Volt.JS.AST do
 
   defp identifier_name(%{type: :identifier, name: name}), do: name
   defp identifier_name(_), do: nil
+
+  defp node_matches?(%{type: :object_expression, properties: []}, :empty_object), do: true
+
+  defp node_matches?(node, {:meta_property, meta, property, member}) do
+    member_expression?(node, {:meta_property, meta, property}, member)
+  end
+
+  defp node_matches?(node, {:meta_property, meta, property}) do
+    node[:type] == :meta_property and node_name(node[:meta]) == meta and
+      node_name(node[:property]) == property
+  end
+
+  defp node_matches?(node, name), do: node_name(node) == name
 
   defp node_name(%{type: :identifier, name: name}), do: name
   defp node_name(%{type: :meta_property, property: %{name: name}}), do: name

@@ -58,16 +58,11 @@ defmodule Volt.HMR.Boundary do
     found?
   end
 
-  defp accept_call?(%{
-         type: :call_expression,
-         callee: %{
-           type: :member_expression,
-           computed: false,
-           property: %{type: :identifier, name: "accept"},
-           object: hot
-         }
-       }) do
-    Volt.JS.AST.import_meta_property?(hot, "hot")
+  defp accept_call?(node) when is_map(node) do
+    result =
+      Volt.JS.AST.call_member_arguments(node, {:meta_property, "import", "meta", "hot"}, "accept")
+
+    match?({:ok, _args}, result)
   end
 
   defp accept_call?(_node), do: false
