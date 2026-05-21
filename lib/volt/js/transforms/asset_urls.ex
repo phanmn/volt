@@ -45,17 +45,13 @@ defmodule Volt.JS.Transforms.AssetURLs do
   end
 
   defp maybe_collect_url_rewrite(node, source_node, meta_url, acc) do
-    with true <- import_meta_url?(meta_url),
+    with true <- Volt.JS.AST.import_meta_property?(meta_url, "url"),
          {:ok, specifier, start_pos, end_pos} <- Volt.JS.AST.string_literal_span(source_node),
          true <- relative_asset_specifier?(specifier) do
       {node, [{specifier, start_pos, end_pos} | acc]}
     else
       _ -> {node, acc}
     end
-  end
-
-  defp import_meta_url?(node) do
-    node[:type] == :member_expression and get_in(node, [:property, :name]) == "url"
   end
 
   defp relative_asset_specifier?(specifier) do

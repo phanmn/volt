@@ -9,7 +9,7 @@ defmodule Volt.JS.Transforms.GlobImports do
   same graph as source-authored calls.
   """
 
-  alias Volt.JS.Patch
+  alias Volt.JS.{AST, Patch}
 
   @doc """
   Extracts static glob patterns from `import.meta.glob()` calls.
@@ -49,7 +49,7 @@ defmodule Volt.JS.Transforms.GlobImports do
   defp collect_glob_calls(ast) do
     {_ast, calls} =
       OXC.postwalk(ast, [], fn node, acc ->
-        case glob_call_args(node) do
+        case AST.call_member_arguments(node, "meta", "glob") do
           {:ok, args} -> collect_glob_call(node, args, acc)
           nil -> {node, acc}
         end
@@ -63,17 +63,6 @@ defmodule Volt.JS.Transforms.GlobImports do
       {:ok, call} -> {node, [%{call | start: node.start, end: node.end} | acc]}
       :skip -> {node, acc}
     end
-  end
-
-  defp glob_call_args(node) do
-    if node[:type] == :call_expression and import_meta_glob?(node[:callee]) do
-      {:ok, node[:arguments] || []}
-    end
-  end
-
-  defp import_meta_glob?(callee) do
-    callee[:type] == :member_expression and get_in(callee, [:object, :type]) == :meta_property and
-      get_in(callee, [:property, :name]) == "glob"
   end
 
   defp parse_glob_args([pattern_node | rest]) do
@@ -153,17 +142,13 @@ defmodule Volt.JS.Transforms.GlobImports do
 
   defp query_param(%{key: key, value: %{value: value}}, acc)
        when is_binary(value) or is_number(value) or is_boolean(value) do
-    case property_key(key) do
+    case AST.property_key(key) do
       {:ok, key} -> {:cont, [{key, to_string(value)} | acc]}
       :error -> {:halt, :error}
     end
   end
 
   defp query_param(_property, _acc), do: {:halt, :error}
-
-  defp property_key(%{name: name}) when is_binary(name), do: {:ok, name}
-  defp property_key(%{value: value}) when is_binary(value), do: {:ok, value}
-  defp property_key(_key), do: :error
 
   defp normalize_query(""), do: ""
   defp normalize_query("?" <> query), do: query
@@ -315,7 +300,7 @@ defmodule Volt.JS.Transforms.GlobImports do
     ast =
       template
       |> OXC.parse!("glob-import-template.js")
-      |> replace_literal("__specifier__", import_path)
+      |> AST.replace_literal("__specifier__", import_path)
 
     ast
     |> OXC.codegen!()
@@ -333,14 +318,4 @@ defmodule Volt.JS.Transforms.GlobImports do
 
   defp import_template(identifier, import_path, key),
     do: {"import { #{key} as #{identifier} } from \"__specifier__\";", import_path}
-
-  defp replace_literal(ast, old_value, new_value) do
-    OXC.postwalk(ast, fn
-      %{type: :literal, value: ^old_value} = node ->
-        %{node | value: new_value, raw: Jason.encode!(new_value)}
-
-      node ->
-        node
-    end)
-  end
 end

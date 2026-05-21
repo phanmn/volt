@@ -1,6 +1,8 @@
 defmodule Volt.JS.Transforms.Workers do
   @moduledoc false
 
+  alias Volt.JS.AST
+
   @spec rewrite(String.t(), String.t(), (String.t() -> {:rewrite, String.t()} | :keep)) ::
           {:ok, String.t()} | {:error, term()}
   def rewrite(source, filename, rewrite_fn) do
@@ -17,24 +19,22 @@ defmodule Volt.JS.Transforms.Workers do
   @doc false
   @spec extract_specifier(map()) :: {:ok, String.t(), non_neg_integer(), non_neg_integer()} | nil
   def extract_specifier(node) do
-    case Volt.JS.AST.new_arguments(node, ["URL"]) do
+    case AST.new_arguments(node, ["URL"]) do
       {:ok, _name, [source_node, meta_url | _]} ->
-        if import_meta_url?(meta_url), do: Volt.JS.AST.string_literal_span(source_node)
+        if AST.import_meta_property?(meta_url, "url") do
+          AST.string_literal_span(source_node)
+        end
 
       _ ->
         nil
     end
   end
 
-  defp import_meta_url?(node) do
-    node[:type] == :member_expression and get_in(node, [:property, :name]) == "url"
-  end
-
   defp collect_worker_patches(ast, rewrite_fn) do
     {_ast, patches} =
       OXC.postwalk(ast, [], fn
         node, patches ->
-          case Volt.JS.AST.new_arguments(node, ["Worker", "SharedWorker"]) do
+          case AST.new_arguments(node, ["Worker", "SharedWorker"]) do
             {:ok, _worker_type, [first_arg | _]} ->
               patch_worker_specifier(node, first_arg, rewrite_fn, patches)
 

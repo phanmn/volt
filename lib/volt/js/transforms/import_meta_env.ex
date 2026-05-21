@@ -36,7 +36,7 @@ defmodule Volt.JS.Transforms.ImportMetaEnv do
           {node, true}
 
         %{type: :member_expression} = node, false ->
-          {node, import_meta_env?(node)}
+          {node, Volt.JS.AST.import_meta_property?(node, "env")}
 
         node, false ->
           {node, false}
@@ -44,16 +44,6 @@ defmodule Volt.JS.Transforms.ImportMetaEnv do
 
     found?
   end
-
-  defp import_meta_env?(%{
-         type: :member_expression,
-         computed: false,
-         property: %{type: :identifier, name: "env"},
-         object: %{type: :meta_property, meta: %{name: "import"}, property: %{name: "meta"}}
-       }),
-       do: true
-
-  defp import_meta_env?(_node), do: false
 
   defp env_assignment(env) do
     properties =
