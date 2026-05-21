@@ -192,7 +192,8 @@ defmodule Volt.Watcher do
       {:ok, source} ->
         case Volt.Pipeline.compile(path, source, Map.to_list(state.config)) do
           {:ok, result} ->
-            Volt.DepGraph.update_from_source(path, source, result.code)
+            Volt.HMR.GlobGraph.update_from_source(path, source)
+            Volt.DepGraph.update_from_compiled(path, result.code)
 
             changes = detect_changes(old_entry, result)
             broadcast_change(path, relative, changes, state.root)
@@ -204,6 +205,7 @@ defmodule Volt.Watcher do
 
       {:error, :enoent} ->
         Volt.DepGraph.remove(path)
+        Volt.HMR.GlobGraph.remove(path)
         Volt.HMR.ModuleGraph.remove_file(path)
         broadcast(:remove, %{path: relative})
         broadcast_glob_dependents(path, state.root)

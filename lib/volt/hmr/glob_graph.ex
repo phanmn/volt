@@ -4,16 +4,10 @@ defmodule Volt.HMR.GlobGraph do
   @table :volt_hmr_glob_graph
 
   @doc "Create the glob graph ETS table."
-  def create_table do
-    :ets.new(@table, [:named_table, :set, :public, read_concurrency: true])
-    :ok
-  end
+  def create_table, do: Volt.ETS.create_named_set(@table)
 
   @doc "Store glob patterns owned by an importer."
-  def update(importer, globs) do
-    :ets.insert(@table, {importer, globs})
-    :ok
-  end
+  def update(importer, globs), do: Volt.ETS.put(@table, {importer, globs})
 
   @doc "Extract and store `import.meta.glob()` patterns from source."
   def update_from_source(path, source) do
@@ -36,15 +30,9 @@ defmodule Volt.HMR.GlobGraph do
     )
   end
 
-  def remove(path) do
-    :ets.delete(@table, path)
-    :ok
-  end
+  def remove(path), do: Volt.ETS.delete(@table, path)
 
-  def clear do
-    :ets.delete_all_objects(@table)
-    :ok
-  end
+  def clear, do: Volt.ETS.clear(@table)
 
   defp expand_glob_pattern("!" <> pattern, base_dir), do: "!" <> Path.expand(pattern, base_dir)
   defp expand_glob_pattern(pattern, base_dir), do: Path.expand(pattern, base_dir)
