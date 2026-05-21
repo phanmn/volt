@@ -288,9 +288,13 @@ defmodule Volt.Builder.Output do
   defp chunk_output_name(chunk, name), do: "#{name}-#{chunk.id}"
 
   defp chunk_manifest_entry(src, filename, chunk, chunk_url_map) do
-    %{"file" => filename, "src" => src}
-    |> maybe_put_chunk_files("imports", chunk.imports, chunk_url_map)
-    |> maybe_put_chunk_files("dynamicImports", chunk.dynamic_imports, chunk_url_map)
+    entry = Volt.Builder.ManifestEntry.js(src, filename)
+
+    %{
+      entry
+      | imports: chunk_files(chunk.imports, chunk_url_map),
+        dynamicImports: chunk_files(chunk.dynamic_imports, chunk_url_map)
+    }
   end
 
   defp add_chunk_css(entry, nil), do: entry
@@ -298,22 +302,19 @@ defmodule Volt.Builder.Output do
   defp add_chunk_css(entry, css_result) do
     css_file = Path.basename(css_result.path)
 
-    entry
-    |> Map.put("css", [css_file])
-    |> Map.put("assets", Enum.uniq([css_file | css_result.assets]))
+    %{entry | css: [css_file], assets: Enum.uniq([css_file | css_result.assets])}
   end
 
   defp add_chunk_assets(entry, []), do: entry
 
   defp add_chunk_assets(entry, assets) do
-    Map.update(entry, "assets", Enum.uniq(assets), &Enum.uniq(&1 ++ assets))
+    %{entry | assets: Enum.uniq(entry.assets ++ assets)}
   end
 
-  defp maybe_put_chunk_files(entry, _key, [], _chunk_url_map), do: entry
+  defp chunk_files([], _chunk_url_map), do: []
 
-  defp maybe_put_chunk_files(entry, key, chunk_ids, chunk_url_map) do
-    files = Enum.flat_map(chunk_ids, fn chunk_id -> List.wrap(chunk_url_map[chunk_id]) end)
-    Map.put(entry, key, files)
+  defp chunk_files(chunk_ids, chunk_url_map) do
+    Enum.flat_map(chunk_ids, fn chunk_id -> List.wrap(chunk_url_map[chunk_id]) end)
   end
 
   defp build_chunk_bundles(chunks, js_map, module_labels, bundle_opts, ctx, graph) do

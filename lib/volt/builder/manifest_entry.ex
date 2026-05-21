@@ -1,0 +1,15 @@
+defmodule Volt.Builder.ManifestEntry do
+  @moduledoc "Manifest entry written to production `manifest.json`."
+
+  @derive Jason.Encoder
+  defstruct file: nil,
+            src: nil,
+            isEntry: false,
+            imports: [],
+            dynamicImports: [],
+            css: [],
+            assets: []
+
+  def js(src, file), do: %__MODULE__{src: src, file: file}
+  def css(src, file, assets), do: %__MODULE__{src: src, file: file, assets: assets}
+end

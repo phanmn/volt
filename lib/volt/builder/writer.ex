@@ -101,16 +101,14 @@ defmodule Volt.Builder.Writer do
   end
 
   def write_manifest(outdir, manifest) do
-    File.write!(Path.join(outdir, "manifest.json"), :json.encode(manifest))
+    File.write!(Path.join(outdir, "manifest.json"), Jason.encode!(manifest))
   end
 
   def build_manifest(name, js_filename, css_result, assets \\ []) do
     manifest = %{
       "#{name}.js" =>
-        %{
-          "file" => js_filename,
-          "src" => "#{name}.js"
-        }
+        "#{name}.js"
+        |> Volt.Builder.ManifestEntry.js(js_filename)
         |> add_js_assets(assets)
     }
 
@@ -118,7 +116,7 @@ defmodule Volt.Builder.Writer do
   end
 
   defp add_js_assets(entry, []), do: entry
-  defp add_js_assets(entry, assets), do: Map.put(entry, "assets", Enum.uniq(assets))
+  defp add_js_assets(entry, assets), do: %{entry | assets: Enum.uniq(assets)}
 
   def add_css_to_manifest(manifest, _name, nil), do: manifest
 
@@ -126,12 +124,15 @@ defmodule Volt.Builder.Writer do
     css_filename = Path.basename(css_result.path)
 
     manifest
-    |> put_in(["#{name}.js", "css"], [css_filename])
-    |> Map.put("#{name}.css", %{
-      "file" => css_filename,
-      "src" => "#{name}.css",
-      "assets" => css_assets(css_filename, css_result)
-    })
+    |> update_in(["#{name}.js"], &%{&1 | css: [css_filename]})
+    |> Map.put(
+      "#{name}.css",
+      Volt.Builder.ManifestEntry.css(
+        "#{name}.css",
+        css_filename,
+        css_assets(css_filename, css_result)
+      )
+    )
   end
 
   def hashed_name(name, content, ext, true) do
