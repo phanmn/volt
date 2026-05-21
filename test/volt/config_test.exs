@@ -3,6 +3,7 @@ defmodule Volt.ConfigTest do
 
   setup do
     on_exit(fn ->
+      Application.delete_env(:volt, :tree_shaking)
       Application.delete_env(:volt, :my_app)
       Application.delete_env(:volt, :my_app_web)
     end)
@@ -12,7 +13,9 @@ defmodule Volt.ConfigTest do
 
   describe "build/0 and build/1 with flat config" do
     test "flat config returns defaults when nothing is set" do
-      assert Volt.Config.build().entry == "assets/js/app.ts"
+      config = Volt.Config.build()
+      assert config.entry == "assets/js/app.ts"
+      assert config.tree_shaking == true
     end
 
     test "build/0 is not affected by profile config" do
@@ -70,6 +73,13 @@ defmodule Volt.ConfigTest do
     test "overrides win over flat config" do
       config = Volt.Config.build(nil, entry: "override/app.ts")
       assert config.entry == "override/app.ts"
+    end
+
+    test "tree shaking is configurable" do
+      Application.put_env(:volt, :tree_shaking, false)
+
+      assert Volt.Config.build().tree_shaking == false
+      assert Volt.Config.build(nil, tree_shaking: true).tree_shaking == true
     end
   end
 

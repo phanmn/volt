@@ -24,6 +24,7 @@ defmodule Mix.Tasks.Volt.Build do
     * `--name` — output base name (default: derived from entry filename)
     * `--no-hash` — stable filenames (no content hash)
     * `--no-code-splitting` — disable chunk splitting
+    * `--no-tree-shaking` — preserve unused exports
     * `--mode` — build mode for env variables (default: `"production"`)
     * `--format` — output format: `iife`, `esm`, or `cjs` (default from config)
     * `--tailwind` — build Tailwind CSS
@@ -53,6 +54,7 @@ defmodule Mix.Tasks.Volt.Build do
           resolve_dir: [:string, :keep],
           external: [:string, :keep],
           code_splitting: :boolean,
+          tree_shaking: :boolean,
           tailwind: :boolean,
           tailwind_css: :string,
           tailwind_source: [:string, :keep]
@@ -111,6 +113,7 @@ defmodule Mix.Tasks.Volt.Build do
       mode: Keyword.get(parsed, :mode) || to_string(config.mode),
       format: parse_format(Keyword.get(parsed, :format), config.format),
       code_splitting: Keyword.get(parsed, :code_splitting, config.code_splitting),
+      tree_shaking: Keyword.get(parsed, :tree_shaking, config.tree_shaking),
       chunks: config.chunks,
       import_source: config.import_source,
       module_types: config.module_types,

@@ -190,7 +190,7 @@ defmodule Volt.Builder.CSSTest do
         )
 
       js = File.read!(result.js.path)
-      assert js =~ "Promise.resolve({ default: undefined })"
+      assert js =~ ~r/Promise\.resolve\(\{ default: (undefined|void 0) \}\)/
       refute js =~ "import("
       refute js =~ "data:text/css"
       refute js =~ "color: red"

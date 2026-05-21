@@ -62,6 +62,11 @@ defmodule Volt.Config do
     * `:hidden` — write `.map` files but omit the URL comment (for error tracking services)
     * `false` — no source maps
 
+  ## Tree shaking
+
+  Production builds tree-shake JavaScript by default. Set `tree_shaking: false`
+  to preserve unused exports.
+
   ## Manual chunks
 
   The `:chunks` option controls manual chunk splitting:
@@ -91,6 +96,7 @@ defmodule Volt.Config do
     sourcemap: true,
     hash: true,
     code_splitting: true,
+    tree_shaking: true,
     format: :iife,
     mode: :production,
     external: [],

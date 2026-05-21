@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Production builds now tree-shake JavaScript by default, with `tree_shaking: false` and `mix volt.build --no-tree-shaking` available to preserve unused exports.
+
 ## 0.12.0
 
 ### Added

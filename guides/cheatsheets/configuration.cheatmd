@@ -91,6 +91,14 @@ config :volt, sourcemap: true
 config :volt, code_splitting: true
 ```
 
+### Tree Shaking
+
+```elixir
+config :volt, tree_shaking: true
+```
+
+Enabled by default for production builds. Set to `false` to preserve unused exports.
+
 ### External
 
 ```elixir

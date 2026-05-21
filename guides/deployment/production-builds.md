@@ -59,6 +59,16 @@ Reference public files with root-absolute URLs such as `/favicon.svg`. They are 
 
 CLI: `mix volt.build --public-dir path/to/public`.
 
+## Tree Shaking
+
+JavaScript tree shaking is enabled by default for production builds. Disable it only when you need to preserve unused exports or debug bundling output:
+
+```elixir
+config :volt, tree_shaking: false
+```
+
+CLI: `mix volt.build --no-tree-shaking`.
+
 ## Source Maps
 
 - `sourcemap: true` — write `.map` files and append `//# sourceMappingURL` comment (default)

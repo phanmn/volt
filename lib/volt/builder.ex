@@ -44,6 +44,7 @@ defmodule Volt.Builder do
     * `:plugins` — list of `Volt.Plugin` modules
     * `:mode` — build mode for env variables (default: `"production"`)
     * `:code_splitting` — split dynamic imports into separate chunks (default: `true`)
+    * `:tree_shaking` — remove unused exports (default: `true`)
     * `:chunks` — manual chunk definitions, map of chunk name to list of patterns:
 
           chunks: %{"vendor" => ["vue", "vue-router"], "ui" => ["assets/src/components"]}
@@ -67,6 +68,7 @@ defmodule Volt.Builder do
     aliases = Keyword.get(opts, :aliases, %{})
     plugins = Keyword.get(opts, :plugins, [])
     code_splitting = Keyword.get(opts, :code_splitting, true)
+    tree_shaking = Keyword.get(opts, :tree_shaking, true)
     chunks = Keyword.get(opts, :chunks, %{})
     format = Keyword.get(opts, :format, :iife)
     external_raw = Keyword.get(opts, :external, [])
@@ -113,7 +115,8 @@ defmodule Volt.Builder do
         sourcemap: sourcemap,
         target: target,
         define: all_define,
-        format: format
+        format: format,
+        treeshake: tree_shaking
       ] ++ if(module_types != %{}, do: [module_types: module_types], else: [])
 
     build_ctx = %{

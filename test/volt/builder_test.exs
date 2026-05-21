@@ -79,6 +79,56 @@ defmodule Volt.BuilderTest do
       refute File.exists?(result.js.path <> ".map")
     end
 
+    test "tree-shakes unused exports by default" do
+      File.write!(Path.join(@fixture_dir, "src/tree.ts"), """
+      export function used() { return 'used' }
+      export function unused() { return 'unused' }
+      """)
+
+      File.write!(Path.join(@fixture_dir, "src/tree-app.ts"), """
+      import { used } from './tree'
+      console.log(used())
+      """)
+
+      {:ok, result} =
+        Volt.Builder.build(
+          entry: Path.join(@fixture_dir, "src/tree-app.ts"),
+          outdir: @outdir,
+          hash: false,
+          minify: false,
+          sourcemap: false
+        )
+
+      js = File.read!(result.js.path)
+      assert js =~ "used"
+      refute js =~ "unused"
+    end
+
+    test "can disable tree shaking" do
+      File.write!(Path.join(@fixture_dir, "src/tree.ts"), """
+      export function used() { return 'used' }
+      export function unused() { return 'unused' }
+      """)
+
+      File.write!(Path.join(@fixture_dir, "src/tree-app.ts"), """
+      import { used } from './tree'
+      console.log(used())
+      """)
+
+      {:ok, result} =
+        Volt.Builder.build(
+          entry: Path.join(@fixture_dir, "src/tree-app.ts"),
+          outdir: @outdir,
+          hash: false,
+          minify: false,
+          sourcemap: false,
+          tree_shaking: false
+        )
+
+      js = File.read!(result.js.path)
+      assert js =~ "unused"
+    end
+
     test "generates content-hashed filenames" do
       {:ok, result} =
         Volt.Builder.build(

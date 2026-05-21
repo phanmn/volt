@@ -102,6 +102,12 @@ Repeatable for multi-page apps.
 --no-code-splitting
 ```
 
+### Tree Shaking
+
+```bash
+--no-tree-shaking
+```
+
 ### Externals
 
 ```bash
