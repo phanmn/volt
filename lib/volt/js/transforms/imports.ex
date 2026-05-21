@@ -1,4 +1,4 @@
-defmodule Volt.JS.ImportRewriter do
+defmodule Volt.JS.Transforms.Imports do
   @moduledoc """
   Rewrite import specifiers in compiled JS output using AST positions.
 
@@ -17,7 +17,7 @@ defmodule Volt.JS.ImportRewriter do
   ## Examples
 
       iex> source = "import { ref } from 'vue'\\nimport a from './utils'"
-      iex> Volt.JS.ImportRewriter.rewrite(source, "test.ts", fn
+      iex> Volt.JS.Transforms.Imports.rewrite(source, "test.ts", fn
       ...>   "vue" -> {:rewrite, "/@vendor/vue.js"}
       ...>   _ -> :keep
       ...> end)
@@ -54,7 +54,7 @@ defmodule Volt.JS.ImportRewriter do
   ## Examples
 
       iex> source = "import { ref } from 'vue'\\nimport { h } from 'preact'"
-      iex> Volt.JS.ImportRewriter.rewrite_map(source, "test.ts", %{
+      iex> Volt.JS.Transforms.Imports.rewrite_map(source, "test.ts", %{
       ...>   "vue" => "/@vendor/vue.js",
       ...>   "preact" => "/@vendor/preact.js"
       ...> })

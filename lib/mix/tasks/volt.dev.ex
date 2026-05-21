@@ -21,6 +21,8 @@ defmodule Mix.Tasks.Volt.Dev do
   """
   use Mix.Task
 
+  alias Volt.Config
+
   @impl true
   def run(args) do
     Mix.Task.run("app.start")
@@ -38,9 +40,9 @@ defmodule Mix.Tasks.Volt.Dev do
       )
 
     profile = parse_profile(argv)
-    config = Volt.Config.build(profile)
-    server_config = Volt.Config.server(profile)
-    tailwind_config = Volt.Config.tailwind(profile)
+    config = Config.build(profile)
+    server_config = Config.server(profile)
+    tailwind_config = Config.tailwind(profile)
 
     root = Keyword.get(parsed, :root) || to_string(config.root)
     target = Keyword.get(parsed, :target) || to_string(config.target)

@@ -131,8 +131,8 @@ defmodule Volt.Plugin.Solid do
 
     {:proxy, "solid-js.js",
      exports: [
-       %{all_from: "solid-js"},
-       %{named_from: "solid-js/web", names: web_exports}
+       Volt.JS.PrebundleEntry.Export.all_from("solid-js"),
+       Volt.JS.PrebundleEntry.Export.named_from("solid-js/web", web_exports)
      ]}
   end
 
@@ -151,7 +151,10 @@ defmodule Volt.Plugin.Solid do
         max_stack_size: 32 * 1024 * 1024
       )
 
-    compile_options = compile_options(filename, opts, plugin_opts)
+    compile_options =
+      filename
+      |> Volt.Plugin.Solid.CompilerOptions.new(opts, plugin_opts)
+      |> Jason.encode!()
 
     case Volt.JS.Runtime.call(runtime, "compileSolid", [source, compile_options]) do
       {:ok, %{"code" => code, "map" => map}} ->
@@ -170,29 +173,6 @@ defmodule Volt.Plugin.Solid do
 
       {:error, _} = error ->
         error
-    end
-  end
-
-  defp compile_options(filename, opts, plugin_opts) do
-    solid_options =
-      %{
-        "generate" => option(opts, plugin_opts, :generate, "dom"),
-        "hydratable" => option(opts, plugin_opts, :hydratable, false),
-        "dev" => option(opts, plugin_opts, :dev, false)
-      }
-      |> Map.merge(stringify_keys(Keyword.get(plugin_opts, :solid_options, %{})))
-      |> Map.merge(stringify_keys(Keyword.get(opts, :solid_options, %{})))
-
-    options = %{
-      "filename" => filename,
-      "typescript" => Path.extname(filename) in ~w(.ts .tsx .mts),
-      "sourcemap" => Keyword.get(opts, :sourcemap, true),
-      "solidOptions" => solid_options
-    }
-
-    case stringify_keys(Keyword.get(plugin_opts, :typescript_options, %{})) do
-      map when map_size(map) == 0 -> options
-      map -> Map.put(options, "typescriptOptions", map)
     end
   end
 
@@ -239,14 +219,6 @@ defmodule Volt.Plugin.Solid do
 
   defp extract_typed_imports(source, filename) do
     Volt.JS.ImportExtractor.extract_typed(source, filename, ignore_type_only: true)
-  end
-
-  defp option(opts, plugin_opts, key, default) do
-    Keyword.get(opts, key, Keyword.get(plugin_opts, key, default))
-  end
-
-  defp stringify_keys(map) when is_map(map) do
-    Map.new(map, fn {key, value} -> {to_string(key), value} end)
   end
 
   defp encode_sourcemap(_map, true), do: nil

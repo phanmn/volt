@@ -11,6 +11,11 @@
 
 - Production builds now tree-shake JavaScript by default, with `tree_shaking: false` and `mix volt.build --no-tree-shaking` available to preserve unused exports.
 
+### Breaking changes
+
+- Custom plugins that return `{:proxy, filename, opts}` from `prebundle_entry/1` must use `Volt.JS.PrebundleEntry.Import` and `Volt.JS.PrebundleEntry.Export` entries for `:imports` and `:exports`; plain map entries are no longer accepted.
+- Custom `extract_imports/3` plugin callbacks must return `{:ok, %Volt.JS.ImportExtractor.Result{}}` instead of plain maps.
+
 ## 0.12.0
 
 ### Added

@@ -1,10 +1,10 @@
-defmodule Volt.JS.DynamicImportVarsTest do
+defmodule Volt.JS.Transforms.DynamicImportsTest do
   use ExUnit.Case, async: true
 
   test "rewrites relative template dynamic imports through import.meta.glob" do
     source = "const mod = await import(`./pages/${name}.ts`)"
 
-    result = Volt.JS.DynamicImportVars.transform(source, "app.ts")
+    result = Volt.JS.Transforms.DynamicImports.transform(source, "app.ts")
 
     assert result =~ ~S|const __volt_dynamic_import_modules_0 = import.meta.glob("./pages/*.ts");|
     assert result =~ "__volt_dynamic_import_0(`./pages/${name}.ts`)"
@@ -14,7 +14,7 @@ defmodule Volt.JS.DynamicImportVarsTest do
   test "preserves static query suffixes through glob query options" do
     source = "const mod = await import(`./pages/${name}.txt?raw`)"
 
-    result = Volt.JS.DynamicImportVars.transform(source, "app.ts")
+    result = Volt.JS.Transforms.DynamicImports.transform(source, "app.ts")
 
     assert result =~ ~S|import.meta.glob("./pages/*.txt", { query: "?raw" });|
     assert result =~ ~S|__volt_dynamic_import_modules_0[path.split("?")[0]]|
@@ -23,6 +23,6 @@ defmodule Volt.JS.DynamicImportVarsTest do
   test "ignores bare package dynamic imports" do
     source = "const mod = await import(`pkg/${name}.js`)"
 
-    assert Volt.JS.DynamicImportVars.transform(source, "app.ts") == source
+    assert Volt.JS.Transforms.DynamicImports.transform(source, "app.ts") == source
   end
 end

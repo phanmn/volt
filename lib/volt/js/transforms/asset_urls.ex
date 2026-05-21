@@ -1,4 +1,4 @@
-defmodule Volt.JS.AssetURLRewriter do
+defmodule Volt.JS.Transforms.AssetURLs do
   @moduledoc """
   Rewrites `new URL("./asset.ext", import.meta.url)` references to asset imports.
 

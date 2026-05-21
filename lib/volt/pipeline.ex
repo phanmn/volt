@@ -102,12 +102,16 @@ defmodule Volt.Pipeline do
 
     code =
       compiled.code
-      |> Volt.JS.AssetURLRewriter.rewrite(filename)
-      |> Volt.JS.DynamicImportVars.transform(filename)
-      |> Volt.JS.GlobImport.transform(Path.dirname(path), filename)
+      |> Volt.JS.Transforms.AssetURLs.rewrite(filename)
+      |> Volt.JS.Transforms.DynamicImports.transform(filename)
+      |> Volt.JS.Transforms.GlobImports.transform(Path.dirname(path), filename)
 
     with {:ok, code} <-
-           Volt.JS.ImportMetaEnv.inject(code, filename, Keyword.get(opts, :define, %{})) do
+           Volt.JS.Transforms.ImportMetaEnv.inject(
+             code,
+             filename,
+             Keyword.get(opts, :define, %{})
+           ) do
       {:ok, put_code(compiled, code)}
     end
   end
@@ -118,9 +122,9 @@ defmodule Volt.Pipeline do
     filename = Path.basename(path)
 
     with {:ok, imports_rewritten} <-
-           Volt.JS.ImportRewriter.rewrite(compiled.code, filename, rewrite_fn),
+           Volt.JS.Transforms.Imports.rewrite(compiled.code, filename, rewrite_fn),
          {:ok, workers_rewritten} <-
-           Volt.JS.WorkerRewriter.rewrite(imports_rewritten, filename, rewrite_fn) do
+           Volt.JS.Transforms.Workers.rewrite(imports_rewritten, filename, rewrite_fn) do
       {:ok, put_code(compiled, workers_rewritten)}
     else
       {:error, _} -> {:ok, compiled}

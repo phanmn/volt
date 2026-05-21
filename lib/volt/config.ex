@@ -99,40 +99,10 @@ defmodule Volt.Config do
   aliases take precedence over tsconfig paths.
   """
 
-  @defaults %{
-    entry: "assets/js/app.ts",
-    outdir: "priv/static/assets",
-    public_dir: false,
-    target: :es2020,
-    minify: true,
-    sourcemap: true,
-    hash: true,
-    code_splitting: true,
-    tree_shaking: true,
-    format: :iife,
-    mode: :production,
-    env_prefix: "VOLT_",
-    asset_url_prefix: "/assets",
-    external: [],
-    aliases: %{},
-    chunks: %{},
-    plugins: [],
-    resolve_dirs: [],
-    root: "assets",
-    sources: ["**/*.{js,ts,jsx,tsx,vue}"],
-    ignore: ["node_modules/**", "vendor/**"],
-    import_source: nil,
-    vapor: false,
-    custom_renderer: false,
-    module_types: %{}
-  }
+  @defaults %Volt.Config.Build{}
+  @build_keys @defaults |> Map.from_struct() |> Map.keys()
 
-  @build_keys Map.keys(@defaults)
-
-  @server_defaults %{
-    prefix: "/assets",
-    watch_dirs: []
-  }
+  @server_defaults %Volt.Config.Server{}
 
   @doc """
   Read the full build config, merged with defaults.
@@ -176,9 +146,11 @@ defmodule Volt.Config do
 
     config =
       @defaults
+      |> Map.from_struct()
       |> Map.merge(Map.new(flat_env))
       |> Map.merge(Map.new(profile_env))
-      |> Map.merge(Map.new(overrides))
+      |> Map.merge(overrides |> Keyword.take(@build_keys) |> Map.new())
+      |> then(&struct!(Volt.Config.Build, &1))
 
     tsconfig_paths = Volt.JS.TSConfig.discover_paths()
     %{config | aliases: Map.merge(tsconfig_paths, config.aliases)}
@@ -212,10 +184,14 @@ defmodule Volt.Config do
         []
       end
 
+    server_keys = @server_defaults |> Map.from_struct() |> Map.keys()
+
     @server_defaults
-    |> Map.merge(Map.new(global_env))
-    |> Map.merge(Map.new(profile_env))
-    |> Map.merge(Map.new(overrides))
+    |> Map.from_struct()
+    |> Map.merge(global_env |> Keyword.take(server_keys) |> Map.new())
+    |> Map.merge(profile_env |> Keyword.take(server_keys) |> Map.new())
+    |> Map.merge(overrides |> Keyword.take(server_keys) |> Map.new())
+    |> then(&struct!(Volt.Config.Server, &1))
   end
 
   @doc """

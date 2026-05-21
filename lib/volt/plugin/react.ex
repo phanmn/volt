@@ -5,6 +5,8 @@ defmodule Volt.Plugin.React do
 
   @behaviour Volt.Plugin
 
+  alias Volt.JS.PrebundleEntry.{Export, Import}
+
   @react_exports ~w(
     Children
     Component
@@ -55,15 +57,16 @@ defmodule Volt.Plugin.React do
   @impl true
   def prebundle_entry("react") do
     {:proxy, "react.js",
-     imports: [%{default: "React", from: "react"}],
+     imports: [Import.default("React", from: "react")],
      exports: [
-       %{default: "React"},
-       %{members: Enum.map(@react_exports, &{&1, "React.#{&1}"})},
-       %{
-         named_from: "react-dom/client",
-         names: ["createRoot", "hydrateRoot", {"version", "reactDomVersion"}]
-       },
-       %{named_from: "react/jsx-runtime", names: ["jsx", "jsxs"]}
+       Export.default("React"),
+       Export.members(Enum.map(@react_exports, &{&1, "React.#{&1}"})),
+       Export.named_from("react-dom/client", [
+         "createRoot",
+         "hydrateRoot",
+         {"version", "reactDomVersion"}
+       ]),
+       Export.named_from("react/jsx-runtime", ["jsx", "jsxs"])
      ]}
   end
 

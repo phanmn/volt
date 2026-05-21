@@ -1,14 +1,14 @@
-defmodule Volt.JS.ImportRewriterTest do
+defmodule Volt.JS.Transforms.ImportsTest do
   use ExUnit.Case, async: true
 
-  doctest Volt.JS.ImportRewriter
+  doctest Volt.JS.Transforms.Imports
 
   describe "rewrite/3" do
     test "rewrites matching bare imports" do
       source = "import { ref } from 'vue'\nimport a from './local'"
 
       {:ok, result} =
-        Volt.JS.ImportRewriter.rewrite(source, "test.ts", fn
+        Volt.JS.Transforms.Imports.rewrite(source, "test.ts", fn
           "vue" -> {:rewrite, "/@vendor/vue.js"}
           _ -> :keep
         end)
@@ -21,7 +21,7 @@ defmodule Volt.JS.ImportRewriterTest do
       source = "import { ref } from 'vue'\nimport { h } from 'preact'"
 
       {:ok, result} =
-        Volt.JS.ImportRewriter.rewrite(source, "test.ts", fn
+        Volt.JS.Transforms.Imports.rewrite(source, "test.ts", fn
           "vue" -> {:rewrite, "/@vendor/vue.js"}
           "preact" -> {:rewrite, "/@vendor/preact.js"}
           _ -> :keep
@@ -35,7 +35,7 @@ defmodule Volt.JS.ImportRewriterTest do
       source = "export { foo } from 'bar'"
 
       {:ok, result} =
-        Volt.JS.ImportRewriter.rewrite(source, "test.ts", fn
+        Volt.JS.Transforms.Imports.rewrite(source, "test.ts", fn
           "bar" -> {:rewrite, "./bar.js"}
           _ -> :keep
         end)
@@ -47,7 +47,7 @@ defmodule Volt.JS.ImportRewriterTest do
       source = "export * from 'utils'"
 
       {:ok, result} =
-        Volt.JS.ImportRewriter.rewrite(source, "test.ts", fn
+        Volt.JS.Transforms.Imports.rewrite(source, "test.ts", fn
           "utils" -> {:rewrite, "./utils.js"}
           _ -> :keep
         end)
@@ -59,7 +59,7 @@ defmodule Volt.JS.ImportRewriterTest do
       source = "const m = import('lodash')"
 
       {:ok, result} =
-        Volt.JS.ImportRewriter.rewrite(source, "test.js", fn
+        Volt.JS.Transforms.Imports.rewrite(source, "test.js", fn
           "lodash" -> {:rewrite, "/@vendor/lodash.js"}
           _ -> :keep
         end)
@@ -71,13 +71,15 @@ defmodule Volt.JS.ImportRewriterTest do
       source = "import { ref } from 'vue'"
 
       {:ok, result} =
-        Volt.JS.ImportRewriter.rewrite(source, "test.ts", fn _ -> :keep end)
+        Volt.JS.Transforms.Imports.rewrite(source, "test.ts", fn _ -> :keep end)
 
       assert result == source
     end
 
     test "returns parse errors" do
-      {:error, errors} = Volt.JS.ImportRewriter.rewrite("const = ;", "bad.js", fn _ -> :keep end)
+      {:error, errors} =
+        Volt.JS.Transforms.Imports.rewrite("const = ;", "bad.js", fn _ -> :keep end)
+
       assert is_list(errors)
     end
   end
@@ -87,7 +89,7 @@ defmodule Volt.JS.ImportRewriterTest do
       source = "import { ref } from 'vue'\nimport { h } from 'preact'"
 
       {:ok, result} =
-        Volt.JS.ImportRewriter.rewrite_map(source, "test.ts", %{
+        Volt.JS.Transforms.Imports.rewrite_map(source, "test.ts", %{
           "vue" => "/@vendor/vue.js",
           "preact" => "/@vendor/preact.js"
         })
@@ -98,7 +100,10 @@ defmodule Volt.JS.ImportRewriterTest do
 
     test "ignores specifiers not in map" do
       source = "import a from './local'"
-      {:ok, result} = Volt.JS.ImportRewriter.rewrite_map(source, "test.ts", %{"vue" => "/v.js"})
+
+      {:ok, result} =
+        Volt.JS.Transforms.Imports.rewrite_map(source, "test.ts", %{"vue" => "/v.js"})
+
       assert result == source
     end
   end
@@ -106,7 +111,7 @@ defmodule Volt.JS.ImportRewriterTest do
   describe "rewrite!/3" do
     test "returns string on success" do
       result =
-        Volt.JS.ImportRewriter.rewrite!("import a from 'x'", "test.ts", fn
+        Volt.JS.Transforms.Imports.rewrite!("import a from 'x'", "test.ts", fn
           "x" -> {:rewrite, "y"}
           _ -> :keep
         end)
@@ -116,7 +121,7 @@ defmodule Volt.JS.ImportRewriterTest do
 
     test "raises on parse error" do
       assert_raise RuntimeError, fn ->
-        Volt.JS.ImportRewriter.rewrite!("const = ;", "bad.js", fn _ -> :keep end)
+        Volt.JS.Transforms.Imports.rewrite!("const = ;", "bad.js", fn _ -> :keep end)
       end
     end
   end

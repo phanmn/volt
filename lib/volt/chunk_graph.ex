@@ -196,7 +196,7 @@ defmodule Volt.ChunkGraph do
 
       ch = Map.reject(ch, fn {id, chunk} -> chunk.modules == [] and id != "entry" end)
 
-      entry_imports = (ch["entry"].imports ++ [chunk_name]) |> Enum.uniq()
+      entry_imports = append_unique(ch["entry"].imports, chunk_name)
       ch = put_in(ch["entry"].imports, entry_imports)
 
       manual = %Chunk{
@@ -213,6 +213,14 @@ defmodule Volt.ChunkGraph do
 
       {Map.put(ch, chunk_name, manual), m2c}
     end)
+  end
+
+  defp append_unique(items, item) do
+    if item in items do
+      items
+    else
+      items |> Enum.reverse() |> then(&Enum.reverse([item | &1]))
+    end
   end
 
   defp find_manual_chunk(mod_path, manual_chunks) do
@@ -251,7 +259,7 @@ defmodule Volt.ChunkGraph do
       do_reachable(rest, dep_map, module_set, visited)
     else
       visited = MapSet.put(visited, path)
-      static_deps = get_in(dep_map, [path, :static]) || []
+      static_deps = dep_map |> Map.get(path, %Volt.Builder.Dependencies{}) |> Map.get(:static, [])
       do_reachable(static_deps ++ rest, dep_map, module_set, visited)
     end
   end

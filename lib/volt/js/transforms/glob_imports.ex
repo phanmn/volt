@@ -1,4 +1,4 @@
-defmodule Volt.JS.GlobImport do
+defmodule Volt.JS.Transforms.GlobImports do
   @moduledoc """
   Transforms `import.meta.glob()` calls into static import maps.
 
@@ -8,6 +8,8 @@ defmodule Volt.JS.GlobImport do
   compiled, so glob calls emitted by SFC compilers or plugins participate in the
   same graph as source-authored calls.
   """
+
+  alias Volt.JS.Patch
 
   @doc """
   Extracts static glob patterns from `import.meta.glob()` calls.
@@ -76,8 +78,8 @@ defmodule Volt.JS.GlobImport do
 
   defp parse_glob_args([pattern_node | rest]) do
     with {:ok, patterns} <- parse_patterns(pattern_node),
-         {:ok, opts} <- parse_options(rest) do
-      {:ok, Map.merge(%{start: nil, end: nil, patterns: patterns}, opts)}
+         {:ok, %Volt.JS.Transforms.GlobImports.Call{} = opts} <- parse_options(rest) do
+      {:ok, %{opts | patterns: patterns}}
     else
       :error -> :skip
     end
@@ -104,10 +106,10 @@ defmodule Volt.JS.GlobImport do
 
   defp parse_patterns(_node), do: :error
 
-  defp parse_options([]), do: {:ok, %{eager: false, import: nil, query: "", base: nil}}
+  defp parse_options([]), do: {:ok, %Volt.JS.Transforms.GlobImports.Call{}}
 
   defp parse_options([%{type: :object_expression, properties: props} | _]) do
-    opts = %{eager: false, import: nil, query: "", base: nil}
+    opts = %Volt.JS.Transforms.GlobImports.Call{}
 
     props
     |> Enum.reduce_while(opts, &parse_option/2)
@@ -186,15 +188,15 @@ defmodule Volt.JS.GlobImport do
     eager_patches =
       eager_calls
       |> Enum.zip(Enum.map(eager_preamble, fn {_, expansion} -> expansion end))
-      |> Enum.map(fn {call, expansion} -> Volt.JS.Patch.new(call.start, call.end, expansion) end)
+      |> Enum.map(fn {call, expansion} -> Patch.new(call.start, call.end, expansion) end)
 
     lazy_patches =
       Enum.map(lazy_calls, fn call ->
         files = resolve_globs(call.patterns, base_dir, call.base)
-        Volt.JS.Patch.new(call.start, call.end, lazy_expansion(files, call))
+        Patch.new(call.start, call.end, lazy_expansion(files, call))
       end)
 
-    patched = Volt.JS.Patch.apply(source, eager_patches ++ lazy_patches)
+    patched = Patch.apply(source, eager_patches ++ lazy_patches)
 
     if preamble == "" do
       patched
@@ -225,7 +227,7 @@ defmodule Volt.JS.GlobImport do
     Path.join(base_dir, pattern)
     |> Path.wildcard()
     |> Enum.map(fn path ->
-      %{
+      %Volt.JS.Transforms.GlobImports.File{
         specifier: "./" <> Path.relative_to(path, base_dir),
         key: "./" <> Path.relative_to(path, key_base_dir)
       }

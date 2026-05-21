@@ -1,7 +1,7 @@
 defmodule Volt.Tailwind.Loader do
   @moduledoc "Handles Tailwind module loading, prebundling CJS graphs via OXC, and stylesheet resolution."
 
-  alias Volt.JS.SpecifierRewriter
+  alias Volt.JS.Transforms.Specifiers
   alias Volt.Tailwind.Resolver
 
   @tailwind_install_spec "^4.3.0"
@@ -105,7 +105,7 @@ defmodule Volt.Tailwind.Loader do
   end
 
   defp rewrite_bundle_source(source, abs_path, runtime_node_modules) do
-    SpecifierRewriter.rewrite(source, abs_path, runtime_node_modules, &bundle_specifier/3)
+    Specifiers.rewrite(source, abs_path, runtime_node_modules, &bundle_specifier/3)
   end
 
   defp bundle_specifier(specifier, abs_path, runtime_node_modules) do

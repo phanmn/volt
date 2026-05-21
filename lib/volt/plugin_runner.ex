@@ -127,7 +127,7 @@ defmodule Volt.PluginRunner do
 
     cond do
       Code.ensure_loaded?(module) and function_exported?(module, fun, length(args) + 1) ->
-        apply(module, fun, args ++ [opts])
+        apply(module, fun, args_with_opts(args, opts))
 
       Code.ensure_loaded?(module) and function_exported?(module, fun, length(args)) ->
         apply(module, fun, args)
@@ -136,6 +136,8 @@ defmodule Volt.PluginRunner do
         default
     end
   end
+
+  defp args_with_opts(args, opts), do: args |> Enum.reverse() |> then(&Enum.reverse([opts | &1]))
 
   defp plugin_module({module, _opts}), do: module
   defp plugin_module(module), do: module

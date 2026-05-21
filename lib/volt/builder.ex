@@ -99,7 +99,7 @@ defmodule Volt.Builder do
       |> Map.merge(plugin_define)
       |> Map.merge(define)
 
-    ctx = %{
+    ctx = %Volt.Builder.Context{
       node_modules: node_modules,
       resolve_dirs: resolve_dirs,
       aliases: aliases,
@@ -124,7 +124,7 @@ defmodule Volt.Builder do
         treeshake: tree_shaking
       ] ++ if(module_types != %{}, do: [module_types: module_types], else: [])
 
-    build_ctx = %{
+    build_ctx = %Volt.Builder.BuildContext{
       outdir: outdir,
       target: target,
       hash: hash,
@@ -166,7 +166,7 @@ defmodule Volt.Builder do
          {:ok, compiled} <- compile_all(modules, target, ctx) do
       compiled = rewrite_nonlocal_labels(compiled, specifier_labels, path_labels)
 
-      output_ctx = %{
+      output_ctx = %Volt.Builder.OutputContext{
         plugins: ctx.plugins,
         external_set: ctx.external,
         external_globals: ctx.external_globals,
@@ -174,13 +174,13 @@ defmodule Volt.Builder do
         worker_results: build_worker_results(workers, ctx, build_ctx)
       }
 
-      out = %{
+      out = %Volt.Builder.BuildContext{
         outdir: outdir,
         hash: hash,
         bundle_opts: bundle_opts,
-        ctx: output_ctx,
         sourcemap_hidden: build_ctx.sourcemap_hidden,
         chunks: build_ctx.chunks,
+        ctx: output_ctx,
         asset_url_prefix: build_ctx.asset_url_prefix
       }
 

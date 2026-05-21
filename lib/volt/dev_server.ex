@@ -30,6 +30,9 @@ defmodule Volt.DevServer do
 
   require Logger
 
+  alias Plug.Conn
+  alias Volt.JS.Query
+
   @behaviour Plug
 
   @impl true
@@ -49,7 +52,7 @@ defmodule Volt.DevServer do
 
     prebundle_vendor(expanded_root, node_modules, plugins, config.resolve_dirs, module_types)
 
-    %{
+    %Volt.DevServer.Config{
       root: expanded_root,
       public_dir: Volt.PublicDir.resolve(config.public_dir),
       prefix: server_config.prefix,
@@ -68,47 +71,47 @@ defmodule Volt.DevServer do
   end
 
   @impl true
-  def call(%Plug.Conn{request_path: "/@volt/ws"} = conn, _config) do
+  def call(%Conn{request_path: "/@volt/ws"} = conn, _config) do
     conn
     |> WebSockAdapter.upgrade(Volt.HMR.Socket, [], timeout: 60_000)
-    |> Plug.Conn.halt()
+    |> Conn.halt()
   end
 
-  def call(%Plug.Conn{request_path: "/@volt/client.js"} = conn, _config) do
+  def call(%Conn{request_path: "/@volt/client.js"} = conn, _config) do
     conn
-    |> Plug.Conn.put_resp_content_type("application/javascript")
-    |> Plug.Conn.send_resp(200, Volt.HMR.Client.js())
-    |> Plug.Conn.halt()
+    |> Conn.put_resp_content_type("application/javascript")
+    |> Conn.send_resp(200, Volt.HMR.Client.js())
+    |> Conn.halt()
   end
 
-  def call(%Plug.Conn{method: "POST", request_path: "/@volt/console"} = conn, _config) do
-    {:ok, body, conn} = Plug.Conn.read_body(conn)
+  def call(%Conn{method: "POST", request_path: "/@volt/console"} = conn, _config) do
+    {:ok, body, conn} = Conn.read_body(conn)
     Volt.Dev.ConsoleForwarder.log(body)
 
     conn
-    |> Plug.Conn.send_resp(204, "")
-    |> Plug.Conn.halt()
+    |> Conn.send_resp(204, "")
+    |> Conn.halt()
   end
 
-  def call(%Plug.Conn{request_path: "/@vendor/" <> specifier_js} = conn, config) do
+  def call(%Conn{request_path: "/@vendor/" <> specifier_js} = conn, config) do
     specifier = specifier_js |> String.trim_trailing(".js") |> Volt.JS.Vendor.decode_specifier()
 
     case serve_vendor(specifier, config) do
       {:ok, code} ->
         conn
-        |> Plug.Conn.put_resp_content_type("application/javascript")
-        |> Plug.Conn.put_resp_header("cache-control", "max-age=31536000, immutable")
-        |> Plug.Conn.send_resp(200, code)
-        |> Plug.Conn.halt()
+        |> Conn.put_resp_content_type("application/javascript")
+        |> Conn.put_resp_header("cache-control", "max-age=31536000, immutable")
+        |> Conn.send_resp(200, code)
+        |> Conn.halt()
 
       {:error, _} ->
         conn
-        |> Plug.Conn.send_resp(404, "// vendor module not found: #{specifier}")
-        |> Plug.Conn.halt()
+        |> Conn.send_resp(404, "// vendor module not found: #{specifier}")
+        |> Conn.halt()
     end
   end
 
-  def call(%Plug.Conn{request_path: request_path} = conn, config) do
+  def call(%Conn{request_path: request_path} = conn, config) do
     prefix = config.prefix
 
     case Volt.PublicDir.lookup(config.public_dir, request_path) do
@@ -128,9 +131,9 @@ defmodule Volt.DevServer do
 
   defp serve_public(conn, path) do
     conn
-    |> Plug.Conn.put_resp_content_type(Volt.Assets.mime_type(path))
-    |> Plug.Conn.send_file(200, path)
-    |> Plug.Conn.halt()
+    |> Conn.put_resp_content_type(Volt.Assets.mime_type(path))
+    |> Conn.send_file(200, path)
+    |> Conn.halt()
   end
 
   defp strip_prefix(path, prefix) do
@@ -172,8 +175,8 @@ defmodule Volt.DevServer do
     cache_key = cache_key_for(file_path, css_import?)
 
     case Volt.Cache.get(cache_key, mtime) do
-      %{code: code} = entry ->
-        send_compiled(conn, code, entry[:sourcemap], content_type)
+      %{code: code, sourcemap: sourcemap} ->
+        send_compiled(conn, code, sourcemap, content_type)
 
       nil ->
         compile_and_serve(
@@ -220,7 +223,7 @@ defmodule Volt.DevServer do
         mod_url = Volt.URL.join(config.prefix, relative)
         code = code_for_request(result, mod_url, content_type, css_import?)
 
-        entry = %{
+        entry = %Volt.DevServer.CacheEntry{
           code: code,
           sourcemap: result.sourcemap,
           css: result.css,
@@ -233,9 +236,9 @@ defmodule Volt.DevServer do
 
       {:error, errors} ->
         conn
-        |> Plug.Conn.put_resp_content_type("application/javascript")
-        |> Plug.Conn.send_resp(500, error_overlay(errors))
-        |> Plug.Conn.halt()
+        |> Conn.put_resp_content_type("application/javascript")
+        |> Conn.send_resp(500, error_overlay(errors))
+        |> Conn.halt()
     end
   end
 
@@ -249,24 +252,24 @@ defmodule Volt.DevServer do
       end
 
     conn
-    |> Plug.Conn.put_resp_content_type(content_type)
-    |> Plug.Conn.put_resp_header("cache-control", "no-cache, no-store, must-revalidate")
-    |> Plug.Conn.send_resp(200, body)
-    |> Plug.Conn.halt()
+    |> Conn.put_resp_content_type(content_type)
+    |> Conn.put_resp_header("cache-control", "no-cache, no-store, must-revalidate")
+    |> Conn.send_resp(200, body)
+    |> Conn.halt()
   end
 
   defp serve_asset(conn, file_path) do
     mime = Volt.Assets.mime_type(file_path)
 
     conn
-    |> Plug.Conn.put_resp_content_type(mime)
-    |> Plug.Conn.put_resp_header("cache-control", "no-cache, no-store, must-revalidate")
-    |> Plug.Conn.send_file(200, file_path)
-    |> Plug.Conn.halt()
+    |> Conn.put_resp_content_type(mime)
+    |> Conn.put_resp_header("cache-control", "no-cache, no-store, must-revalidate")
+    |> Conn.send_file(200, file_path)
+    |> Conn.halt()
   end
 
   defp serve_asset_module(conn, file_path, relative, config) do
-    query = Volt.JS.Query.decode(conn.query_string)
+    query = Query.decode(conn.query_string)
     url_path = Volt.URL.join(config.prefix, relative)
     prefix = Path.dirname(url_path)
 
@@ -282,16 +285,16 @@ defmodule Volt.DevServer do
     case Volt.Assets.to_js_module(file_path, opts) do
       {:ok, code} ->
         conn
-        |> Plug.Conn.put_resp_content_type("application/javascript")
-        |> Plug.Conn.put_resp_header("cache-control", "no-cache, no-store, must-revalidate")
-        |> Plug.Conn.send_resp(200, code)
-        |> Plug.Conn.halt()
+        |> Conn.put_resp_content_type("application/javascript")
+        |> Conn.put_resp_header("cache-control", "no-cache, no-store, must-revalidate")
+        |> Conn.send_resp(200, code)
+        |> Conn.halt()
 
       {:error, reason} ->
         conn
-        |> Plug.Conn.put_resp_content_type("application/javascript")
-        |> Plug.Conn.send_resp(500, "// asset module error: #{inspect(reason)}")
-        |> Plug.Conn.halt()
+        |> Conn.put_resp_content_type("application/javascript")
+        |> Conn.send_resp(500, "// asset module error: #{inspect(reason)}")
+        |> Conn.halt()
     end
   end
 
@@ -308,17 +311,17 @@ defmodule Volt.DevServer do
   end
 
   defp asset_import_request?(conn) do
-    Volt.JS.Query.asset_module_query?(conn.query_string) or
-      Enum.member?(Plug.Conn.get_req_header(conn, "sec-fetch-dest"), "script")
+    Query.asset_module_query?(conn.query_string) or
+      Enum.member?(Conn.get_req_header(conn, "sec-fetch-dest"), "script")
   end
 
   defp import_query?(query_string) do
     query_string
-    |> Volt.JS.Query.decode()
+    |> Query.decode()
     |> Map.has_key?("import")
   end
 
-  defp cache_key_for(file_path, true), do: Volt.JS.Query.append(file_path, "import")
+  defp cache_key_for(file_path, true), do: Query.append(file_path, "import")
   defp cache_key_for(file_path, false), do: file_path
 
   defp rewrite_dev_css_urls(%{type: :css, code: code} = result, file_path, config) do
@@ -340,7 +343,7 @@ defmodule Volt.DevServer do
   defp code_for_request(result, mod_url, content_type, true) do
     result
     |> css_import_module(mod_url)
-    |> maybe_inject_hmr_preamble(Volt.JS.Query.append(mod_url, "import"), content_type)
+    |> maybe_inject_hmr_preamble(Query.append(mod_url, "import"), content_type)
     |> maybe_inject_dev_console_forwarder(content_type)
   end
 
@@ -392,8 +395,9 @@ defmodule Volt.DevServer do
   end
 
   defp rewrite_package_import(specifier, importer, config) do
-    case Volt.JS.PackageResolver.resolve(specifier, Path.dirname(importer),
-           extensions: Volt.JS.Extensions.resolvable(config.plugins)
+    case NPM.Resolution.PackageResolver.resolve(specifier, Path.dirname(importer),
+           extensions: Volt.JS.Extensions.resolvable(config.plugins),
+           conditions: Volt.JS.Resolution.browser_conditions()
          ) do
       {:ok, resolved} -> rewrite_resolved_path(resolved, config)
       _ -> :keep
@@ -401,14 +405,14 @@ defmodule Volt.DevServer do
   end
 
   defp rewrite_relative(specifier, importer, config) do
-    {path_specifier, query} = Volt.JS.Query.split(specifier)
+    {path_specifier, query} = Query.split(specifier)
     resolved = Path.expand(Path.join(Path.dirname(importer), path_specifier))
 
     rewrite_root_path(resolved, query, config)
   end
 
   defp rewrite_resolved_path(resolved, config) do
-    {resolved, query} = Volt.JS.Query.split(resolved)
+    {resolved, query} = Query.split(resolved)
     rewrite_root_path(resolved, query, config)
   end
 
@@ -431,9 +435,9 @@ defmodule Volt.DevServer do
     url = Volt.URL.join(prefix, relative)
 
     cond do
-      query != "" -> Volt.JS.Query.append(url, query)
-      Path.extname(resolved) == ".css" -> Volt.JS.Query.append(url, "import")
-      Volt.Assets.asset?(resolved) -> Volt.JS.Query.append(url, "import")
+      query != "" -> Query.append(url, query)
+      Path.extname(resolved) == ".css" -> Query.append(url, "import")
+      Volt.Assets.asset?(resolved) -> Query.append(url, "import")
       true -> url
     end
   end

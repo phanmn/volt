@@ -1,7 +1,7 @@
 defmodule Volt.Builder.Output do
   @moduledoc false
 
-  alias Volt.Builder.{Writer, BundleResult, Rewriter}
+  alias Volt.Builder.{Writer, Rewriter}
 
   @doc "Bundle modules into a single JS file and write output."
   def build_single(entry, name, {js_files, css_parts}, build_ctx) do
@@ -21,7 +21,7 @@ defmodule Volt.Builder.Output do
 
     case bundle_js_files(js_files, bundle_opts) do
       {:ok, bundle_result} ->
-        {js_code, js_sourcemap} = BundleResult.extract(bundle_result)
+        {js_code, js_sourcemap} = extract_bundle_result(bundle_result)
         js_code = Rewriter.inject_external_preamble(js_code, js_files, ctx)
 
         js_code =
@@ -40,7 +40,10 @@ defmodule Volt.Builder.Output do
 
           {:ok,
            %Volt.Builder.Result{
-             js: %{path: Path.join(outdir, js_filename), size: byte_size(js_code)},
+             js: %Volt.Builder.OutputFile{
+               path: Path.join(outdir, js_filename),
+               size: byte_size(js_code)
+             },
              css: css_result,
              manifest: manifest
            }}
@@ -103,7 +106,7 @@ defmodule Volt.Builder.Output do
 
           Writer.write_js(outdir, filename, code, sourcemap, hidden: sourcemap_hidden)
 
-          %{
+          %Volt.Builder.OutputFile{
             path: Path.join(outdir, filename),
             size: byte_size(code),
             chunk_id: chunk_id,
@@ -161,7 +164,7 @@ defmodule Volt.Builder.Output do
 
         case bundle_js_files(chunk_js, bundle_opts) do
           {:ok, result} ->
-            {code, sourcemap} = BundleResult.extract(result)
+            {code, sourcemap} = extract_bundle_result(result)
             code = Rewriter.restore_dynamic_imports(code, dynamic_import_placeholder)
             {:cont, {:ok, Map.put(acc, chunk_id, {code, sourcemap})}}
 
@@ -171,6 +174,9 @@ defmodule Volt.Builder.Output do
       end
     end)
   end
+
+  defp extract_bundle_result(result) when is_binary(result), do: {result, nil}
+  defp extract_bundle_result(%{code: code, sourcemap: sourcemap}), do: {code, sourcemap}
 
   defp bundle_js_files(js_files, bundle_opts) do
     case OXC.bundle(js_files, bundle_opts) do

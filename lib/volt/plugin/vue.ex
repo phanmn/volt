@@ -50,8 +50,32 @@ defmodule Volt.Plugin.Vue do
   @impl true
   def extract_imports(path, source, _opts) do
     if Path.extname(path) == ".vue" do
-      {:ok, specs} = Volt.JS.VueImports.extract(source)
-      {:ok, %{imports: Enum.map(specs, &{:static, &1}), workers: []}}
+      {:ok,
+       %Volt.JS.ImportExtractor.Result{
+         imports: source |> imports() |> Enum.map(&{:static, &1}),
+         workers: []
+       }}
+    end
+  end
+
+  defp imports(source) do
+    case Vize.parse_sfc(source) do
+      {:ok, descriptor} ->
+        [descriptor.script, descriptor.script_setup]
+        |> Enum.reject(&is_nil/1)
+        |> Enum.flat_map(&script_imports/1)
+
+      {:error, _} ->
+        []
+    end
+  end
+
+  defp script_imports(block) do
+    lang = block[:lang] || "js"
+
+    case OXC.imports(block.content, "script.#{lang}") do
+      {:ok, imports} -> imports
+      {:error, _} -> []
     end
   end
 end

@@ -27,7 +27,7 @@ defmodule Volt.Builder.Writer do
       css_filename = hashed_name(name, css_code, ".css", hash)
       css_path = Path.join(outdir, css_filename)
       File.write!(css_path, css_code)
-      {:ok, %{path: css_path, size: byte_size(css_code), assets: assets}}
+      {:ok, %Volt.Builder.OutputFile{path: css_path, size: byte_size(css_code), assets: assets}}
     end
   end
 
@@ -39,7 +39,12 @@ defmodule Volt.Builder.Writer do
          {:ok, css_code} <- compile_css(css_code, bundle_opts) do
       css_filename = hashed_name(name, css_code, ".css", hash)
       css_path = Path.join(outdir, css_filename)
-      css_result = %{path: css_path, size: byte_size(css_code), assets: assets}
+
+      css_result = %Volt.Builder.OutputFile{
+        path: css_path,
+        size: byte_size(css_code),
+        assets: assets
+      }
 
       File.write!(css_path, css_code)
 

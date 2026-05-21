@@ -2,6 +2,8 @@ defmodule Volt.Integration.TestPlug do
   @moduledoc false
   @behaviour Plug
 
+  alias Plug.Conn
+
   @impl true
   def init(opts), do: opts
 
@@ -20,16 +22,16 @@ defmodule Volt.Integration.TestPlug do
         body = File.read!(path)
 
         conn
-        |> Plug.Conn.put_resp_content_type("text/html")
-        |> Plug.Conn.send_resp(200, body)
-        |> Plug.Conn.halt()
+        |> Conn.put_resp_content_type("text/html")
+        |> Conn.send_resp(200, body)
+        |> Conn.halt()
       else
-        Plug.Conn.send_resp(conn, 404, "not found")
+        Conn.send_resp(conn, 404, "not found")
       end
     else
       case Volt.DevServer.call(conn, opts[:dev_server]) do
         %{halted: true} = conn -> conn
-        conn -> Plug.Conn.send_resp(conn, 404, "not found")
+        conn -> Conn.send_resp(conn, 404, "not found")
       end
     end
   end

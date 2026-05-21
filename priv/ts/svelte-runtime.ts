@@ -6,7 +6,8 @@ type SvelteCompileResult = {
   warnings?: Array<{ code?: string; message?: string; start?: unknown; end?: unknown }>
 }
 
-function compileSvelte(source: string, options: Record<string, unknown> = {}) {
+function compileSvelte(source: string, input: Record<string, unknown> | string = {}) {
+  const options = typeof input === 'string' ? JSON.parse(input) as Record<string, unknown> : input
   const result = compile(source, {
     generate: 'client',
     dev: false,

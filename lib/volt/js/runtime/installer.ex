@@ -3,6 +3,8 @@ defmodule Volt.JS.Runtime.Installer do
 
   require Logger
 
+  alias NPM.Lockfile
+
   @spec install!(map(), keyword()) :: %{install_dir: String.t(), node_modules: String.t()}
   def install!(packages, opts \\ []) when is_map(packages) do
     Application.ensure_all_started(:req)
@@ -75,9 +77,9 @@ defmodule Volt.JS.Runtime.Installer do
   end
 
   defp install_intact?(lockfile_path, node_modules) do
-    with {:ok, policy} <- NPM.Lockfile.read_policy(lockfile_path),
-         true <- NPM.Lockfile.policy_matches?(policy),
-         {:ok, lockfile} when lockfile != %{} <- NPM.Lockfile.read(lockfile_path) do
+    with {:ok, policy} <- Lockfile.read_policy(lockfile_path),
+         true <- Lockfile.policy_matches?(policy),
+         {:ok, lockfile} when lockfile != %{} <- Lockfile.read(lockfile_path) do
       Enum.all?(lockfile, fn {name, _} ->
         File.exists?(Path.join([node_modules, name, "package.json"]))
       end)

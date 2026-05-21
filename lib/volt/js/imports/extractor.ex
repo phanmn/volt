@@ -2,7 +2,7 @@ defmodule Volt.JS.ImportExtractor do
   @moduledoc false
 
   @type import_type :: :static | :dynamic
-  @type result :: %{imports: [{import_type(), String.t()}], workers: [String.t()]}
+  @type result :: Volt.JS.ImportExtractor.Result.t()
 
   @spec extract_typed(String.t(), String.t(), keyword()) :: {:ok, result()} | {:error, term()}
   def extract_typed(source, filename, opts \\ []) do
@@ -12,7 +12,7 @@ defmodule Volt.JS.ImportExtractor do
       case OXC.collect_imports(source, filename) do
         {:ok, imports} ->
           typed = Enum.map(imports, &{&1.type, &1.specifier})
-          {:ok, %{imports: typed, workers: []}}
+          {:ok, %Volt.JS.ImportExtractor.Result{imports: typed, workers: []}}
 
         {:error, _} = error ->
           error
@@ -60,12 +60,23 @@ defmodule Volt.JS.ImportExtractor do
               maybe_extract_require(node, acc)
           end)
 
-        {:ok, %{imports: Enum.reverse(acc.imports), workers: Enum.reverse(acc.workers)}}
+        {:ok,
+         %Volt.JS.ImportExtractor.Result{
+           imports: Enum.reverse(acc.imports),
+           workers: Enum.reverse(acc.workers)
+         }}
 
       {:error, _} ->
         case OXC.imports(source, filename) do
-          {:ok, specs} -> {:ok, %{imports: Enum.map(specs, &{:static, &1}), workers: []}}
-          error -> error
+          {:ok, specs} ->
+            {:ok,
+             %Volt.JS.ImportExtractor.Result{
+               imports: Enum.map(specs, &{:static, &1}),
+               workers: []
+             }}
+
+          error ->
+            error
         end
     end
   end
@@ -88,7 +99,7 @@ defmodule Volt.JS.ImportExtractor do
   defp maybe_extract_worker(node, acc) do
     case Volt.JS.AST.new_arguments(node, ["Worker", "SharedWorker"]) do
       {:ok, _worker_type, [first_arg | _]} ->
-        case Volt.JS.WorkerRewriter.extract_specifier(first_arg) do
+        case Volt.JS.Transforms.Workers.extract_specifier(first_arg) do
           {:ok, spec, _start, _end} -> {node, update_in(acc.workers, &[spec | &1])}
           nil -> {node, acc}
         end

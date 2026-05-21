@@ -22,7 +22,11 @@ defmodule Volt.Plugin.Svelte do
 
   @impl true
   def prebundle_entry("svelte") do
-    {:proxy, "svelte.js", exports: [%{all_from: "svelte"}, %{all_from: "svelte/internal/client"}]}
+    {:proxy, "svelte.js",
+     exports: [
+       Volt.JS.PrebundleEntry.Export.all_from("svelte"),
+       Volt.JS.PrebundleEntry.Export.all_from("svelte/internal/client")
+     ]}
   end
 
   def prebundle_entry(_specifier), do: nil
@@ -31,8 +35,9 @@ defmodule Volt.Plugin.Svelte do
   def resolve("svelte" <> _ = specifier, _importer) do
     install = Volt.JS.Runtime.Installer.install!(@runtime_packages)
 
-    case Volt.JS.PackageResolver.resolve(specifier, install.install_dir,
-           extensions: @resolve_extensions
+    case NPM.Resolution.PackageResolver.resolve(specifier, install.install_dir,
+           extensions: @resolve_extensions,
+           conditions: Volt.JS.Resolution.browser_conditions()
          ) do
       {:ok, path} -> {:ok, path}
       {:builtin, _} -> :skip
@@ -73,7 +78,10 @@ defmodule Volt.Plugin.Svelte do
         max_stack_size: 16 * 1024 * 1024
       )
 
-    compile_options = compile_options(path, opts, plugin_opts)
+    compile_options =
+      path
+      |> Volt.Plugin.Svelte.CompilerOptions.new(opts, plugin_opts)
+      |> Jason.encode!()
 
     case Volt.JS.Runtime.call(runtime, "compileSvelte", [source, compile_options]) do
       {:ok, %{"js" => js, "css" => css, "jsMap" => js_map} = result} ->
@@ -104,7 +112,8 @@ defmodule Volt.Plugin.Svelte do
 
     scripts
     |> Enum.with_index()
-    |> Enum.reduce_while({:ok, %{imports: [], workers: []}}, fn {script, index}, {:ok, acc} ->
+    |> Enum.reduce_while({:ok, %Volt.JS.ImportExtractor.Result{}}, fn {script, index},
+                                                                      {:ok, acc} ->
       filename =
         path
         |> Path.basename()
@@ -144,41 +153,6 @@ defmodule Volt.Plugin.Svelte do
   defp node_text({_tag, _attrs, children}), do: Enum.map_join(children, &node_text/1)
   defp node_text(text) when is_binary(text), do: text
   defp node_text(_node), do: ""
-
-  defp compile_options(path, opts, plugin_opts) do
-    plugin_compiler_options = Keyword.get(plugin_opts, :compiler_options, %{})
-    build_compiler_options = Keyword.get(opts, :svelte_options, %{})
-
-    %{
-      "filename" => path,
-      "generate" => compile_target(opts, plugin_opts),
-      "dev" => option(opts, plugin_opts, :dev, false),
-      "css" => option(opts, plugin_opts, :css, "external")
-    }
-    |> Map.merge(stringify_keys(plugin_compiler_options))
-    |> Map.merge(stringify_keys(build_compiler_options))
-  end
-
-  defp compile_target(opts, plugin_opts) do
-    case option(
-           opts,
-           plugin_opts,
-           :svelte_generate,
-           option(opts, plugin_opts, :generate, :client)
-         ) do
-      :client -> "client"
-      :server -> "server"
-      value when is_binary(value) -> value
-    end
-  end
-
-  defp option(opts, plugin_opts, key, default) do
-    Keyword.get(opts, key, Keyword.get(plugin_opts, key, default))
-  end
-
-  defp stringify_keys(map) when is_map(map) do
-    Map.new(map, fn {key, value} -> {to_string(key), value} end)
-  end
 
   defp encode_sourcemap(nil), do: nil
   defp encode_sourcemap(map), do: Jason.encode!(map)

@@ -14,14 +14,9 @@ defmodule Volt.Builder.Collector do
   def collect(entry_path, ctx) do
     label = Path.basename(entry_path)
 
-    state = %{
+    state = %Volt.Builder.Collector.State{
       ctx: ctx,
       root: Path.dirname(entry_path),
-      files: [],
-      seen: MapSet.new(),
-      dep_map: %{},
-      workers: %{},
-      specifier_labels: %{},
       used_labels: MapSet.new([label]),
       path_labels: %{entry_path => label}
     }
@@ -67,7 +62,7 @@ defmodule Volt.Builder.Collector do
        state
        | seen: MapSet.put(state.seen, abs_path),
          files: [{abs_path, label, source} | state.files],
-         dep_map: Map.put(state.dep_map, abs_path, %{static: [], dynamic: []})
+         dep_map: Map.put(state.dep_map, abs_path, %Volt.Builder.Dependencies{})
      }}
   end
 
@@ -181,17 +176,21 @@ defmodule Volt.Builder.Collector do
         dep_map
 
       deps ->
-        deps =
-          Map.new(deps, fn {type, specs} ->
-            {type,
-             Enum.map(specs, fn
-               ^specifier -> resolved_path
-               other -> other
-             end)}
-          end)
+        deps = %{
+          deps
+          | static: replace_specifier(deps.static, specifier, resolved_path),
+            dynamic: replace_specifier(deps.dynamic, specifier, resolved_path)
+        }
 
         Map.put(dep_map, importer, deps)
     end
+  end
+
+  defp replace_specifier(specs, specifier, resolved_path) do
+    Enum.map(specs, fn
+      ^specifier -> resolved_path
+      other -> other
+    end)
   end
 
   defp graph_source(path, source, _content_type, ctx) do
@@ -221,7 +220,7 @@ defmodule Volt.Builder.Collector do
             extract_js_typed_imports(source, filename)
 
           ext == ".json" or ext in Volt.JS.Extensions.css() ->
-            {:ok, %{imports: [], workers: []}}
+            {:ok, %Volt.JS.ImportExtractor.Result{imports: [], workers: []}}
 
           true ->
             extract_js_typed_imports(source, filename)
@@ -290,11 +289,11 @@ defmodule Volt.Builder.Collector do
 
   defp module_label(resolved_path, root) do
     {path, query} = Volt.JS.Query.split(resolved_path)
-    parts = String.split(path, "/node_modules/")
+    [relative_path | rest] = path |> String.split("/node_modules/") |> Enum.reverse()
 
     label =
-      if length(parts) > 1 do
-        List.last(parts)
+      if rest != [] do
+        relative_path
       else
         relative = Path.relative_to(path, root)
 
@@ -350,6 +349,6 @@ defmodule Volt.Builder.Collector do
         {:dynamic, spec}, {s, d} -> {s, [spec | d]}
       end)
 
-    %{static: Enum.reverse(statics), dynamic: Enum.reverse(dynamics)}
+    %Volt.Builder.Dependencies{static: Enum.reverse(statics), dynamic: Enum.reverse(dynamics)}
   end
 end

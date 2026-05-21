@@ -160,7 +160,7 @@ defmodule Volt.JS.Vendor do
           [
             cwd: project_root,
             format: :esm,
-            conditions: Volt.JS.PackageResolver.browser_conditions(),
+            conditions: Volt.JS.Resolution.browser_conditions(),
             modules: module_dirs,
             define: %{"process.env.NODE_ENV" => ~s("development")},
             exports: :named,
@@ -246,8 +246,9 @@ defmodule Volt.JS.Vendor do
   end
 
   defp resolve_from_node_modules(specifier, module_dir) do
-    Volt.JS.PackageResolver.resolve(specifier, module_dir,
-      extensions: Volt.JS.Extensions.resolvable()
+    NPM.Resolution.PackageResolver.resolve(specifier, module_dir,
+      extensions: Volt.JS.Extensions.resolvable(),
+      conditions: Volt.JS.Resolution.browser_conditions()
     )
   end
 
@@ -261,7 +262,7 @@ defmodule Volt.JS.Vendor do
       case NPM.Resolution.PackageResolver.resolve_entry(package_dir,
              subpath: subpath || ".",
              extensions: extensions,
-             conditions: Volt.JS.PackageResolver.browser_conditions()
+             conditions: Volt.JS.Resolution.browser_conditions()
            ) do
         {:ok, _path} = ok -> ok
         :error -> resolve_module_dir_subpath(package_dir, subpath || ".", extensions)

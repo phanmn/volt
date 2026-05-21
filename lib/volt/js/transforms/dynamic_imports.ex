@@ -1,4 +1,4 @@
-defmodule Volt.JS.DynamicImportVars do
+defmodule Volt.JS.Transforms.DynamicImports do
   @moduledoc """
   Rewrites relative template-literal dynamic imports into import maps.
 
@@ -58,10 +58,9 @@ defmodule Volt.JS.DynamicImportVars do
          {path_pattern, query} <- Volt.JS.Query.split(pattern),
          true <- relative_pattern?(path_pattern) do
       {:ok,
-       %{
+       %Volt.JS.Transforms.DynamicImports.Replacement{
          start: node.start,
          end: node.end,
-         index: nil,
          template: String.slice(source, source_node.start, source_node.end - source_node.start),
          pattern: path_pattern,
          query: query

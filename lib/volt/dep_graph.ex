@@ -34,7 +34,7 @@ defmodule Volt.DepGraph do
 
     globs =
       source
-      |> Volt.JS.GlobImport.patterns(Path.basename(path))
+      |> Volt.JS.Transforms.GlobImports.patterns(Path.basename(path))
       |> Enum.map(&expand_glob_pattern(&1, Path.dirname(path)))
 
     update(path, imports, globs)

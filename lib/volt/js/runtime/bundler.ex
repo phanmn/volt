@@ -1,10 +1,12 @@
 defmodule Volt.JS.Runtime.Bundler do
   @moduledoc false
 
-  alias Volt.JS.PackageResolver
-  alias Volt.JS.SpecifierRewriter
+  alias Volt.JS.Transforms.Specifiers
 
-  @resolve_opts [extensions: Volt.JS.Extensions.node_resolvable()]
+  @resolve_opts [
+    extensions: Volt.JS.Extensions.node_resolvable(),
+    conditions: Volt.JS.Resolution.browser_conditions()
+  ]
 
   @spec bundle_file(String.t(), keyword()) :: {:ok, String.t()} | {:error, term()}
   def bundle_file(entry_path, opts \\ []) do
@@ -62,18 +64,24 @@ defmodule Volt.JS.Runtime.Bundler do
   end
 
   defp rewrite_and_resolve(source, importer, project_root) do
-    SpecifierRewriter.rewrite(source, importer, project_root, &rewrite_specifier/3)
+    Specifiers.rewrite(source, importer, project_root, &rewrite_specifier/3)
   end
 
   defp rewrite_specifier(specifier, importer, project_root) do
     from_dir = Path.dirname(importer)
 
-    case PackageResolver.resolve(specifier, from_dir, @resolve_opts) do
+    case NPM.Resolution.PackageResolver.resolve(specifier, from_dir, @resolve_opts) do
       {:builtin, _} ->
         :skip
 
       {:ok, resolved_path} ->
-        replacement = PackageResolver.relative_import_path(importer, resolved_path, project_root)
+        replacement =
+          NPM.Resolution.PackageResolver.relative_import_path(
+            importer,
+            resolved_path,
+            project_root
+          )
+
         {:ok, replacement, resolved_path}
 
       :error ->

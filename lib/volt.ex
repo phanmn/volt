@@ -19,6 +19,8 @@ defmodule Volt do
       mix volt.build       # Production build
   """
 
+  alias Volt.URL
+
   @doc """
   Returns the browser path for the configured Volt entry.
 
@@ -48,12 +50,12 @@ defmodule Volt do
     case find_manifest_entry(endpoint, build.outdir, prefix, manifest_key) do
       {:ok, file, manifest_prefix} ->
         endpoint
-        |> static_path(Volt.URL.join(manifest_prefix, file))
+        |> static_path(URL.join(manifest_prefix, file))
         |> ensure_leading_slash()
 
       :error ->
         endpoint
-        |> static_path(Volt.URL.join(Volt.URL.join(prefix, "js"), manifest_key))
+        |> static_path(URL.join(URL.join(prefix, "js"), manifest_key))
         |> ensure_leading_slash()
     end
   end
@@ -63,7 +65,7 @@ defmodule Volt do
 
     [
       {root_outdir, prefix},
-      {Path.join(root_outdir, "js"), Volt.URL.join(prefix, "js")}
+      {Path.join(root_outdir, "js"), URL.join(prefix, "js")}
     ]
     |> Enum.find_value(:error, fn {manifest_dir, manifest_prefix} ->
       manifest_path = Path.join(manifest_dir, "manifest.json")

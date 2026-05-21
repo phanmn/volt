@@ -65,8 +65,9 @@ defmodule Volt.Builder.Resolver do
   defp resolve_package_import(specifier, importer, ctx) do
     {importer_path, _query} = Volt.JS.Query.split(importer)
 
-    case Volt.JS.PackageResolver.resolve(specifier, Path.dirname(importer_path),
-           extensions: Volt.JS.Extensions.resolvable(ctx.plugins)
+    case NPM.Resolution.PackageResolver.resolve(specifier, Path.dirname(importer_path),
+           extensions: Volt.JS.Extensions.resolvable(ctx.plugins),
+           conditions: Volt.JS.Resolution.browser_conditions()
          ) do
       {:ok, _} = ok -> ok
       :error -> {:error, {:not_found, specifier}}
@@ -137,7 +138,7 @@ defmodule Volt.Builder.Resolver do
     case NPM.Resolution.PackageResolver.resolve_entry(package_dir,
            subpath: subpath,
            extensions: extensions,
-           conditions: Volt.JS.PackageResolver.browser_conditions()
+           conditions: Volt.JS.Resolution.browser_conditions()
          ) do
       {:ok, resolved} ->
         maybe_try_direct_path(resolved, subpath, dir, specifier, package_dir, extensions)
@@ -174,7 +175,7 @@ defmodule Volt.Builder.Resolver do
     case NPM.Resolution.PackageResolver.resolve_entry(package_dir,
            subpath: ".",
            extensions: extensions,
-           conditions: Volt.JS.PackageResolver.browser_conditions()
+           conditions: Volt.JS.Resolution.browser_conditions()
          ) do
       {:ok, path} -> path
       :error -> nil

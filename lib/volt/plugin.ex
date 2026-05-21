@@ -39,9 +39,7 @@ defmodule Volt.Plugin do
 
   @doc "Extract static/dynamic imports and worker specifiers from a source file."
   @callback extract_imports(path :: String.t(), source :: String.t(), opts :: keyword()) ::
-              {:ok, %{imports: [{:static | :dynamic, String.t()}], workers: [String.t()]}}
-              | {:error, term()}
-              | nil
+              {:ok, Volt.JS.ImportExtractor.Result.t()} | {:error, term()} | nil
 
   @doc "Transform compiled JavaScript before serving or bundling."
   @callback transform(code :: String.t(), path :: String.t()) :: {:ok, String.t()} | nil
@@ -52,10 +50,14 @@ defmodule Volt.Plugin do
   @doc "Return the canonical prebundle specifier to use for an import, or pass with `nil`."
   @callback prebundle_alias(specifier :: String.t()) :: String.t() | nil
 
+  @type prebundle_import :: Volt.JS.PrebundleEntry.Import.t()
+  @type prebundle_export :: Volt.JS.PrebundleEntry.Export.t()
+
   @doc "Return a generated prebundle entry for a canonical specifier, or pass with `nil`."
   @callback prebundle_entry(specifier :: String.t()) ::
               {:source, filename :: String.t(), source :: String.t()}
-              | {:proxy, filename :: String.t(), keyword()}
+              | {:proxy, filename :: String.t(),
+                 imports: [prebundle_import()], exports: [prebundle_export()]}
               | nil
 
   @doc "Transform a final output chunk before writing."

@@ -1,4 +1,4 @@
-defmodule Volt.JS.SpecifierRewriter do
+defmodule Volt.JS.Transforms.Specifiers do
   @moduledoc false
 
   @type rewrite_result :: :skip | {:ok, String.t() | nil, String.t()} | {:error, term()}

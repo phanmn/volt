@@ -1,4 +1,4 @@
-defmodule Volt.JS.ImportMetaEnv do
+defmodule Volt.JS.Transforms.ImportMetaEnv do
   @moduledoc false
 
   @prefix "import.meta.env."
