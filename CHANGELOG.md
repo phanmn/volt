@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Added
+
+- `env_prefix` config for choosing which `.env` variables are exposed through `import.meta.env`, including Vite-compatible prefixes like `"VITE_"`.
+- `asset_url_prefix` config and `mix volt.build --asset-url-prefix` for changing production JavaScript and CSS asset URLs without changing Phoenix output paths.
+
 ### Changed
 
 - Production builds now tree-shake JavaScript by default, with `tree_shaking: false` and `mix volt.build --no-tree-shaking` available to preserve unused exports.

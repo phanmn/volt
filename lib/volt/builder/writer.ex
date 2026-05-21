@@ -21,7 +21,8 @@ defmodule Volt.Builder.Writer do
   def write_css([], _outdir, _name, _hash, _bundle_opts), do: {:ok, nil}
 
   def write_css(css_parts, outdir, name, hash, bundle_opts) do
-    with {:ok, %{code: css_code, assets: assets}} <- rewrite_css_parts(css_parts, outdir),
+    with {:ok, %{code: css_code, assets: assets}} <-
+           rewrite_css_parts(css_parts, outdir, bundle_opts),
          {:ok, css_code} <- compile_css(css_code, bundle_opts) do
       css_filename = hashed_name(name, css_code, ".css", hash)
       css_path = Path.join(outdir, css_filename)
@@ -34,7 +35,7 @@ defmodule Volt.Builder.Writer do
     File.mkdir_p!(outdir)
 
     with {:ok, %{code: css_code, assets: assets}} <-
-           rewrite_css_part({source_path, css_code}, outdir),
+           rewrite_css_part({source_path, css_code}, outdir, bundle_opts),
          {:ok, css_code} <- compile_css(css_code, bundle_opts) do
       css_filename = hashed_name(name, css_code, ".css", hash)
       css_path = Path.join(outdir, css_filename)
@@ -61,10 +62,10 @@ defmodule Volt.Builder.Writer do
     end
   end
 
-  defp rewrite_css_parts(css_parts, outdir) do
+  defp rewrite_css_parts(css_parts, outdir, bundle_opts) do
     css_parts
     |> Enum.reduce_while({:ok, [], []}, fn css_part, {:ok, code_parts, assets} ->
-      case rewrite_css_part(css_part, outdir) do
+      case rewrite_css_part(css_part, outdir, bundle_opts) do
         {:ok, %{code: code, assets: part_assets}} ->
           {:cont, {:ok, [code | code_parts], merge_assets(assets, part_assets)}}
 
@@ -81,11 +82,13 @@ defmodule Volt.Builder.Writer do
     end
   end
 
-  defp rewrite_css_part({source_path, css}, outdir) do
-    Volt.CSS.AssetURLRewriter.rewrite_with_assets(css, source_path, outdir)
+  defp rewrite_css_part({source_path, css}, outdir, bundle_opts) do
+    Volt.CSS.AssetURLRewriter.rewrite_with_assets(css, source_path, outdir,
+      prefix: Keyword.get(bundle_opts, :asset_url_prefix, "/assets")
+    )
   end
 
-  defp rewrite_css_part(css, _outdir), do: {:ok, %{code: css, assets: []}}
+  defp rewrite_css_part(css, _outdir, _bundle_opts), do: {:ok, %{code: css, assets: []}}
 
   defp compile_css(css_code, bundle_opts) do
     case Vize.CSS.compile(css_code, minify: bundle_opts[:minify] || false) do

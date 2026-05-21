@@ -140,6 +140,30 @@ defmodule Volt.Builder.CSSTest do
       assert Path.basename(asset_path) in manifest["css_asset_app.css"]["assets"]
     end
 
+    test "asset URL prefix config applies to production CSS asset URLs" do
+      File.write!(Path.join(@fixture_dir, "src/logo.svg"), "<svg></svg>")
+
+      File.write!(
+        Path.join(@fixture_dir, "src/prefixed.css"),
+        ".logo { background: url('./logo.svg') }"
+      )
+
+      File.write!(Path.join(@fixture_dir, "src/prefixed.ts"), "import './prefixed.css'")
+
+      {:ok, result} =
+        Volt.Builder.build(
+          entry: Path.join(@fixture_dir, "src/prefixed.ts"),
+          outdir: @outdir,
+          minify: false,
+          sourcemap: false,
+          asset_url_prefix: "https://cdn.example.com/assets/"
+        )
+
+      css = File.read!(result.css.path)
+      assert css =~ ~r/https:\/\/cdn\.example\.com\/assets\/logo-[a-f0-9]{8}\.svg/
+      refute css =~ "https:/cdn.example.com"
+    end
+
     test "rewrites Vue SFC style asset URLs relative to the component" do
       File.write!(Path.join(@fixture_dir, "src/logo.svg"), "<svg></svg>")
 

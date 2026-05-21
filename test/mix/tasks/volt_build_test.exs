@@ -53,6 +53,37 @@ defmodule Mix.Tasks.Volt.BuildTest do
     assert File.read!(js_path) =~ "unused"
   end
 
+  test "--asset-url-prefix sets production asset URLs", %{tmp_dir: tmp_dir} do
+    entry = Path.join(tmp_dir, "src/app.js")
+    outdir = Path.join(tmp_dir, "dist")
+
+    File.write!(Path.join(tmp_dir, "src/logo.svg"), "<svg></svg>")
+
+    File.write!(entry, """
+    import logo from './logo.svg?url'
+    console.log(logo)
+    """)
+
+    Mix.Tasks.Volt.Build.run([
+      "--entry",
+      entry,
+      "--outdir",
+      outdir,
+      "--asset-url-prefix",
+      "/cdn/assets",
+      "--no-hash",
+      "--no-minify",
+      "--no-tailwind",
+      "--format",
+      "iife",
+      "--sourcemap",
+      "false"
+    ])
+
+    js_path = Path.join([outdir, "js", "app.js"])
+    assert File.read!(js_path) =~ "/cdn/assets/logo.svg"
+  end
+
   test "--sourcemap false disables production sourcemaps", %{tmp_dir: tmp_dir} do
     entry = Path.join(tmp_dir, "src/app.js")
     outdir = Path.join(tmp_dir, "dist")

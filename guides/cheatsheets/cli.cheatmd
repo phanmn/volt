@@ -71,6 +71,12 @@ Repeatable for multi-page apps.
 --outdir priv/static/assets
 ```
 
+### Asset URL Prefix
+
+```bash
+--asset-url-prefix /assets
+```
+
 ### Target
 
 ```bash

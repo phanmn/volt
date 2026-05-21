@@ -59,6 +59,16 @@ Reference public files with root-absolute URLs such as `/favicon.svg`. They are 
 
 CLI: `mix volt.build --public-dir path/to/public`.
 
+## Asset URL Prefix
+
+Production JavaScript and CSS asset references use `/assets` by default, matching Phoenix's conventional `priv/static/assets` mount. Change only the public URL prefix with `asset_url_prefix`; this does not change the filesystem `outdir` or Phoenix endpoint/static URL configuration.
+
+```elixir
+config :volt, asset_url_prefix: "/my-app/assets"
+```
+
+CLI: `mix volt.build --asset-url-prefix /my-app/assets`.
+
 ## Tree Shaking
 
 JavaScript tree shaking is enabled by default for production builds. Disable it only when you need to preserve unused exports or debug bundling output:

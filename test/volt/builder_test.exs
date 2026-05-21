@@ -104,6 +104,40 @@ defmodule Volt.BuilderTest do
       refute js =~ "unused"
     end
 
+    test "uses configured env prefix" do
+      File.write!(
+        Path.join(@fixture_dir, ".env"),
+        "VITE_API=http://vite.test\nVOLT_API=http://volt.test\n"
+      )
+
+      File.write!(Path.join(@fixture_dir, "src/env-app.ts"), """
+      console.log(import.meta.env.VITE_API)
+      console.log(import.meta.env.VOLT_API)
+      """)
+
+      previous_cwd = File.cwd!()
+
+      try do
+        File.cd!(@fixture_dir)
+
+        {:ok, result} =
+          Volt.Builder.build(
+            entry: Path.join(@fixture_dir, "src/env-app.ts"),
+            outdir: @outdir,
+            hash: false,
+            minify: false,
+            sourcemap: false,
+            env_prefix: "VITE_"
+          )
+
+        js = File.read!(result.js.path)
+        assert js =~ "http://vite.test"
+        refute js =~ "http://volt.test"
+      after
+        File.cd!(previous_cwd)
+      end
+    end
+
     test "can disable tree shaking" do
       File.write!(Path.join(@fixture_dir, "src/tree.ts"), """
       export function used() { return 'used' }
@@ -731,6 +765,28 @@ defmodule Volt.BuilderTest do
       js = File.read!(result.js.path)
       assert js =~ "/assets/logo.svg"
       refute js =~ "./logo.svg"
+    end
+
+    test "asset URL prefix config applies to production asset modules" do
+      File.write!(Path.join(@fixture_dir, "src/logo.svg"), "<svg></svg>")
+
+      File.write!(Path.join(@fixture_dir, "src/asset_prefix_app.ts"), """
+      import url from './logo.svg?url'
+      console.log(url)
+      """)
+
+      {:ok, result} =
+        Volt.Builder.build(
+          entry: Path.join(@fixture_dir, "src/asset_prefix_app.ts"),
+          outdir: @outdir,
+          minify: false,
+          sourcemap: false,
+          asset_url_prefix: "https://cdn.example.com/assets/"
+        )
+
+      js = File.read!(result.js.path)
+      assert js =~ "https://cdn.example.com/assets/logo.svg"
+      refute js =~ "https:/cdn.example.com"
     end
 
     test "asset query imports compile as distinct production modules" do

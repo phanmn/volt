@@ -108,7 +108,7 @@ defmodule Volt.CSS.AssetURLRewriter do
 
       if Volt.Assets.asset?(asset_path) and File.regular?(asset_path) do
         {filename, emitted} = emitted_filename(asset_path, outdir, emitted)
-        {:ok, append_suffix(Path.join(prefix, filename), uri), emitted}
+        {:ok, append_suffix(join_url(prefix, filename), uri), emitted}
       else
         {:ok, url, emitted}
       end
@@ -125,7 +125,7 @@ defmodule Volt.CSS.AssetURLRewriter do
       if Volt.Assets.asset?(asset_path) and File.regular?(asset_path) and
            String.starts_with?(asset_path, root) do
         relative = Path.relative_to(asset_path, root)
-        {:ok, append_suffix(Path.join(prefix, relative), uri)}
+        {:ok, append_suffix(join_url(prefix, relative), uri)}
       else
         {:ok, url}
       end
@@ -157,6 +157,20 @@ defmodule Volt.CSS.AssetURLRewriter do
     |> URI.parse()
     |> Map.fetch!(:path)
     |> Path.basename()
+  end
+
+  defp join_url(prefix, path) do
+    prefix = to_string(prefix)
+    path = "/" <> (path |> to_string() |> String.trim_leading("/"))
+
+    if prefix == "" do
+      String.trim_leading(path, "/")
+    else
+      prefix
+      |> URI.parse()
+      |> URI.append_path(path)
+      |> URI.to_string()
+    end
   end
 
   defp append_suffix(path, %{query: query, fragment: fragment}) do

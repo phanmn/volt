@@ -9,7 +9,7 @@ VOLT_API_URL=https://api.example.com
 VOLT_DEBUG=true
 ```
 
-Only variables prefixed with `VOLT_` are exposed to client code.
+Only variables prefixed with `VOLT_` are exposed to client code by default.
 
 ## Accessing Variables
 
@@ -18,6 +18,20 @@ console.log(import.meta.env.VOLT_API_URL)
 console.log(import.meta.env.MODE)  // "development" or "production"
 console.log(import.meta.env.DEV)   // true/false
 console.log(import.meta.env.PROD)  // true/false
+```
+
+## Env Prefix
+
+Configure `env_prefix` when migrating from Vite or when your app already uses a different public-env naming convention:
+
+```elixir
+config :volt, env_prefix: "VITE_"
+```
+
+Multiple prefixes are also supported:
+
+```elixir
+config :volt, env_prefix: ["VOLT_", "PUBLIC_"]
 ```
 
 ## File Loading Order
@@ -33,4 +47,4 @@ The mode defaults to `"production"` for `mix volt.build` and `"development"` for
 
 > #### Security {: .warning}
 >
-> Environment variables are embedded into the built JavaScript at compile time. Never put secrets or API keys in `VOLT_*` variables — they will be visible in the client bundle.
+> Environment variables are embedded into the built JavaScript at compile time. Never put secrets or API keys in variables matching `env_prefix` — they will be visible in the client bundle.

@@ -81,7 +81,7 @@ console.log(config.apiUrl)
 
 ## Environment Variables
 
-Create `.env` files in your project root. Variables prefixed with `VOLT_` are available as `import.meta.env.VOLT_*` in client code. Built-in variables include `MODE`, `DEV`, and `PROD`.
+Create `.env` files in your project root. Variables prefixed with `VOLT_` are available as `import.meta.env.VOLT_*` in client code by default. Use `env_prefix` to expose a different prefix such as `VITE_`. Built-in variables include `MODE`, `DEV`, and `PROD`.
 
 See [Environment Variables](environment-variables.md) for file loading order and modes.
 

@@ -62,7 +62,8 @@ defmodule Volt.DevServer do
       node_modules: node_modules,
       resolve_dirs: config.resolve_dirs,
       module_types: module_types,
-      define: Volt.Env.define(mode: "development", root: File.cwd!())
+      define:
+        Volt.Env.define(mode: "development", root: File.cwd!(), env_prefix: config.env_prefix)
     }
   end
 

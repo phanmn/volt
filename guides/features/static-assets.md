@@ -72,6 +72,16 @@ The referenced file is copied to the output directory and the final CSS points a
 
 Root-absolute URLs (`/images/logo.svg`), external URLs, data URLs, missing files, and unknown extensions are left unchanged. Use those forms for assets that should stay at Phoenix/static or public-directory paths.
 
+## Asset URL prefix
+
+Production JavaScript and CSS asset references use `/assets` by default, matching Phoenix's conventional `priv/static/assets` mount. Configure `asset_url_prefix` when assets are served from a subpath or CDN:
+
+```elixir
+config :volt, asset_url_prefix: "/my-app/assets"
+```
+
+This only changes URLs emitted into built JavaScript and CSS. It does not change `outdir`, the dev-server prefix, or Phoenix endpoint/static URL configuration.
+
 ## Phoenix static files and optional public directory
 
 In Phoenix apps, stable root files usually belong in `priv/static` and are served by Phoenix through `Plug.Static`:

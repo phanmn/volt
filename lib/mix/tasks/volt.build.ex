@@ -15,6 +15,7 @@ defmodule Mix.Tasks.Volt.Build do
     * `--entry` — entry file (repeatable, default from config or `"assets/js/app.ts"`)
     * `--outdir` — output directory (default: `"priv/static/assets"`)
     * `--public-dir` — optional Vite-style public directory copied to the static root as-is
+    * `--asset-url-prefix` — public URL prefix for production asset references (default: `"/assets"`)
     * `--target` — JS target (default: `es2020`)
     * `--no-minify` — skip minification
     * `--sourcemap false` — skip source map generation
@@ -44,6 +45,7 @@ defmodule Mix.Tasks.Volt.Build do
           entry: [:string, :keep],
           outdir: :string,
           public_dir: :string,
+          asset_url_prefix: :string,
           target: :string,
           minify: :boolean,
           sourcemap: :string,
@@ -102,6 +104,7 @@ defmodule Mix.Tasks.Volt.Build do
       entry: if(length(entries) == 1, do: hd(entries), else: entries),
       outdir: Path.join(outdir, "js"),
       public_dir: Keyword.get(parsed, :public_dir) || config.public_dir,
+      asset_url_prefix: Keyword.get(parsed, :asset_url_prefix) || config.asset_url_prefix,
       target: Keyword.get(parsed, :target) || to_string(config.target),
       minify: minify,
       sourcemap: parse_sourcemap(Keyword.get(parsed, :sourcemap), config.sourcemap),
@@ -115,6 +118,7 @@ defmodule Mix.Tasks.Volt.Build do
       code_splitting: Keyword.get(parsed, :code_splitting, config.code_splitting),
       tree_shaking: Keyword.get(parsed, :tree_shaking, config.tree_shaking),
       chunks: config.chunks,
+      env_prefix: config.env_prefix,
       import_source: config.import_source,
       module_types: config.module_types,
       name: parsed[:name]

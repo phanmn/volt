@@ -25,6 +25,14 @@ config :volt, public_dir: false
 
 Optional Vite-style public directory. Phoenix apps usually keep stable public files in `priv/static` instead.
 
+### Asset URL Prefix
+
+```elixir
+config :volt, asset_url_prefix: "/assets"
+```
+
+Public URL prefix emitted for production JavaScript and CSS asset references. This does not change `outdir` or Phoenix endpoint/static URL configuration.
+
 ### Root
 
 ```elixir
@@ -98,6 +106,14 @@ config :volt, tree_shaking: true
 ```
 
 Enabled by default for production builds. Set to `false` to preserve unused exports.
+
+### Env Prefix
+
+```elixir
+config :volt, env_prefix: "VOLT_"
+```
+
+Prefix or list of prefixes exposed through `import.meta.env`.
 
 ### External
 

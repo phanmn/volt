@@ -67,6 +67,18 @@ defmodule Volt.Config do
   Production builds tree-shake JavaScript by default. Set `tree_shaking: false`
   to preserve unused exports.
 
+  ## Environment variables
+
+  The `:env_prefix` option controls which `.env` variables are exposed to
+  client code through `import.meta.env`. It defaults to `"VOLT_"` and accepts a
+  string or list of strings.
+
+  ## Asset URL prefix
+
+  The `:asset_url_prefix` option controls the public URL prefix emitted for
+  production asset references in JavaScript and CSS. It defaults to `"/assets"`,
+  matching Phoenix's conventional `priv/static/assets` mount.
+
   ## Manual chunks
 
   The `:chunks` option controls manual chunk splitting:
@@ -99,6 +111,8 @@ defmodule Volt.Config do
     tree_shaking: true,
     format: :iife,
     mode: :production,
+    env_prefix: "VOLT_",
+    asset_url_prefix: "/assets",
     external: [],
     aliases: %{},
     chunks: %{},

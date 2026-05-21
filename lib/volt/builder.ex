@@ -43,6 +43,8 @@ defmodule Volt.Builder do
     * `:aliases` — import alias map (e.g. `%{"@" => "assets/src"}`)
     * `:plugins` — list of `Volt.Plugin` modules
     * `:mode` — build mode for env variables (default: `"production"`)
+    * `:env_prefix` — env variable prefix or prefixes exposed to client code (default: `"VOLT_"`)
+    * `:asset_url_prefix` — public URL prefix for emitted asset references (default: `"/assets"`)
     * `:code_splitting` — split dynamic imports into separate chunks (default: `true`)
     * `:tree_shaking` — remove unused exports (default: `true`)
     * `:chunks` — manual chunk definitions, map of chunk name to list of patterns:
@@ -65,6 +67,8 @@ defmodule Volt.Builder do
     sourcemap = sourcemap_opt != false
     define = Keyword.get(opts, :define, %{})
     mode = Keyword.get(opts, :mode, "production")
+    env_prefix = Keyword.get(opts, :env_prefix, "VOLT_")
+    asset_url_prefix = Keyword.get(opts, :asset_url_prefix, "/assets")
     aliases = Keyword.get(opts, :aliases, %{})
     plugins = Keyword.get(opts, :plugins, [])
     code_splitting = Keyword.get(opts, :code_splitting, true)
@@ -87,7 +91,7 @@ defmodule Volt.Builder do
     hash = Keyword.get(opts, :hash, true)
     name = Keyword.get(opts, :name)
 
-    env_define = Volt.Env.define(mode: mode, root: File.cwd!())
+    env_define = Volt.Env.define(mode: mode, root: File.cwd!(), env_prefix: env_prefix)
     plugin_define = Volt.PluginRunner.define(plugins, mode)
 
     all_define =
@@ -106,7 +110,8 @@ defmodule Volt.Builder do
       module_types: module_types,
       import_source: import_source,
       target: target,
-      define: all_define
+      define: all_define,
+      asset_url_prefix: asset_url_prefix
     }
 
     bundle_opts =
@@ -124,6 +129,7 @@ defmodule Volt.Builder do
       target: target,
       hash: hash,
       bundle_opts: bundle_opts,
+      asset_url_prefix: asset_url_prefix,
       code_splitting: code_splitting,
       sourcemap_hidden: sourcemap_opt == :hidden,
       chunks: chunks
@@ -174,7 +180,8 @@ defmodule Volt.Builder do
         bundle_opts: bundle_opts,
         ctx: output_ctx,
         sourcemap_hidden: build_ctx.sourcemap_hidden,
-        chunks: build_ctx.chunks
+        chunks: build_ctx.chunks,
+        asset_url_prefix: build_ctx.asset_url_prefix
       }
 
       use_chunks =
@@ -190,12 +197,20 @@ defmodule Volt.Builder do
   end
 
   defp build_entry(entry, :style, name, _ctx, build_ctx) do
-    %{outdir: outdir, hash: hash, bundle_opts: bundle_opts} = build_ctx
+    %{outdir: outdir, hash: hash, bundle_opts: bundle_opts, asset_url_prefix: asset_url_prefix} =
+      build_ctx
 
     with {:ok, source} <- File.read(entry),
          {:ok, compiled} <-
            Volt.Pipeline.compile(entry, source, minify: bundle_opts[:minify] || false) do
-      Volt.Builder.Writer.build_style_entry(name, compiled.code, outdir, hash, entry, bundle_opts)
+      Volt.Builder.Writer.build_style_entry(
+        name,
+        compiled.code,
+        outdir,
+        hash,
+        entry,
+        Keyword.put(bundle_opts, :asset_url_prefix, asset_url_prefix)
+      )
     end
   end
 
@@ -272,7 +287,8 @@ defmodule Volt.Builder do
           raw: Map.has_key?(query_params, "raw"),
           url: Map.has_key?(query_params, "url"),
           inline: Map.has_key?(query_params, "inline"),
-          no_inline: Map.has_key?(query_params, "no-inline")
+          no_inline: Map.has_key?(query_params, "no-inline"),
+          prefix: ctx.asset_url_prefix
         ]
 
         case Volt.Assets.to_js_module(path, asset_opts) do

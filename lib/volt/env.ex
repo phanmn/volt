@@ -2,7 +2,7 @@ defmodule Volt.Env do
   @moduledoc """
   Load environment variables for client-side code.
 
-  Reads `.env` files via Dotenvy and exposes variables prefixed with `VOLT_`
+  Reads `.env` files via Dotenvy and exposes variables with configured prefixes
   as compile-time replacements for `import.meta.env.*` expressions.
 
   ## Files loaded (in order, later overrides earlier)
@@ -19,10 +19,11 @@ defmodule Volt.Env do
       console.log(import.meta.env.DEV)    // true/false
       console.log(import.meta.env.PROD)   // true/false
 
-  Only variables prefixed with `VOLT_` are exposed to client code.
+  Only variables matching `:env_prefix` are exposed to client code. The default
+  prefix is `"VOLT_"`.
   """
 
-  @prefix "VOLT_"
+  @default_prefix "VOLT_"
 
   @doc """
   Build a define map for compile-time replacement.
@@ -32,17 +33,19 @@ defmodule Volt.Env do
     * `:mode` — build mode (default: `"production"`)
     * `:root` — project root for `.env` files (default: cwd)
     * `:env` — extra variables to inject (takes precedence over files)
+    * `:env_prefix` — exposed env prefix or prefixes (default: `"VOLT_"`)
   """
   @spec define(keyword()) :: %{String.t() => String.t()}
   def define(opts \\ []) do
     mode = opts |> Keyword.get(:mode, "production") |> to_string()
     root = Keyword.get(opts, :root, File.cwd!())
     extra = Keyword.get(opts, :env, %{})
+    prefixes = env_prefixes(Keyword.get(opts, :env_prefix, @default_prefix))
 
     vars =
       load_env_files(root, mode)
       |> Map.merge(extra)
-      |> Enum.filter(fn {k, _} -> String.starts_with?(k, @prefix) end)
+      |> Enum.filter(fn {key, _} -> exposed_env?(key, prefixes) end)
       |> Map.new()
 
     encoded_mode = Jason.encode!(mode)
@@ -60,6 +63,17 @@ defmodule Volt.Env do
       end)
 
     Map.merge(base, env_defines)
+  end
+
+  defp env_prefixes(prefixes) do
+    prefixes
+    |> List.wrap()
+    |> Enum.map(&to_string/1)
+    |> Enum.reject(&(&1 == ""))
+  end
+
+  defp exposed_env?(key, prefixes) do
+    Enum.any?(prefixes, &String.starts_with?(key, &1))
   end
 
   @doc """

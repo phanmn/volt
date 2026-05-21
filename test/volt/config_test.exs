@@ -4,6 +4,8 @@ defmodule Volt.ConfigTest do
   setup do
     on_exit(fn ->
       Application.delete_env(:volt, :tree_shaking)
+      Application.delete_env(:volt, :env_prefix)
+      Application.delete_env(:volt, :asset_url_prefix)
       Application.delete_env(:volt, :my_app)
       Application.delete_env(:volt, :my_app_web)
     end)
@@ -16,6 +18,8 @@ defmodule Volt.ConfigTest do
       config = Volt.Config.build()
       assert config.entry == "assets/js/app.ts"
       assert config.tree_shaking == true
+      assert config.env_prefix == "VOLT_"
+      assert config.asset_url_prefix == "/assets"
     end
 
     test "build/0 is not affected by profile config" do
@@ -80,6 +84,26 @@ defmodule Volt.ConfigTest do
 
       assert Volt.Config.build().tree_shaking == false
       assert Volt.Config.build(nil, tree_shaking: true).tree_shaking == true
+    end
+
+    test "env prefix is configurable" do
+      Application.put_env(:volt, :env_prefix, "VITE_")
+
+      assert Volt.Config.build().env_prefix == "VITE_"
+
+      assert Volt.Config.build(nil, env_prefix: ["VOLT_", "PUBLIC_"]).env_prefix == [
+               "VOLT_",
+               "PUBLIC_"
+             ]
+    end
+
+    test "asset URL prefix is configurable" do
+      Application.put_env(:volt, :asset_url_prefix, "/static/assets")
+
+      assert Volt.Config.build().asset_url_prefix == "/static/assets"
+
+      assert Volt.Config.build(nil, asset_url_prefix: "https://cdn.example.com/assets").asset_url_prefix ==
+               "https://cdn.example.com/assets"
     end
   end
 

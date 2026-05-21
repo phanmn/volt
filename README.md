@@ -77,7 +77,7 @@ Building "assets/js/app.ts"...
 Built in 15ms
 ```
 
-Tree-shaking, minification, code splitting, source maps, content-hashed JavaScript/CSS/assets, and manifest output. Ready for `mix phx.digest`.
+Tree-shaking, minification, code splitting, configurable env prefixes and asset URL prefixes, source maps, content-hashed JavaScript/CSS/assets, and manifest output. Ready for `mix phx.digest`.
 
 ## Framework support
 

@@ -81,5 +81,30 @@ defmodule Volt.EnvTest do
       defines = Volt.Env.define(root: @fixture_dir, env: %{"VOLT_KEY" => "override"})
       assert defines["import.meta.env.VOLT_KEY"] == ~s("override")
     end
+
+    test "supports custom env prefix" do
+      File.write!(
+        Path.join(@fixture_dir, ".env"),
+        "VITE_API=http://vite.test\nVOLT_API=http://volt.test\n"
+      )
+
+      defines = Volt.Env.define(root: @fixture_dir, env_prefix: "VITE_")
+
+      assert defines["import.meta.env.VITE_API"] == ~s("http://vite.test")
+      refute Map.has_key?(defines, "import.meta.env.VOLT_API")
+    end
+
+    test "supports multiple env prefixes" do
+      File.write!(
+        Path.join(@fixture_dir, ".env"),
+        "VITE_API=http://vite.test\nPUBLIC_KEY=ok\nSECRET=no\n"
+      )
+
+      defines = Volt.Env.define(root: @fixture_dir, env_prefix: ["VITE_", "PUBLIC_"])
+
+      assert defines["import.meta.env.VITE_API"] == ~s("http://vite.test")
+      assert defines["import.meta.env.PUBLIC_KEY"] == ~s("ok")
+      refute Map.has_key?(defines, "import.meta.env.SECRET")
+    end
   end
 end

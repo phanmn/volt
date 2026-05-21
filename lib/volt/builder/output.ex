@@ -10,7 +10,8 @@ defmodule Volt.Builder.Output do
       hash: hash,
       bundle_opts: bundle_opts,
       ctx: ctx,
-      sourcemap_hidden: sourcemap_hidden
+      sourcemap_hidden: sourcemap_hidden,
+      asset_url_prefix: asset_url_prefix
     } = build_ctx
 
     File.mkdir_p!(outdir)
@@ -31,8 +32,9 @@ defmodule Volt.Builder.Output do
 
         js_filename = Writer.hashed_name(name, js_code, ".js", hash)
         Writer.write_js(outdir, js_filename, js_code, js_sourcemap, hidden: sourcemap_hidden)
+        css_opts = Keyword.put(bundle_opts, :asset_url_prefix, asset_url_prefix)
 
-        with {:ok, css_result} <- Writer.write_css(css_parts, outdir, name, hash, bundle_opts) do
+        with {:ok, css_result} <- Writer.write_css(css_parts, outdir, name, hash, css_opts) do
           manifest = Writer.build_manifest(name, js_filename, css_result)
           Writer.write_manifest(outdir, manifest)
 
@@ -57,7 +59,8 @@ defmodule Volt.Builder.Output do
       bundle_opts: bundle_opts,
       ctx: ctx,
       sourcemap_hidden: sourcemap_hidden,
-      chunks: manual_chunks
+      chunks: manual_chunks,
+      asset_url_prefix: asset_url_prefix
     } = build_ctx
 
     File.mkdir_p!(outdir)
@@ -108,7 +111,9 @@ defmodule Volt.Builder.Output do
           }
         end)
 
-      with {:ok, css_result} <- Writer.write_css(css_parts, outdir, name, hash, bundle_opts) do
+      css_opts = Keyword.put(bundle_opts, :asset_url_prefix, asset_url_prefix)
+
+      with {:ok, css_result} <- Writer.write_css(css_parts, outdir, name, hash, css_opts) do
         entry_js = Enum.find(js_results, &(&1.type == :entry)) || hd(js_results)
 
         manifest =
