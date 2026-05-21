@@ -539,6 +539,8 @@ defmodule Volt.BuilderTest do
 
       manifest = Path.join(@outdir, "manifest.json") |> File.read!() |> :json.decode()
       assert manifest["dynamic-entry.js"]["file"] == "dynamic-entry.js"
+      assert manifest["dynamic-entry.js"]["dynamicImports"] == ["dynamic-entry-lazy.js"]
+      assert manifest["dynamic-entry-lazy.js"]["file"] == "dynamic-entry-lazy.js"
     end
 
     test "code splitting rewrites minified dynamic import chunk URLs" do

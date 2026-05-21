@@ -19,6 +19,11 @@ defmodule Volt.HMR.BoundaryTest do
     test "rejects code with only import.meta.hot but no accept" do
       refute Boundary.self_accepting?("if (import.meta.hot) { import.meta.hot.dispose() }")
     end
+
+    test "rejects comments and unrelated hot.accept calls" do
+      refute Boundary.self_accepting?("// import.meta.hot.accept()")
+      refute Boundary.self_accepting?("foo.hot.accept()")
+    end
   end
 
   describe "find_boundary/2" do

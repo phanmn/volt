@@ -431,7 +431,14 @@ defmodule Volt.DevServer do
 
   defp rewrite_bare(specifier, config) do
     specifier = Volt.PluginRunner.prebundle_alias(config.plugins, specifier)
-    {:rewrite, Volt.JS.Vendor.vendor_url(specifier)}
+
+    {:rewrite,
+     Volt.JS.Vendor.vendor_url(specifier,
+       node_modules: config.node_modules,
+       plugins: config.plugins,
+       resolve_dirs: config.resolve_dirs,
+       module_types: config.module_types
+     )}
   end
 
   defp dev_url_for(prefix, relative, resolved, query) do

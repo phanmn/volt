@@ -17,6 +17,26 @@ defmodule Volt.PreloadTest do
       refute result =~ ".css"
     end
 
+    test "preloads only static imports for a selected manifest entry" do
+      manifest = %{
+        "app.js" => %{
+          "file" => "app-abc123.js",
+          "imports" => ["common-def456.js"],
+          "dynamicImports" => ["lazy-fedcba.js"]
+        },
+        "common-def456.js" => %{"file" => "common-def456.js", "imports" => ["vendor-111111.js"]},
+        "vendor-111111.js" => %{"file" => "vendor-111111.js"},
+        "lazy-fedcba.js" => %{"file" => "lazy-fedcba.js"}
+      }
+
+      result = Volt.Preload.tags(manifest, prefix: "/assets/js", entry: "app.js")
+
+      assert result =~ "common-def456.js"
+      assert result =~ "vendor-111111.js"
+      refute result =~ "app-abc123.js"
+      refute result =~ "lazy-fedcba.js"
+    end
+
     test "joins prefix with URI semantics" do
       manifest = %{"app.js" => "app-abc123.js"}
 

@@ -37,13 +37,14 @@ defmodule Volt.ChunkGraph do
     and manual chunks follow user configured boundaries.
     """
 
-    defstruct id: "", type: :async, modules: [], imports: []
+    defstruct id: "", type: :async, modules: [], imports: [], dynamic_imports: []
 
     @type t :: %__MODULE__{
             id: String.t(),
             type: :entry | :async | :common | :manual,
             modules: [String.t()],
-            imports: [String.t()]
+            imports: [String.t()],
+            dynamic_imports: [String.t()]
           }
   end
 
@@ -145,11 +146,44 @@ defmodule Volt.ChunkGraph do
         Enum.reduce(chunk.modules, acc, fn mod, a -> Map.put_new(a, mod, chunk.id) end)
       end)
 
+    chunks = put_chunk_links(chunks, dep_map, module_to_chunk)
+
     %__MODULE__{chunks: chunks, module_to_chunk: module_to_chunk}
   end
 
   defp common_member?(nil, _module), do: false
   defp common_member?(common_chunk, module), do: MapSet.member?(common_chunk, module)
+
+  defp put_chunk_links(chunks, dep_map, module_to_chunk) do
+    Map.new(chunks, fn {chunk_id, chunk} ->
+      {imports, dynamic_imports} = chunk_links(chunk, dep_map, module_to_chunk)
+      {chunk_id, %{chunk | imports: imports, dynamic_imports: dynamic_imports}}
+    end)
+  end
+
+  defp chunk_links(chunk, dep_map, module_to_chunk) do
+    Enum.reduce(chunk.modules, {[], []}, fn module, {imports, dynamic_imports} ->
+      deps = Map.get(dep_map, module, %Volt.Builder.Dependencies{})
+
+      imports = collect_chunk_links(deps.static, module_to_chunk, chunk.id, imports)
+
+      dynamic_imports =
+        collect_chunk_links(deps.dynamic, module_to_chunk, chunk.id, dynamic_imports)
+
+      {imports, dynamic_imports}
+    end)
+  end
+
+  defp collect_chunk_links(deps, module_to_chunk, current_chunk_id, links) do
+    deps
+    |> Enum.reduce(links, fn dep, acc ->
+      case Map.get(module_to_chunk, dep) do
+        nil -> acc
+        ^current_chunk_id -> acc
+        chunk_id -> append_unique(acc, chunk_id)
+      end
+    end)
+  end
 
   defp apply_manual_chunks(chunks, module_to_chunk, manual_chunks, _order)
        when map_size(manual_chunks) == 0 do

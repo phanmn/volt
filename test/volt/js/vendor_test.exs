@@ -383,6 +383,18 @@ defmodule Volt.JS.VendorTest do
   end
 
   describe "vendor_url/1" do
+    test "adds a stable browser hash when options are provided" do
+      url = Volt.JS.Vendor.vendor_url("vue", node_modules: @node_modules, plugins: [])
+
+      assert url =~ "/@vendor/vue.js?v="
+      assert Volt.JS.Vendor.vendor_url("vue", node_modules: @node_modules, plugins: []) == url
+
+      refute Volt.JS.Vendor.vendor_url("vue",
+               node_modules: @node_modules,
+               plugins: [Volt.Plugin.React]
+             ) == url
+    end
+
     test "generates URL path for specifier" do
       assert Volt.JS.Vendor.vendor_url("vue") == "/@vendor/vue.js"
     end

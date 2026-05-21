@@ -84,8 +84,29 @@ defmodule Volt.JS.Vendor do
   Get the URL path for a vendor module.
   """
   @spec vendor_url(String.t()) :: String.t()
-  def vendor_url(specifier) do
-    "/@vendor/#{encode_specifier(specifier)}.js"
+  def vendor_url(specifier), do: "/@vendor/#{encode_specifier(specifier)}.js"
+
+  @doc "Get the URL path for a vendor module with a cache-busting browser hash."
+  @spec vendor_url(String.t(), keyword()) :: String.t()
+  def vendor_url(specifier, opts) do
+    specifier
+    |> vendor_url()
+    |> Volt.URL.append_query("v=#{browser_hash(opts)}")
+  end
+
+  @doc "Return the current browser hash for optimized dependency requests."
+  @spec browser_hash(keyword()) :: String.t()
+  def browser_hash(opts) do
+    {plugins, resolve_dirs, module_types} = normalize_on_demand_opts(opts)
+    node_modules = Keyword.get(opts, :node_modules)
+    module_dirs = module_dirs(node_modules, resolve_dirs)
+
+    :crypto.hash(
+      :sha256,
+      :erlang.term_to_binary(browser_signature(module_dirs, plugins, module_types))
+    )
+    |> Base.encode16(case: :lower)
+    |> binary_part(0, 8)
   end
 
   @doc """
@@ -389,14 +410,22 @@ defmodule Volt.JS.Vendor do
   end
 
   defp signature_terms(specifier, module_dirs, plugins, module_types) do
+    browser_signature(module_dirs, plugins, module_types)
+    |> Map.put(:specifier, specifier)
+    |> Map.put(:plugins, Enum.map(plugins, &plugin_signature(&1, specifier)))
+    |> Map.put(:package, package_signature(specifier, module_dirs))
+  end
+
+  defp browser_signature(module_dirs, plugins, module_types) do
     %{
-      specifier: specifier,
       module_dirs: module_dirs,
       module_types: module_types,
-      plugins: Enum.map(plugins, &plugin_signature(&1, specifier)),
-      package: package_signature(specifier, module_dirs)
+      plugins: Enum.map(plugins, &base_plugin_signature/1)
     }
   end
+
+  defp base_plugin_signature({module, opts}), do: {module, opts}
+  defp base_plugin_signature(module), do: module
 
   defp plugin_signature({module, opts}, specifier),
     do: {module, opts, plugin_entry_signature(module, specifier)}

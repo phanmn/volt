@@ -134,6 +134,31 @@ defmodule Volt.ChunkGraphTest do
                graph.module_to_chunk["/app/lazy-child.ts"]
     end
 
+    test "records static and dynamic chunk links" do
+      modules = [
+        {"/app/main.ts", "main.ts", ""},
+        {"/app/static-vendor.ts", "static-vendor.ts", ""},
+        {"/app/lazy.ts", "lazy.ts", ""}
+      ]
+
+      dep_map = %{
+        "/app/main.ts" => %{
+          static: ["/app/static-vendor.ts"],
+          dynamic: ["/app/lazy.ts"]
+        },
+        "/app/static-vendor.ts" => %{static: [], dynamic: []},
+        "/app/lazy.ts" => %{static: [], dynamic: []}
+      }
+
+      graph =
+        ChunkGraph.build("/app/main.ts", modules, dep_map,
+          manual_chunks: %{"vendor" => ["/app/static-vendor.ts"]}
+        )
+
+      assert graph.chunks["entry"].imports == ["vendor"]
+      assert graph.chunks["entry"].dynamic_imports == [graph.module_to_chunk["/app/lazy.ts"]]
+    end
+
     test "module_to_chunk maps dynamic entry to async chunk" do
       modules = [
         {"/app/main.ts", "main.ts", ""},

@@ -30,17 +30,42 @@ defmodule Volt.Preload do
   def tags(manifest, opts) when is_map(manifest) do
     prefix = Keyword.get(opts, :prefix, "/assets")
 
-    Enum.map(manifest, fn
-      {_key, %{"file" => file}} -> file
-      {_key, file} when is_binary(file) -> file
-    end)
-    |> Enum.uniq()
-    |> Enum.filter(&String.ends_with?(&1, ".js"))
-    |> Enum.sort()
+    manifest
+    |> preload_files(Keyword.get(opts, :entry))
     |> Enum.map(fn filename ->
       [~s(<link rel="modulepreload" href="), Volt.URL.join(prefix, filename), ~s(">)]
     end)
     |> Enum.intersperse("\n")
     |> IO.iodata_to_binary()
+  end
+
+  defp preload_files(manifest, nil) do
+    manifest
+    |> Enum.map(fn
+      {_key, %{"file" => file}} -> file
+      {_key, file} when is_binary(file) -> file
+    end)
+    |> js_files()
+  end
+
+  defp preload_files(manifest, entry) do
+    case Map.get(manifest, entry) do
+      %{} = chunk -> imported_files(manifest, chunk)
+      _ -> []
+    end
+  end
+
+  defp imported_files(manifest, chunk) do
+    chunk
+    |> Map.get("imports", [])
+    |> Enum.flat_map(fn file -> [file | imported_files(manifest, manifest[file] || %{})] end)
+    |> js_files()
+  end
+
+  defp js_files(files) do
+    files
+    |> Enum.uniq()
+    |> Enum.filter(&String.ends_with?(&1, ".js"))
+    |> Enum.sort()
   end
 end

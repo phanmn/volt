@@ -122,13 +122,19 @@ defmodule Volt.Builder.Output do
         manifest =
           js_results
           |> Enum.reduce(%{}, fn js, acc ->
+            chunk = graph.chunks[js.chunk_id]
             filename = Path.basename(js.path)
-            Map.put(acc, filename, %{"file" => filename, "src" => filename})
+            Map.put(acc, filename, chunk_manifest_entry(filename, filename, chunk, chunk_url_map))
           end)
-          |> Map.put("#{name}.js", %{
-            "file" => Path.basename(entry_js.path),
-            "src" => "#{name}.js"
-          })
+          |> Map.put(
+            "#{name}.js",
+            chunk_manifest_entry(
+              "#{name}.js",
+              Path.basename(entry_js.path),
+              graph.chunks[entry_js.chunk_id],
+              chunk_url_map
+            )
+          )
 
         manifest = Writer.add_css_to_manifest(manifest, name, css_result)
 
@@ -143,6 +149,19 @@ defmodule Volt.Builder.Output do
          }}
       end
     end
+  end
+
+  defp chunk_manifest_entry(src, filename, chunk, chunk_url_map) do
+    %{"file" => filename, "src" => src}
+    |> maybe_put_chunk_files("imports", chunk.imports, chunk_url_map)
+    |> maybe_put_chunk_files("dynamicImports", chunk.dynamic_imports, chunk_url_map)
+  end
+
+  defp maybe_put_chunk_files(entry, _key, [], _chunk_url_map), do: entry
+
+  defp maybe_put_chunk_files(entry, key, chunk_ids, chunk_url_map) do
+    files = Enum.flat_map(chunk_ids, fn chunk_id -> List.wrap(chunk_url_map[chunk_id]) end)
+    Map.put(entry, key, files)
   end
 
   defp build_chunk_bundles(chunks, js_map, module_labels, bundle_opts, ctx, graph) do

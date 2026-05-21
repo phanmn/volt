@@ -13,7 +13,10 @@ defmodule Volt.HMR.Boundary do
   """
   @spec self_accepting?(String.t()) :: boolean()
   def self_accepting?(source) do
-    String.contains?(source, "import.meta.hot.accept(")
+    case OXC.parse(source, "hmr-boundary.js") do
+      {:ok, ast} -> ast_self_accepting?(ast)
+      {:error, _} -> false
+    end
   end
 
   @doc """
@@ -38,6 +41,30 @@ defmodule Volt.HMR.Boundary do
       walk_up(changed_path, read_source, MapSet.new([changed_path]))
     end
   end
+
+  defp ast_self_accepting?(ast) do
+    {_ast, found?} =
+      OXC.postwalk(ast, false, fn
+        node, false -> {node, accept_call?(node)}
+        node, true -> {node, true}
+      end)
+
+    found?
+  end
+
+  defp accept_call?(%{
+         type: :call_expression,
+         callee: %{
+           type: :member_expression,
+           computed: false,
+           property: %{type: :identifier, name: "accept"},
+           object: hot
+         }
+       }) do
+    Volt.JS.AST.import_meta_property?(hot, "hot")
+  end
+
+  defp accept_call?(_node), do: false
 
   defp walk_up(path, read_source, visited) do
     case find_importers(path) do
