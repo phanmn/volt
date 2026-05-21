@@ -257,7 +257,7 @@ defmodule Volt.DevServer do
   defp update_module_graph(mod_url, cache_key, file_path, code, source, content_type) do
     imports =
       case OXC.imports(code, Path.basename(file_path)) do
-        {:ok, imports} -> imports
+        {:ok, imports} -> Enum.map(imports, &normalize_module_graph_import(&1, mod_url))
         {:error, _} -> []
       end
 
@@ -265,6 +265,32 @@ defmodule Volt.DevServer do
       type: module_graph_type(content_type),
       self_accepting: Volt.HMR.Boundary.self_accepting?(source)
     )
+  end
+
+  defp normalize_module_graph_import("/" <> _ = specifier, _graph_url),
+    do: strip_cache_query(specifier)
+
+  defp normalize_module_graph_import("." <> _ = specifier, graph_url) do
+    graph_url
+    |> Path.dirname()
+    |> Path.join(specifier)
+    |> Path.expand("/")
+    |> strip_cache_query()
+  end
+
+  defp normalize_module_graph_import(specifier, _graph_url), do: specifier
+
+  defp strip_cache_query(specifier) do
+    uri = URI.parse(specifier)
+
+    query =
+      (uri.query || "")
+      |> Volt.URL.decode_query()
+      |> Map.drop(["t", "v"])
+      |> URI.encode_query()
+
+    %{uri | query: if(query == "", do: nil, else: query)}
+    |> URI.to_string()
   end
 
   defp module_graph_type("text/css"), do: :css

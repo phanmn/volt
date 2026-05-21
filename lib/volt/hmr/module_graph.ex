@@ -33,6 +33,7 @@ defmodule Volt.HMR.ModuleGraph do
       file: file,
       type: Keyword.get(opts, :type, module_type(url)),
       imports: MapSet.new(imports),
+      importers: existing_importers(id, old_node),
       self_accepting: Keyword.get(opts, :self_accepting, false)
     }
 
@@ -81,6 +82,20 @@ defmodule Volt.HMR.ModuleGraph do
     :ets.insert(@table, {{:url, node.url}, node.id})
     :ets.insert(@table, {{:id, node.id}, node})
     :ets.insert(@table, {{:file, node.file}, file_ids(node.file, node.id)})
+  end
+
+  defp existing_importers(id, nil), do: existing_importers(id, %Node{})
+
+  defp existing_importers(id, old_node) do
+    @table
+    |> :ets.tab2list()
+    |> Enum.reduce(old_node.importers, fn
+      {{:id, importer_id}, %Node{imports: imports}}, acc when importer_id != id ->
+        if MapSet.member?(imports, id), do: MapSet.put(acc, importer_id), else: acc
+
+      _entry, acc ->
+        acc
+    end)
   end
 
   defp put_importer_link(import_id, importer_id) do

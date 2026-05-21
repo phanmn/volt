@@ -35,10 +35,15 @@ defmodule Volt.HMR.Boundary do
   def find_boundary(changed_path, read_source) do
     source = read_source.(changed_path)
 
-    if source && self_accepting?(source) do
-      {:ok, changed_path}
-    else
-      walk_up(changed_path, read_source, MapSet.new([changed_path]))
+    cond do
+      source && self_accepting?(source) ->
+        {:ok, changed_path}
+
+      graph_boundary = find_graph_boundary(changed_path, read_source) ->
+        graph_boundary
+
+      true ->
+        walk_up(changed_path, read_source, MapSet.new([changed_path]))
     end
   end
 
@@ -65,6 +70,48 @@ defmodule Volt.HMR.Boundary do
   end
 
   defp accept_call?(_node), do: false
+
+  defp find_graph_boundary(changed_path, read_source) do
+    changed_path
+    |> Volt.HMR.ModuleGraph.get_by_file()
+    |> case do
+      [] ->
+        nil
+
+      nodes ->
+        find_graph_boundary_in_nodes(nodes, read_source, MapSet.new(Enum.map(nodes, & &1.id)))
+    end
+  end
+
+  defp find_graph_boundary_in_nodes(nodes, read_source, visited) do
+    Enum.find_value(nodes, :full_reload, fn node ->
+      cond do
+        graph_self_accepting?(node, read_source) ->
+          {:ok, node.file}
+
+        MapSet.size(node.importers) == 0 ->
+          nil
+
+        true ->
+          node.importers
+          |> Enum.flat_map(&List.wrap(Volt.HMR.ModuleGraph.get_by_id(&1)))
+          |> Enum.reject(&MapSet.member?(visited, &1.id))
+          |> find_graph_boundary_in_nodes(read_source, MapSet.union(visited, node.importers))
+          |> case do
+            :full_reload -> nil
+            found -> found
+          end
+      end
+    end)
+  end
+
+  defp graph_self_accepting?(node, read_source) do
+    node.self_accepting or
+      case read_source.(node.file) do
+        source when is_binary(source) -> self_accepting?(source)
+        _ -> false
+      end
+  end
 
   defp walk_up(path, read_source, visited) do
     case find_importers(path) do

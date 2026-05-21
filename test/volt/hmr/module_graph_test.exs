@@ -55,6 +55,16 @@ defmodule Volt.HMR.ModuleGraphTest do
     assert Enum.all?(ModuleGraph.get_by_file("/app/style.css"), &(&1.last_invalidated_at == 123))
   end
 
+  test "links importers when imported module is registered later" do
+    ModuleGraph.update_module("/assets/app.ts", "/assets/app.ts", "/app/app.ts", [
+      "/assets/dep.ts"
+    ])
+
+    ModuleGraph.update_module("/assets/dep.ts", "/assets/dep.ts", "/app/dep.ts", [])
+
+    assert MapSet.member?(ModuleGraph.get_by_id("/assets/dep.ts").importers, "/assets/app.ts")
+  end
+
   test "updates importer links when imports change" do
     ModuleGraph.update_module("/assets/a.ts", "/app/a.ts", "/app/a.ts", [])
     ModuleGraph.update_module("/assets/b.ts", "/app/b.ts", "/app/b.ts", [])

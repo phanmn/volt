@@ -245,12 +245,23 @@ defmodule Volt.DevServerTest do
 
   describe "caching" do
     test "records served modules in HMR module graph" do
+      File.write!(Path.join(@fixture_dir, "src/dep.ts"), "export const dep = 1")
+
+      File.write!(
+        Path.join(@fixture_dir, "src/app.ts"),
+        "import { dep } from './dep'\nconsole.log(dep)"
+      )
+
       call_dev_server("/assets/app.ts")
+      call_dev_server("/assets/dep.ts")
 
       node = Volt.HMR.ModuleGraph.get_by_url("/assets/app.ts")
+      dep = Volt.HMR.ModuleGraph.get_by_url("/assets/dep.ts")
 
       assert node.file == Path.join(@fixture_dir, "src/app.ts")
       assert node.type == :js
+      assert MapSet.member?(node.imports, "/assets/dep.ts")
+      assert MapSet.member?(dep.importers, "/assets/app.ts")
     end
 
     test "records CSS import query variants separately in HMR module graph" do
