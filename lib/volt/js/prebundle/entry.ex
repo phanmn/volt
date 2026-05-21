@@ -15,28 +15,37 @@ defmodule Volt.JS.PrebundleEntry do
   end
 
   defp import_statement(%Volt.JS.PrebundleEntry.Import{default: name, from: specifier}) do
-    "import #{identifier!(name)} from #{literal!(specifier)};"
+    "import $name from \"__specifier__\";"
+    |> OXC.parse!("prebundle-import.js")
+    |> OXC.bind(name: identifier!(name))
+    |> Volt.JS.AST.replace_literal("__specifier__", specifier)
+    |> OXC.codegen!()
+    |> String.trim()
   end
 
   defp export_statements(exports) do
     Enum.map(exports, fn
       %Volt.JS.PrebundleEntry.Export{default: expression} when not is_nil(expression) ->
-        "export default #{expression!(expression)};"
+        export_default_statement(expression)
 
       %Volt.JS.PrebundleEntry.Export{members: members} when not is_nil(members) ->
         members
-        |> Enum.map(fn {name, expression} ->
-          ["export const ", identifier!(name), " = ", expression!(expression), ";"]
-        end)
+        |> Enum.map(fn {name, expression} -> export_member_statement(name, expression) end)
         |> Enum.intersperse("\n")
 
       %Volt.JS.PrebundleEntry.Export{named_from: specifier, names: names}
       when not is_nil(specifier) ->
         names = names |> Enum.map(&export_name!/1) |> Enum.intersperse(", ")
-        ["export { ", names, " } from ", literal!(specifier), ";"]
+
+        ["export { ", names, " } from \"__specifier__\";"]
+        |> IO.iodata_to_binary()
+        |> OXC.parse!("prebundle-export-named.js")
+        |> Volt.JS.AST.replace_literal("__specifier__", specifier)
+        |> OXC.codegen!()
+        |> String.trim()
 
       %Volt.JS.PrebundleEntry.Export{all_from: specifier} when not is_nil(specifier) ->
-        "export * from #{literal!(specifier)};"
+        export_all_statement(specifier)
     end)
   end
 
@@ -61,8 +70,28 @@ defmodule Volt.JS.PrebundleEntry do
     end
   end
 
-  defp literal!(value) when is_binary(value) do
-    Jason.encode!(value)
+  defp export_default_statement(expression) do
+    "export default $expression;"
+    |> OXC.parse!("prebundle-export-default.js")
+    |> OXC.bind(expression: {:expr, expression!(expression)})
+    |> OXC.codegen!()
+    |> String.trim()
+  end
+
+  defp export_member_statement(name, expression) do
+    "export const $name = $expression;"
+    |> OXC.parse!("prebundle-export-member.js")
+    |> OXC.bind(name: identifier!(name), expression: {:expr, expression!(expression)})
+    |> OXC.codegen!()
+    |> String.trim()
+  end
+
+  defp export_all_statement(specifier) do
+    "export * from \"__specifier__\";"
+    |> OXC.parse!("prebundle-export-all.js")
+    |> Volt.JS.AST.replace_literal("__specifier__", specifier)
+    |> OXC.codegen!()
+    |> String.trim()
   end
 
   defp expression!(expression) when is_binary(expression) do

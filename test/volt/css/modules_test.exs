@@ -56,9 +56,26 @@ defmodule Volt.CSS.ModulesTest do
   end
 
   defp extract_mapping(js) do
-    [_, json] = Regex.run(~r/(\{.*\})/, js)
-    Jason.decode!(json)
+    ast = OXC.parse!(js, "module.css.js")
+
+    {_ast, mapping} =
+      OXC.postwalk(ast, nil, fn
+        %{type: :variable_declarator, id: %{name: "_exports"}, init: %{properties: properties}} =
+            node,
+        nil ->
+          {node, Map.new(properties, &property_pair/1)}
+
+        node, acc ->
+          {node, acc}
+      end)
+
+    mapping
   end
+
+  defp property_pair(%{key: key, value: %{value: value}}), do: {property_name(key), value}
+
+  defp property_name(%{name: name}), do: name
+  defp property_name(%{value: value}), do: value
 
   describe "Pipeline integration" do
     test "compiles .module.css through pipeline" do

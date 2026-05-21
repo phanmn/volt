@@ -106,35 +106,44 @@ defmodule Volt.JS.Transforms.DynamicImports do
   end
 
   defp helper(rewrite) do
-    modules = "__volt_dynamic_import_modules_#{rewrite.index}"
-    importer = "__volt_dynamic_import_importer_#{rewrite.index}"
-    helper = "__volt_dynamic_import_#{rewrite.index}"
+    template =
+      if rewrite.query == "" do
+        "const $modules = import.meta.glob($pattern);\n$helper"
+      else
+        "const $modules = import.meta.glob($pattern, { query: $query });\n$helper"
+      end
 
-    [
-      "const ",
-      modules,
-      " = import.meta.glob(",
-      Jason.encode!(rewrite.pattern),
-      glob_options(rewrite),
-      ");\nconst ",
-      helper,
-      " = (path) => {\n  const ",
-      importer,
-      " = ",
-      modules,
-      "[",
-      lookup_path(rewrite),
-      "];\n  if (",
-      importer,
-      ") return ",
-      importer,
-      "();\n  return Promise.reject(new Error(\"Unknown variable dynamic import: \" + path));\n};"
-    ]
+    template
+    |> OXC.parse!("dynamic-import-helper.js")
+    |> OXC.bind(
+      modules: modules_identifier(rewrite),
+      pattern: {:literal, rewrite.pattern},
+      query: {:literal, "?" <> rewrite.query}
+    )
+    |> OXC.splice(:helper, dynamic_import_function_ast(rewrite))
+    |> OXC.codegen!()
+    |> String.trim()
   end
 
-  defp glob_options(%{query: ""}), do: ""
-  defp glob_options(%{query: query}), do: [", { query: ", Jason.encode!("?" <> query), " }"]
+  defp dynamic_import_function_ast(rewrite) do
+    OXC.parse!(
+      "const $helper = (path) => {\n  const $importer = $modules[$lookup];\n  if ($importer) return $importer();\n  return Promise.reject(new Error(\"Unknown variable dynamic import: \" + path));\n};",
+      "dynamic-import-function.js"
+    )
+    |> OXC.bind(
+      helper: helper_identifier(rewrite),
+      importer: importer_identifier(rewrite),
+      modules: modules_identifier(rewrite),
+      lookup: lookup_expression(rewrite)
+    )
+    |> Map.fetch!(:body)
+    |> hd()
+  end
 
-  defp lookup_path(%{query: ""}), do: "path"
-  defp lookup_path(%{query: _query}), do: "path.split(\"?\")[0]"
+  defp modules_identifier(rewrite), do: "__volt_dynamic_import_modules_#{rewrite.index}"
+  defp importer_identifier(rewrite), do: "__volt_dynamic_import_importer_#{rewrite.index}"
+  defp helper_identifier(rewrite), do: "__volt_dynamic_import_#{rewrite.index}"
+
+  defp lookup_expression(%{query: ""}), do: {:expr, "path"}
+  defp lookup_expression(%{query: _query}), do: {:expr, "path.split(\"?\")[0]"}
 end

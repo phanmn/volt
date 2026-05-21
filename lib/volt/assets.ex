@@ -128,7 +128,7 @@ defmodule Volt.Assets do
 
   defp raw_asset(path) do
     case File.read(path) do
-      {:ok, content} -> {:ok, "export default #{Jason.encode!(content)};\n"}
+      {:ok, content} -> {:ok, export_default_literal(content)}
       {:error, reason} -> {:error, reason}
     end
   end
@@ -137,8 +137,7 @@ defmodule Volt.Assets do
     content = File.read!(path)
     mime = mime_type(path)
     encoded = Base.encode64(content)
-    js = ~s(export default "data:#{mime};base64,#{encoded}";\n)
-    {:ok, js}
+    {:ok, export_default_literal("data:#{mime};base64,#{encoded}")}
   end
 
   defp reference_asset(path, opts) do
@@ -147,11 +146,17 @@ defmodule Volt.Assets do
     case Keyword.get(opts, :outdir) do
       nil ->
         url = Keyword.get(opts, :url_path) || Volt.URL.join(prefix, Path.basename(path))
-        {:ok, ~s(export default "#{url}";\n)}
+        {:ok, export_default_literal(url)}
 
       outdir ->
         {:ok, filename} = copy_hashed(path, outdir)
-        {:ok, ~s(export default "#{Volt.URL.join(prefix, filename)}";\n)}
+        {:ok, export_default_literal(Volt.URL.join(prefix, filename))}
     end
+  end
+
+  defp export_default_literal(value) do
+    OXC.parse!("export default $value;", "asset-module.js")
+    |> OXC.bind(value: {:literal, value})
+    |> OXC.codegen!()
   end
 end

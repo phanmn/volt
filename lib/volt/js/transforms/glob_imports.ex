@@ -294,28 +294,22 @@ defmodule Volt.JS.Transforms.GlobImports do
   end
 
   defp import_statement(identifier, specifier, call) do
-    {template, import_path} =
-      import_template(identifier, import_path(specifier, call), call.import)
+    import = call.import || "*"
 
-    ast =
-      template
-      |> OXC.parse!("glob-import-template.js")
-      |> AST.replace_literal("__specifier__", import_path)
-
-    ast
+    import
+    |> import_template()
+    |> OXC.parse!("glob-import-template.js")
+    |> OXC.bind(identifier: identifier)
+    |> maybe_bind_import_key(import)
+    |> AST.replace_literal("__specifier__", import_path(specifier, call))
     |> OXC.codegen!()
     |> String.trim()
   end
 
-  defp import_template(identifier, import_path, nil),
-    do: {"import * as #{identifier} from \"__specifier__\";", import_path}
+  defp import_template("*"), do: "import * as $identifier from \"__specifier__\";"
+  defp import_template("default"), do: "import $identifier from \"__specifier__\";"
+  defp import_template(_key), do: "import { $key as $identifier } from \"__specifier__\";"
 
-  defp import_template(identifier, import_path, "*"),
-    do: {"import * as #{identifier} from \"__specifier__\";", import_path}
-
-  defp import_template(identifier, import_path, "default"),
-    do: {"import #{identifier} from \"__specifier__\";", import_path}
-
-  defp import_template(identifier, import_path, key),
-    do: {"import { #{key} as #{identifier} } from \"__specifier__\";", import_path}
+  defp maybe_bind_import_key(ast, import) when import in ["*", "default"], do: ast
+  defp maybe_bind_import_key(ast, key), do: OXC.bind(ast, key: key)
 end
