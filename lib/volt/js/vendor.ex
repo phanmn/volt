@@ -94,6 +94,11 @@ defmodule Volt.JS.Vendor do
     |> Volt.URL.append_query("v=#{browser_hash(opts)}")
   end
 
+  @doc "Return whether a request browser hash matches the current optimized dependency state."
+  @spec current_browser_hash?(String.t() | nil, keyword()) :: boolean()
+  def current_browser_hash?(nil, _opts), do: true
+  def current_browser_hash?(hash, opts), do: hash == browser_hash(opts)
+
   @doc "Return the current browser hash for optimized dependency requests."
   @spec browser_hash(keyword()) :: String.t()
   def browser_hash(opts) do
@@ -199,8 +204,15 @@ defmodule Volt.JS.Vendor do
 
         case OXC.bundle(entry_path, bundle_opts) do
           {:ok, result} ->
-            File.write!(output_path, extract_code(result))
-            write_cache_meta!(specifier, module_dirs, plugins, module_types)
+            write_cache_files!(
+              output_path,
+              extract_code(result),
+              specifier,
+              module_dirs,
+              plugins,
+              module_types
+            )
+
             {:ok, output_path}
 
           {:error, _} = error ->
@@ -394,11 +406,21 @@ defmodule Volt.JS.Vendor do
         {:ok, cache_signature(specifier, module_dirs, plugins, module_types)}
   end
 
-  defp write_cache_meta!(specifier, module_dirs, plugins, module_types) do
-    File.write!(
-      cache_meta_path(specifier),
-      cache_signature(specifier, module_dirs, plugins, module_types)
-    )
+  defp write_cache_files!(output_path, code, specifier, module_dirs, plugins, module_types) do
+    meta_path = cache_meta_path(specifier)
+    nonce = System.unique_integer([:positive])
+    tmp_output = "#{output_path}.#{nonce}.tmp"
+    tmp_meta = "#{meta_path}.#{nonce}.tmp"
+
+    try do
+      File.write!(tmp_output, code)
+      File.write!(tmp_meta, cache_signature(specifier, module_dirs, plugins, module_types))
+      File.rename!(tmp_output, output_path)
+      File.rename!(tmp_meta, meta_path)
+    after
+      File.rm(tmp_output)
+      File.rm(tmp_meta)
+    end
   end
 
   defp cache_signature(specifier, module_dirs, plugins, module_types) do
@@ -418,6 +440,7 @@ defmodule Volt.JS.Vendor do
 
   defp browser_signature(module_dirs, plugins, module_types) do
     %{
+      lockfiles: lockfile_signature(module_dirs),
       module_dirs: module_dirs,
       module_types: module_types,
       plugins: Enum.map(plugins, &base_plugin_signature/1)
@@ -457,6 +480,30 @@ defmodule Volt.JS.Vendor do
       {:ok, package_dir, _package} -> file_signature(Path.join(package_dir, "package.json"))
       :error -> nil
     end
+  end
+
+  @lockfiles ~w(package-lock.json pnpm-lock.yaml yarn.lock bun.lock bun.lockb)
+
+  defp lockfile_signature(module_dirs) do
+    module_dirs
+    |> lockfile_roots()
+    |> Enum.flat_map(&lockfiles_in/1)
+  end
+
+  defp lockfile_roots([]), do: [File.cwd!()]
+
+  defp lockfile_roots(module_dirs) do
+    module_dirs
+    |> Enum.map(&Path.dirname/1)
+    |> Kernel.++([File.cwd!()])
+    |> Enum.uniq()
+  end
+
+  defp lockfiles_in(root) do
+    @lockfiles
+    |> Enum.map(&Path.join(root, &1))
+    |> Enum.filter(&File.regular?/1)
+    |> Enum.map(&{&1, file_signature(&1)})
   end
 
   defp file_signature(path) do

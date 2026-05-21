@@ -94,14 +94,21 @@ defmodule Volt.DevServer do
   end
 
   def call(%Conn{request_path: "/@vendor/" <> specifier_js} = conn, config) do
+    conn = Conn.fetch_query_params(conn)
     specifier = specifier_js |> String.trim_trailing(".js") |> Volt.JS.Vendor.decode_specifier()
 
-    case serve_vendor(specifier, config) do
+    case serve_vendor(specifier, config, conn.query_params["v"]) do
       {:ok, code} ->
         conn
         |> Conn.put_resp_content_type("application/javascript")
         |> Conn.put_resp_header("cache-control", "max-age=31536000, immutable")
         |> Conn.send_resp(200, code)
+        |> Conn.halt()
+
+      {:error, :outdated} ->
+        conn
+        |> Conn.put_resp_content_type("application/javascript")
+        |> Conn.send_resp(504, "// outdated optimized dependency: #{specifier}")
         |> Conn.halt()
 
       {:error, _} ->
@@ -432,13 +439,7 @@ defmodule Volt.DevServer do
   defp rewrite_bare(specifier, config) do
     specifier = Volt.PluginRunner.prebundle_alias(config.plugins, specifier)
 
-    {:rewrite,
-     Volt.JS.Vendor.vendor_url(specifier,
-       node_modules: config.node_modules,
-       plugins: config.plugins,
-       resolve_dirs: config.resolve_dirs,
-       module_types: config.module_types
-     )}
+    {:rewrite, Volt.JS.Vendor.vendor_url(specifier, vendor_opts(config))}
   end
 
   defp dev_url_for(prefix, relative, resolved, query) do
@@ -499,14 +500,17 @@ defmodule Volt.DevServer do
     end
   end
 
-  defp serve_vendor(specifier, config) do
-    vendor_opts = [
-      node_modules: config.node_modules,
-      plugins: config.plugins,
-      resolve_dirs: config.resolve_dirs,
-      module_types: config.module_types
-    ]
+  defp serve_vendor(specifier, config, browser_hash) do
+    vendor_opts = vendor_opts(config)
 
+    if Volt.JS.Vendor.current_browser_hash?(browser_hash, vendor_opts) do
+      read_or_bundle_vendor(specifier, config, vendor_opts)
+    else
+      {:error, :outdated}
+    end
+  end
+
+  defp read_or_bundle_vendor(specifier, config, vendor_opts) do
     case Volt.JS.Vendor.read(specifier, vendor_opts) do
       {:ok, _} = ok ->
         ok
@@ -514,6 +518,15 @@ defmodule Volt.DevServer do
       {:error, :not_found} ->
         Volt.JS.Vendor.bundle_on_demand(specifier, config.node_modules, vendor_opts)
     end
+  end
+
+  defp vendor_opts(config) do
+    [
+      node_modules: config.node_modules,
+      plugins: config.plugins,
+      resolve_dirs: config.resolve_dirs,
+      module_types: config.module_types
+    ]
   end
 
   # ── Helpers ───────────────────────────────────────────────────────

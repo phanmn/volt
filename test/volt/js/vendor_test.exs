@@ -65,6 +65,39 @@ defmodule Volt.JS.VendorTest do
       refute Map.has_key?(vendor_map, "./app")
     end
 
+    test "keeps previous cache files when a later optimization fails" do
+      defmodule StableSyntheticVendor do
+        @behaviour Volt.Plugin
+
+        def name, do: "stable-synthetic"
+
+        def prebundle_entry("unstable-lib"),
+          do: {:source, "unstable-lib.js", "export const value = 'stable'"}
+
+        def prebundle_entry(_specifier), do: nil
+      end
+
+      defmodule BrokenSyntheticVendor do
+        @behaviour Volt.Plugin
+
+        def name, do: "broken-synthetic"
+        def prebundle_entry("unstable-lib"), do: {:source, "unstable-lib.js", "const = ;"}
+        def prebundle_entry(_specifier), do: nil
+      end
+
+      {:ok, stable} =
+        Volt.JS.Vendor.bundle_on_demand("unstable-lib", @node_modules,
+          plugins: [StableSyntheticVendor]
+        )
+
+      assert {:error, _} =
+               Volt.JS.Vendor.bundle_on_demand("unstable-lib", @node_modules,
+                 plugins: [BrokenSyntheticVendor]
+               )
+
+      assert {:ok, ^stable} = Volt.JS.Vendor.read("unstable-lib")
+    end
+
     test "rebuilds cached synthetic entries when plugin prebundle source changes" do
       defmodule SyntheticVendorOne do
         @behaviour Volt.Plugin
@@ -393,6 +426,17 @@ defmodule Volt.JS.VendorTest do
                node_modules: @node_modules,
                plugins: [Volt.Plugin.React]
              ) == url
+    end
+
+    test "browser hash changes when lockfile changes" do
+      lockfile = Path.join(@fixture_dir, "package-lock.json")
+      File.write!(lockfile, ~s({"lockfileVersion":1}))
+      first = Volt.JS.Vendor.browser_hash(node_modules: @node_modules, plugins: [])
+
+      File.write!(lockfile, ~s({"lockfileVersion":2}))
+      second = Volt.JS.Vendor.browser_hash(node_modules: @node_modules, plugins: [])
+
+      refute first == second
     end
 
     test "generates URL path for specifier" do

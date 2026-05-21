@@ -56,6 +56,36 @@ defmodule Volt.DevServerTest do
     end
   end
 
+  describe "vendor modules" do
+    test "rejects stale optimized dependency browser hashes" do
+      node_modules = Path.join(@fixture_dir, "node_modules/fake-lib")
+      File.mkdir_p!(node_modules)
+
+      File.write!(
+        Path.join(node_modules, "package.json"),
+        Jason.encode!(%{"name" => "fake-lib", "main" => "index.js"})
+      )
+
+      File.write!(Path.join(node_modules, "index.js"), "export const value = 'fake'")
+
+      File.write!(
+        Path.join(@fixture_dir, "src/app.ts"),
+        "import { value } from 'fake-lib'\nconsole.log(value)"
+      )
+
+      app_conn = call_dev_server("/assets/app.ts")
+      assert app_conn.status == 200
+      assert [vendor_url] = Regex.run(~r(/@vendor/fake-lib\.js\?v=[a-f0-9]+), app_conn.resp_body)
+
+      current_conn = call_dev_server(vendor_url)
+      assert current_conn.status == 200
+
+      stale_conn = call_dev_server("/@vendor/fake-lib.js?v=00000000")
+      assert stale_conn.status == 504
+      assert stale_conn.resp_body =~ "outdated optimized dependency"
+    end
+  end
+
   describe "TypeScript files" do
     test "does not allow source path traversal" do
       File.write!(Path.join(@fixture_dir, "secret.ts"), "export const secret = true")
