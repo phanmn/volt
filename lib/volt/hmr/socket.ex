@@ -22,7 +22,7 @@ defmodule Volt.HMR.Socket do
 
   @impl true
   def handle_info({:volt_hmr, type, payload}, state) do
-    msg = Jason.encode!(%{type: type, payload: payload})
+    msg = Jason.encode!(%Volt.HMR.Message{type: type, payload: payload})
     {:push, {:text, msg}, state}
   end
 
