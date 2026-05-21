@@ -118,7 +118,7 @@ defmodule Mix.Tasks.Volt.Dev do
     end
   end
 
-  defp parse_profile(args), do: Volt.Mix.profile_from_args(args)
+  defp parse_profile(args), do: Mix.Tasks.Volt.Profile.from_args(args)
 
   @dialyzer {:nowarn_function, iex_running?: 0}
   defp iex_running? do
