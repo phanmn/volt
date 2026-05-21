@@ -5,6 +5,13 @@ defmodule Volt.JS.Runtime.Installer do
 
   alias NPM.Lockfile
 
+  defmodule Metadata do
+    @moduledoc "Package signature stored beside a JS runtime installation."
+
+    @derive {Jason.Encoder, only: [:signature, :packages]}
+    defstruct signature: nil, packages: %{}
+  end
+
   @spec install!(map(), keyword()) :: %{install_dir: String.t(), node_modules: String.t()}
   def install!(packages, opts \\ []) when is_map(packages) do
     Application.ensure_all_started(:req)
@@ -114,10 +121,8 @@ defmodule Volt.JS.Runtime.Installer do
   end
 
   defp write_metadata!(metadata_path, signature, packages) do
-    File.write!(
-      metadata_path,
-      Jason.encode!(%{"signature" => signature, "packages" => stringify_packages(packages)})
-    )
+    metadata = %Metadata{signature: signature, packages: stringify_packages(packages)}
+    File.write!(metadata_path, Jason.encode!(metadata))
   end
 
   defp install_id(packages), do: install_signature(packages)
