@@ -1,5 +1,7 @@
 defmodule Volt.URL do
-  @moduledoc false
+  @moduledoc "Helpers for URL path, query, and fragment handling."
+
+  @asset_query_keys ~w(raw url inline no-inline import)
 
   def join(prefix, path) do
     prefix = to_string(prefix)
@@ -15,9 +17,25 @@ defmodule Volt.URL do
     end
   end
 
+  def split_query(url) do
+    uri = URI.parse(url)
+    path = URI.to_string(%{uri | query: nil, fragment: nil})
+    {path, uri.query || ""}
+  end
+
   def append_query(path, ""), do: path
   def append_query(path, nil), do: path
   def append_query(path, query), do: %{URI.parse(path) | query: query} |> URI.to_string()
+
+  def decode_query(""), do: %{}
+  def decode_query(query), do: URI.decode_query(query)
+
+  def asset_module_query?(query) do
+    query
+    |> decode_query()
+    |> Map.keys()
+    |> Enum.any?(&(&1 in @asset_query_keys))
+  end
 
   def append_fragment(path, nil), do: path
 

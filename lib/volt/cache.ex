@@ -50,7 +50,7 @@ defmodule Volt.Cache do
   @spec evict_file(String.t()) :: :ok
   def evict_file(path) do
     evict(path)
-    evict(Volt.JS.Query.append(path, "import"))
+    evict(Volt.URL.append_query(path, "import"))
     :ok
   end
 

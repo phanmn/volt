@@ -55,7 +55,7 @@ defmodule Volt.JS.Transforms.AssetURLs do
   end
 
   defp relative_asset_specifier?(specifier) do
-    {path, _query} = Volt.JS.Query.split(specifier)
+    {path, _query} = Volt.URL.split_query(specifier)
 
     (String.starts_with?(path, "./") or String.starts_with?(path, "../")) and
       Volt.Assets.asset?(path)
@@ -72,7 +72,7 @@ defmodule Volt.JS.Transforms.AssetURLs do
           "import ",
           ident,
           " from ",
-          Jason.encode!(Volt.JS.Query.append(specifier, "url")),
+          Jason.encode!(Volt.URL.append_query(specifier, "url")),
           ";"
         ]
 

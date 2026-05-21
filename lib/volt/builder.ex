@@ -274,14 +274,14 @@ defmodule Volt.Builder do
   end
 
   defp compile_module(module_id, _label, source, ctx) do
-    {path, query} = Volt.JS.Query.split(module_id)
+    {path, query} = Volt.URL.split_query(module_id)
 
     cond do
       Path.extname(path) in @css_exts and not Volt.CSS.Modules.css_module?(path) ->
         compile_css_import(path, source, ctx)
 
       Volt.Assets.asset?(path) ->
-        query_params = Volt.JS.Query.decode(query)
+        query_params = Volt.URL.decode_query(query)
 
         asset_opts = [
           raw: Map.has_key?(query_params, "raw"),

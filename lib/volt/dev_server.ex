@@ -31,7 +31,7 @@ defmodule Volt.DevServer do
   require Logger
 
   alias Plug.Conn
-  alias Volt.JS.Query
+  alias Volt.URL
 
   @behaviour Plug
 
@@ -269,7 +269,7 @@ defmodule Volt.DevServer do
   end
 
   defp serve_asset_module(conn, file_path, relative, config) do
-    query = Query.decode(conn.query_string)
+    query = URL.decode_query(conn.query_string)
     url_path = Volt.URL.join(config.prefix, relative)
     prefix = Path.dirname(url_path)
 
@@ -311,17 +311,17 @@ defmodule Volt.DevServer do
   end
 
   defp asset_import_request?(conn) do
-    Query.asset_module_query?(conn.query_string) or
+    URL.asset_module_query?(conn.query_string) or
       Enum.member?(Conn.get_req_header(conn, "sec-fetch-dest"), "script")
   end
 
   defp import_query?(query_string) do
     query_string
-    |> Query.decode()
+    |> URL.decode_query()
     |> Map.has_key?("import")
   end
 
-  defp cache_key_for(file_path, true), do: Query.append(file_path, "import")
+  defp cache_key_for(file_path, true), do: URL.append_query(file_path, "import")
   defp cache_key_for(file_path, false), do: file_path
 
   defp rewrite_dev_css_urls(%{type: :css, code: code} = result, file_path, config) do
@@ -343,7 +343,7 @@ defmodule Volt.DevServer do
   defp code_for_request(result, mod_url, content_type, true) do
     result
     |> css_import_module(mod_url)
-    |> maybe_inject_hmr_preamble(Query.append(mod_url, "import"), content_type)
+    |> maybe_inject_hmr_preamble(URL.append_query(mod_url, "import"), content_type)
     |> maybe_inject_dev_console_forwarder(content_type)
   end
 
@@ -405,14 +405,14 @@ defmodule Volt.DevServer do
   end
 
   defp rewrite_relative(specifier, importer, config) do
-    {path_specifier, query} = Query.split(specifier)
+    {path_specifier, query} = URL.split_query(specifier)
     resolved = Path.expand(Path.join(Path.dirname(importer), path_specifier))
 
     rewrite_root_path(resolved, query, config)
   end
 
   defp rewrite_resolved_path(resolved, config) do
-    {resolved, query} = Query.split(resolved)
+    {resolved, query} = URL.split_query(resolved)
     rewrite_root_path(resolved, query, config)
   end
 
@@ -435,9 +435,9 @@ defmodule Volt.DevServer do
     url = Volt.URL.join(prefix, relative)
 
     cond do
-      query != "" -> Query.append(url, query)
-      Path.extname(resolved) == ".css" -> Query.append(url, "import")
-      Volt.Assets.asset?(resolved) -> Query.append(url, "import")
+      query != "" -> URL.append_query(url, query)
+      Path.extname(resolved) == ".css" -> URL.append_query(url, "import")
+      Volt.Assets.asset?(resolved) -> URL.append_query(url, "import")
       true -> url
     end
   end

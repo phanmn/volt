@@ -52,7 +52,7 @@ defmodule Volt.Builder.Collector do
     end
   end
 
-  defp module_path(module_id), do: module_id |> Volt.JS.Query.split() |> elem(0)
+  defp module_path(module_id), do: module_id |> Volt.URL.split_query() |> elem(0)
 
   defp collect_asset(abs_path, label, state) do
     source = ""
@@ -288,7 +288,7 @@ defmodule Volt.Builder.Collector do
   end
 
   defp module_label(resolved_path, root) do
-    {path, query} = Volt.JS.Query.split(resolved_path)
+    {path, query} = Volt.URL.split_query(resolved_path)
     [relative_path | rest] = path |> String.split("/node_modules/") |> Enum.reverse()
 
     label =

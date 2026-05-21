@@ -7,7 +7,7 @@ defmodule Volt.Builder.Resolver do
   Returns `{:ok, path}`, `:skip` (for externals/node builtins), or `{:error, reason}`.
   """
   def resolve(specifier, importer, ctx) do
-    {path_specifier, query} = Volt.JS.Query.split(specifier)
+    {path_specifier, query} = Volt.URL.split_query(specifier)
 
     if external?(path_specifier, ctx.external) do
       :skip
@@ -20,7 +20,7 @@ defmodule Volt.Builder.Resolver do
 
   defp do_resolve(specifier, importer, ctx, query) do
     case Volt.PluginRunner.resolve(ctx.plugins, specifier, importer) do
-      {:ok, resolved} -> {:ok, Volt.JS.Query.append(resolved, query)}
+      {:ok, resolved} -> {:ok, Volt.URL.append_query(resolved, query)}
       nil -> resolve_specifier(specifier, importer, ctx, query)
     end
   end
@@ -41,7 +41,7 @@ defmodule Volt.Builder.Resolver do
     end
   end
 
-  defp append_query({:ok, path}, query), do: {:ok, Volt.JS.Query.append(path, query)}
+  defp append_query({:ok, path}, query), do: {:ok, Volt.URL.append_query(path, query)}
   defp append_query(other, _query), do: other
 
   defp resolve_by_type(specifier, importer, ctx) do
@@ -63,7 +63,7 @@ defmodule Volt.Builder.Resolver do
   @js_to_ts_map %{".js" => [".ts", ".tsx"], ".jsx" => [".tsx"], ".mjs" => [".mts"]}
 
   defp resolve_package_import(specifier, importer, ctx) do
-    {importer_path, _query} = Volt.JS.Query.split(importer)
+    {importer_path, _query} = Volt.URL.split_query(importer)
 
     case NPM.Resolution.PackageResolver.resolve(specifier, Path.dirname(importer_path),
            extensions: Volt.JS.Extensions.resolvable(ctx.plugins),
@@ -76,7 +76,7 @@ defmodule Volt.Builder.Resolver do
   end
 
   defp resolve_relative(specifier, importer, ctx) do
-    {importer_path, _query} = Volt.JS.Query.split(importer)
+    {importer_path, _query} = Volt.URL.split_query(importer)
     base = Path.expand(specifier, Path.dirname(importer_path))
 
     case NPM.Resolution.PackageResolver.try_resolve(base,

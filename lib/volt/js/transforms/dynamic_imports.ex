@@ -55,7 +55,7 @@ defmodule Volt.JS.Transforms.DynamicImports do
          _index
        ) do
     with {:ok, pattern} <- glob_pattern(source_node),
-         {path_pattern, query} <- Volt.JS.Query.split(pattern),
+         {path_pattern, query} <- Volt.URL.split_query(pattern),
          true <- relative_pattern?(path_pattern) do
       {:ok,
        %Volt.JS.Transforms.DynamicImports.Replacement{

@@ -278,7 +278,7 @@ defmodule Volt.JS.Transforms.GlobImports do
   end
 
   defp import_path(file, %{query: ""}), do: file
-  defp import_path(file, %{query: query}), do: Volt.JS.Query.append(file, query)
+  defp import_path(file, %{query: query}), do: Volt.URL.append_query(file, query)
 
   defp object_expression(entries) do
     ast =
