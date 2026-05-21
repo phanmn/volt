@@ -1,5 +1,12 @@
 defmodule Volt.HMR.ModuleGraph do
-  @moduledoc "ETS-backed dev module graph keyed by served URL, resolved id, and source file."
+  @moduledoc """
+  ETS-backed dev-server module graph.
+
+  The graph is keyed by served URL, resolved module id, and source file. It is
+  the primary source for HMR boundary lookup: served modules record their
+  resolved imports, importers, query variants, and whether the module accepts
+  itself with `import.meta.hot.accept()`.
+  """
 
   @table :volt_hmr_module_graph
 

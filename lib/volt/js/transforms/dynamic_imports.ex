@@ -10,6 +10,9 @@ defmodule Volt.JS.Transforms.DynamicImports do
   The transform intentionally supports the same conservative shape Vite supports
   best: relative template literals with at least one expression. Bare package
   imports and absolute URLs are left untouched.
+
+  Helper code is generated from OXC templates and spliced into parsed source so
+  the emitted JavaScript remains parser-validated.
   """
 
   @doc """

@@ -7,6 +7,10 @@ defmodule Volt.JS.Transforms.GlobImports do
   TypeScript generic syntax. The transform runs after framework/plugin output is
   compiled, so glob calls emitted by SFC compilers or plugins participate in the
   same graph as source-authored calls.
+
+  Generated import modules are built from OXC templates or encoded literals;
+  avoid adding string-built JavaScript syntax unless the syntax is validated by
+  the parser before use.
   """
 
   alias Volt.JS.{AST, Patch}

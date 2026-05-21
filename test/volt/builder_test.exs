@@ -366,7 +366,7 @@ defmodule Volt.BuilderTest do
 
       js = File.read!(result.js.path)
       assert js =~ "solid-web-template"
-      assert js =~ "delegateEvents"
+      assert js =~ "$$click"
       assert js =~ ~r/solid_worker-[a-f0-9]{8}\.js/
       refute js =~ "jsx-runtime"
     end

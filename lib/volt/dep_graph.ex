@@ -88,7 +88,7 @@ defmodule Volt.DepGraph do
     )
   end
 
-  @doc "Find all files with an `import.meta.glob()` pattern matching `path`."
+  @doc "Compatibility wrapper for `Volt.HMR.GlobGraph.dependents/1`."
   @spec glob_dependents(String.t()) :: [String.t()]
   def glob_dependents(path), do: Volt.HMR.GlobGraph.dependents(path)
 

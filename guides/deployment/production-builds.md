@@ -25,7 +25,7 @@ Production builds run the same framework/plugin compilation pipeline as the dev 
 - rewrites relative CSS `url(...)` asset references through the asset pipeline
 - copies JavaScript- and CSS-referenced assets with content hashes
 - tree-shakes, minifies, and optionally code-splits JavaScript
-- writes a manifest that Phoenix can use for digested asset paths
+- writes a manifest that Phoenix can use for digested asset paths and chunk preload metadata
 - optionally copies a Vite-style public directory to the static root without transforming files
 
 ## Public files in Phoenix apps
@@ -99,11 +99,13 @@ Or per-build: `mix volt.build --external phoenix --external phoenix_html`
 
 ## Module Preloading
 
-For code-split builds, `Volt.Preload.tags/2` generates `<link rel="modulepreload">` tags from the build manifest to preload async chunks:
+For code-split builds, the production manifest records static imports, dynamic imports, chunk-local CSS, and emitted assets. Use `Volt.Preload.tags/2` in your layout to preload the entry and its static chunk dependencies:
 
 ```heex
-<%= Volt.Preload.tags("priv/static/assets/js/manifest.json", "/assets/js") %>
+<%= Volt.Preload.tags("priv/static/assets/js/manifest.json", "/assets/js", entry: "app.js") %>
 ```
+
+Runtime dynamic imports are rewritten through Volt's preload helper when the async chunk has dependency chunks or CSS. The helper preloads those files before executing `import()`, avoiding extra round trips while keeping async chunks lazy.
 
 ## Deploy Alias
 

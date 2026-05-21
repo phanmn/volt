@@ -42,9 +42,9 @@ Production builds include tree-shaking, minification, code splitting, asset URL 
 
 ## Code Splitting
 
-Dynamic `import()` calls automatically create separate async chunks. Simple relative dynamic import variables such as ``import(`./pages/${name}.ts`)`` are expanded through `import.meta.glob()` so production builds can include matching modules. Shared modules between chunks are extracted to avoid duplication. Manual chunk boundaries can be configured for vendor splitting.
+Dynamic `import()` calls automatically create separate async chunks. Simple relative dynamic import variables such as ``import(`./pages/${name}.ts`)`` are expanded through `import.meta.glob()` so production builds can include matching modules. Shared modules between chunks are extracted to avoid duplication. Chunk-local CSS and assets are recorded in the production manifest.
 
-`Volt.Preload` can generate `<link rel="modulepreload">` tags from the production manifest to avoid chunk-loading waterfalls.
+`Volt.Preload` can generate `<link rel="modulepreload">` tags from the production manifest for entry/static imports. Runtime dynamic imports preload their own dependency chunks and CSS when needed.
 
 See [Code Splitting](code-splitting.md) for examples and configuration.
 

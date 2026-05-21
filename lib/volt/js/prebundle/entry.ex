@@ -1,5 +1,11 @@
 defmodule Volt.JS.PrebundleEntry do
-  @moduledoc "Generates synthetic JavaScript entry modules for vendor prebundling."
+  @moduledoc """
+  Generates synthetic JavaScript entry modules for vendor prebundling.
+
+  Statements are assembled through OXC templates, literal replacement, and
+  parser validation so plugin-provided prebundle entries cannot accidentally
+  produce malformed JavaScript syntax.
+  """
 
   def source({:proxy, _filename, opts}) do
     code =
