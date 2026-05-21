@@ -71,4 +71,19 @@ Check formatting and lint in one command (useful for CI):
 mix volt.js.check
 ```
 
+For TypeScript projects, run type-aware rules through `tsgolint` headless mode:
+
+```bash
+mix volt.js.check --type-aware
+mix volt.js.check --type-aware --type-check
+```
+
+Configure the executable when it is not on `PATH`:
+
+```elixir
+config :volt, :lint,
+  tsgolint: "./node_modules/.bin/tsgolint",
+  rules: %{"typescript/no-floating-promises" => :deny}
+```
+
 Exits with non-zero status on issues.

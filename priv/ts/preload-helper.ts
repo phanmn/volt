@@ -1,10 +1,12 @@
 const __voltPreloaded = new Set<string>()
 
 const __voltPreload = (load: () => Promise<unknown>, deps: string[]) =>
-  Promise.all(deps.map(__voltPreloadDep)).then(load).catch(error => {
-    window.dispatchEvent(new CustomEvent('volt:preloadError', { detail: error }))
-    throw error
-  })
+  Promise.all(deps.map(__voltPreloadDep))
+    .then(load)
+    .catch((error) => {
+      window.dispatchEvent(new CustomEvent('volt:preloadError', { detail: error }))
+      throw error
+    })
 
 function __voltPreloadDep(dep: string) {
   if (__voltPreloaded.has(dep) || document.querySelector(`link[href=${JSON.stringify(dep)}]`)) {

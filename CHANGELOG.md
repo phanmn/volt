@@ -10,6 +10,8 @@
 
 ### Changed
 
+- Upgraded `oxc` to 0.15.0 and `quickbeam` to 0.10.15.
+- `mix volt.js.check` now supports `--type-aware` and `--type-check` for TypeScript-aware linting through `tsgolint`.
 - Production builds now tree-shake JavaScript by default, with `tree_shaking: false` and `mix volt.build --no-tree-shaking` available to preserve unused exports.
 - Code-split dynamic imports now preload dependency chunks and chunk-local CSS when doing so avoids loading waterfalls.
 - HMR boundary lookup now uses a served module graph, with a dedicated glob graph for `import.meta.glob()` invalidation.

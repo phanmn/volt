@@ -98,9 +98,10 @@ JS/TS formatting and linting run as Rust NIFs. `mix format` handles Elixir and J
 mix format           # Elixir + JS/TS
 mix volt.lint        # 650+ oxlint rules
 mix volt.js.check    # format + lint for CI
+mix volt.js.check --type-aware --type-check
 ```
 
-Project-specific lint rules can be written in Elixir with `OXC.Lint.Rule`.
+Project-specific lint rules can be written in Elixir with `OXC.Lint.Rule`. Type-aware TypeScript rules can run through `tsgolint` with `--type-aware`.
 
 ## Plugins
 

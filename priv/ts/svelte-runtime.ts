@@ -7,7 +7,7 @@ type SvelteCompileResult = {
 }
 
 function compileSvelte(source: string, input: Record<string, unknown> | string = {}) {
-  const options = typeof input === 'string' ? JSON.parse(input) as Record<string, unknown> : input
+  const options = typeof input === 'string' ? (JSON.parse(input) as Record<string, unknown>) : input
   const result = compile(source, {
     generate: 'client',
     dev: false,

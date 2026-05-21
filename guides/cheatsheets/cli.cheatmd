@@ -50,9 +50,10 @@ Lint JS/TS assets with oxlint.
 
 ```bash
 mix volt.js.check
+mix volt.js.check --type-aware --type-check
 ```
 
-Check formatting and lint (CI-friendly).
+Check formatting and lint (CI-friendly). Use `--type-aware` for TypeScript rules that require type information.
 
 ## `mix volt.build` Flags
 {: .col-2}
