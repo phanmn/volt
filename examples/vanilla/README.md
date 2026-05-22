@@ -16,3 +16,5 @@ mix assets.check
 # with tsgolint installed on PATH:
 mix assets.check.type_aware
 ```
+
+The lint config intentionally combines normal Oxlint category rules such as `"correctness"` with `typescript/*` rules that only run in the type-aware path.

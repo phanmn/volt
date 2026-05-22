@@ -6,7 +6,7 @@ let app = mount(App, { target })
 
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
-    unmount(app)
+    void unmount(app)
   })
   import.meta.hot.accept()
 }

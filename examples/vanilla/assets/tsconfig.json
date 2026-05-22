@@ -8,8 +8,6 @@
       "DOM"
     ],
     "strict": true,
-    "jsx": "preserve",
-    "jsxImportSource": "solid-js",
     "allowJs": true,
     "noEmit": true
   },

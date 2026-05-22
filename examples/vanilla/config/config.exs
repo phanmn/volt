@@ -39,6 +39,10 @@ config :volt, :format,
 
 config :volt, :lint,
   plugins: [:typescript],
-  tsgolint: System.find_executable("tsgolint")
+  tsgolint: System.find_executable("tsgolint"),
+  rules: %{
+    "correctness" => :deny,
+    "typescript/no-floating-promises" => :warn
+  }
 
 import_config "#{config_env()}.exs"

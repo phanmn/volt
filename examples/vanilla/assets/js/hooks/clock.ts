@@ -2,6 +2,7 @@ import type { ViewHook } from 'phoenix_live_view'
 
 const Clock: Partial<ViewHook> = {
   mounted() {
+    if (!this.el) return
     const el = this.el.querySelector('[data-time]') as HTMLElement
     const update = () => {
       el.textContent = new Date().toLocaleTimeString()

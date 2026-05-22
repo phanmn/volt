@@ -1,4 +1,5 @@
 <script setup lang="ts">
+/// <reference path="../volt-env.d.ts" />
 import config from './config.json'
 import logo from '../images/volt.svg'
 import Counter from './Counter.vue'
