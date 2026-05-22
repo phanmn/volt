@@ -230,7 +230,8 @@ async function updateStyles(path: string) {
     const id = style.getAttribute('data-volt-id')
 
     if (id && (id.includes(path) || path.includes(id.replace(/^\//, '')))) {
-      const url = `${id}?import&t=${Date.now()}`
+      const params = id.includes('?') ? '&t=' : '?import&t='
+      const url = `${id}${params}${Date.now()}`
       await import(/* @vite-ignore */ url)
       updated = true
     }

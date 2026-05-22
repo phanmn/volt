@@ -58,7 +58,9 @@ defmodule Volt.Integration.HMRTest do
     File.rm_rf!(@fixture_dir)
     File.mkdir_p!(@fixture_dir)
     Volt.Cache.clear()
+    Volt.HMR.GlobGraph.clear()
     Volt.HMR.ImportGraph.clear()
+    Volt.HMR.ModuleGraph.clear()
 
     write_fixture("index.html", """
     <!DOCTYPE html>
@@ -199,6 +201,134 @@ defmodule Volt.Integration.HMRTest do
       assert color == "rgb(10, 20, 30)"
     end
 
+    test "self-accepting modules update without reloading and preserve hot data", %{frame: frame} do
+      write_fixture("self_accept.ts", """
+      const store = (window.__voltSelfAccept ??= { events: [] })
+      export const value = 'one'
+      store.value = value
+      store.previous = import.meta.hot?.data?.previous ?? 'none'
+
+      let el = document.getElementById('self-accept')
+      if (!el) {
+        el = document.createElement('div')
+        el.id = 'self-accept'
+        document.body.appendChild(el)
+      }
+      el.textContent = `${value}:${store.previous}`
+
+      import.meta.hot?.accept((mod) => {
+        store.events.push(`accept:${mod.value}`)
+      })
+
+      import.meta.hot?.dispose((data) => {
+        data.previous = value
+        store.events.push(`dispose:${value}`)
+      })
+      """)
+
+      write_fixture("self_accept_page.html", """
+      <!DOCTYPE html>
+      <html><body>
+        <script type="module" src="/assets/self_accept.ts"></script>
+      </body></html>
+      """)
+
+      {:ok, _} = Frame.goto(frame.guid, url: base_url("/self_accept_page.html"), timeout: 10_000)
+      {:ok, initial} = eval_poll(frame, "document.getElementById('self-accept')?.textContent")
+      assert initial == "one:none"
+
+      {:ok, watcher} = start_watcher()
+
+      update_fixture("self_accept.ts", &String.replace(&1, "'one'", "'two'"))
+
+      assert {:ok, "two:one"} =
+               eval_until(frame, "document.getElementById('self-accept')?.textContent", "two:one")
+
+      assert {:ok, true} =
+               eval_until(
+                 frame,
+                 "window.__voltSelfAccept.events.includes('dispose:one') && window.__voltSelfAccept.events.includes('accept:two')",
+                 true
+               )
+
+      GenServer.stop(watcher)
+    end
+
+    test "non-accepted module updates trigger a full reload", %{frame: frame} do
+      write_fixture("full_reload.ts", """
+      const count = Number(sessionStorage.getItem('voltReloadCount') ?? '0') + 1
+      sessionStorage.setItem('voltReloadCount', String(count))
+      const el = document.createElement('div')
+      el.id = 'full-reload'
+      el.textContent = `before:${count}`
+      document.body.appendChild(el)
+      """)
+
+      write_fixture("full_reload_page.html", """
+      <!DOCTYPE html>
+      <html><body>
+        <script type="module" src="/assets/full_reload.ts"></script>
+      </body></html>
+      """)
+
+      {:ok, _} = Frame.goto(frame.guid, url: base_url("/full_reload_page.html"), timeout: 10_000)
+      {:ok, initial} = eval_poll(frame, "document.getElementById('full-reload')?.textContent")
+      assert initial == "before:1"
+
+      {:ok, watcher} = start_watcher()
+
+      update_fixture("full_reload.ts", &String.replace(&1, "before", "after"))
+
+      assert {:ok, "after:2"} =
+               eval_until(frame, "document.getElementById('full-reload')?.textContent", "after:2")
+
+      GenServer.stop(watcher)
+    end
+
+    test "CSS import HMR updates injected styles", %{frame: frame} do
+      write_fixture("hmr-style.css", ".hmr-style { color: rgb(1, 2, 3); }")
+
+      write_fixture("css_hmr.ts", """
+      import './hmr-style.css'
+
+      const count = Number(sessionStorage.getItem('voltCssReloadCount') ?? '0') + 1
+      sessionStorage.setItem('voltCssReloadCount', String(count))
+      const el = document.createElement('div')
+      el.className = 'hmr-style'
+      el.textContent = String(count)
+      document.body.appendChild(el)
+      """)
+
+      write_fixture("css_hmr_page.html", """
+      <!DOCTYPE html>
+      <html><body>
+        <script type="module" src="/assets/css_hmr.ts"></script>
+      </body></html>
+      """)
+
+      {:ok, _} = Frame.goto(frame.guid, url: base_url("/css_hmr_page.html"), timeout: 10_000)
+
+      {:ok, initial_color} =
+        eval_poll(frame, "getComputedStyle(document.querySelector('.hmr-style')).color")
+
+      assert initial_color == "rgb(1, 2, 3)"
+      {:ok, reload_count} = eval_poll(frame, "sessionStorage.getItem('voltCssReloadCount')")
+      assert reload_count == "1"
+
+      {:ok, watcher} = start_watcher()
+
+      update_fixture("hmr-style.css", &String.replace(&1, "rgb(1, 2, 3)", "rgb(4, 5, 6)"))
+
+      assert {:ok, "rgb(4, 5, 6)"} =
+               eval_until(
+                 frame,
+                 "getComputedStyle(document.querySelector('.hmr-style')).color",
+                 "rgb(4, 5, 6)"
+               )
+
+      GenServer.stop(watcher)
+    end
+
     test "imports CSS modules from JavaScript with exports and injected styles", %{frame: frame} do
       write_fixture("button.module.css", """
       .btn { color: rgb(40, 50, 60); }
@@ -240,6 +370,24 @@ defmodule Volt.Integration.HMRTest do
     end
   end
 
+  defp eval_until(frame, expression, expected, attempts \\ 30) do
+    case Frame.evaluate(frame.guid,
+           expression: expression,
+           is_function: false,
+           arg: nil,
+           timeout: 5000
+         ) do
+      {:ok, ^expected} ->
+        {:ok, expected}
+
+      {:ok, _other} when attempts > 0 ->
+        Process.sleep(100) && eval_until(frame, expression, expected, attempts - 1)
+
+      _ ->
+        {:error, :timeout}
+    end
+  end
+
   defp eval_poll(frame, expression, attempts \\ 20) do
     case Frame.evaluate(frame.guid,
            expression: expression,
@@ -258,9 +406,26 @@ defmodule Volt.Integration.HMRTest do
     end
   end
 
+  defp start_watcher do
+    with {:ok, pid} <-
+           Volt.Watcher.start_link(
+             root: @fixture_dir,
+             target: :es2020,
+             name: String.to_atom("volt_integration_hmr_#{System.unique_integer([:positive])}")
+           ) do
+      Process.sleep(150)
+      {:ok, pid}
+    end
+  end
+
   defp base_url(path \\ "/"), do: "http://localhost:#{@port}#{path}"
 
   defp write_fixture(name, content) do
     File.write!(Path.join(@fixture_dir, name), content)
+  end
+
+  defp update_fixture(name, callback) do
+    path = Path.join(@fixture_dir, name)
+    File.write!(path, callback.(File.read!(path)))
   end
 end

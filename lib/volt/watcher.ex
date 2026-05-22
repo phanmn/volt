@@ -26,6 +26,8 @@ defmodule Volt.Watcher do
   use GenServer
   require Logger
 
+  alias Volt.JS.Extensions
+
   @dialyzer {:nowarn_function, detect_changes: 2}
 
   @debounce_ms 50
@@ -114,16 +116,20 @@ defmodule Volt.Watcher do
       ext = Path.extname(path)
 
       cond do
-        ext in Volt.JS.Extensions.watchable_js(state.config[:plugins] || []) ->
+        ext in Extensions.watchable_js(state.config[:plugins] || []) ->
           state = schedule_rebuild(state, path)
           state = maybe_schedule_tailwind(state, path)
+          {:noreply, state}
+
+        ext in Extensions.css() ->
+          handle_css_change(path, state)
           {:noreply, state}
 
         Volt.Assets.asset?(path) ->
           handle_asset_change(path, state)
           {:noreply, state}
 
-        ext in Volt.JS.Extensions.template() and state.config[:tailwind] ->
+        ext in Extensions.template() and state.config[:tailwind] ->
           state = maybe_schedule_tailwind(state, path)
           {:noreply, state}
 
@@ -213,6 +219,14 @@ defmodule Volt.Watcher do
       {:error, reason} ->
         broadcast(:error, %{path: relative, reason: inspect(reason)})
     end
+  end
+
+  defp handle_css_change(path, state) do
+    relative = Path.relative_to(path, state.root)
+    Volt.Cache.evict_file(path)
+    Volt.HMR.ModuleGraph.invalidate_file(path)
+    broadcast(:update, %{path: relative, changes: [:style]})
+    broadcast_glob_dependents(path, state.root)
   end
 
   defp handle_asset_change(path, state) do
