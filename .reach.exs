@@ -1,5 +1,14 @@
 file_mutation = ["File.write!", "File.rm", "File.rm_rf!"]
-app_config = ["Application.get_env"]
+app_config = [
+  "Application.get_env",
+  "Application.get_all_env",
+  "Application.fetch_env",
+  "Application.put_env",
+  "Application.delete_env"
+]
+compat_json = [":json.*"]
+unsafe_runtime_encoding = ["Jason.encode!"]
+unstable_hashing = [":erlang.phash2"]
 builder_runtime = ["Volt.DevServer.*", "Volt.Watcher.*", "Volt.HMR.*"]
 asset_runtime = ["Volt.Assets.*", "Volt.Builder.*", "Volt.DevServer.*", "Volt.JS.*"]
 ast_side_effects = app_config ++ file_mutation ++ ["System.cmd", "QuickBEAM.*"] ++ builder_runtime
@@ -173,7 +182,11 @@ logic_must_not_depend_on = [:adapter, :orchestrator, :infrastructure]
          "Volt.Plugin.Solid.*",
          "Volt.Plugin.Svelte.*",
          "Volt.Plugin.Vue.*"
-       ]}
+       ]},
+      {"Volt.*", compat_json, except: ["Volt.Plugin.*"]},
+      {"Volt.HMR.Socket", unsafe_runtime_encoding},
+      {"Volt.Plugin.*", unstable_hashing},
+      {"Mix.Tasks.Volt.Js.Check", ["OXC.Format.run!", "OXC.Lint.run!"]}
     ]
   ],
   effects: [

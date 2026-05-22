@@ -20,7 +20,7 @@ defmodule Volt.JS.TSConfig do
   @spec read_paths(String.t()) :: %{String.t() => String.t()}
   def read_paths(tsconfig_path) do
     with {:ok, content} <- File.read(tsconfig_path),
-         {:ok, json} <- decode(content),
+         {:ok, json} <- Jason.decode(content),
          %{"compilerOptions" => %{"paths" => paths}} when is_map(paths) <- json do
       base_url = get_in(json, ["compilerOptions", "baseUrl"]) || "."
       tsconfig_dir = Path.dirname(tsconfig_path)
@@ -56,11 +56,5 @@ defmodule Volt.JS.TSConfig do
     else
       %{}
     end
-  end
-
-  defp decode(content) do
-    {:ok, :json.decode(content)}
-  rescue
-    ErlangError -> :error
   end
 end
