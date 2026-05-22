@@ -215,7 +215,10 @@ function resolveAcceptedUrl(ownerUrl: string, specifier: string) {
     return specifier
   }
 
-  return new URL(specifier, new URL(ownerUrl, location.origin)).pathname
+  const resolved = new URL(specifier, new URL(ownerUrl, location.origin)).pathname
+  const extension = resolved.split('/').pop()?.includes('.')
+
+  return extension ? resolved : `${resolved}.ts`
 }
 
 function sameModuleUrl(left: string, right: string) {

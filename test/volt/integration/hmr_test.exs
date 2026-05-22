@@ -314,6 +314,70 @@ defmodule Volt.Integration.HMRTest do
       GenServer.stop(watcher)
     end
 
+    test "parent modules accept multiple dependency updates", %{frame: frame} do
+      write_fixture("multi_dep_a.ts", "export const value = 'a-one'")
+      write_fixture("multi_dep_b.ts", "export const value = 'b-one'")
+
+      write_fixture("multi_accept_parent.ts", """
+      import { value as a } from './multi_dep_a'
+      import { value as b } from './multi_dep_b'
+
+      const store = (window.__voltMultiDep ??= { events: [] })
+      store.reloads = (store.reloads ?? 0) + 1
+
+      let el = document.getElementById('multi-accepted-dep')
+      if (!el) {
+        el = document.createElement('div')
+        el.id = 'multi-accepted-dep'
+        document.body.appendChild(el)
+      }
+      el.textContent = `${a}:${b}`
+
+      import.meta.hot?.accept(['./multi_dep_a', './multi_dep_b'], ([modA, modB]) => {
+        store.events.push(`accepted:${modA.value}:${modB.value}`)
+        el.textContent = `${modA.value}:${modB.value}`
+      })
+      """)
+
+      write_fixture("multi_accept_dep_page.html", """
+      <!DOCTYPE html>
+      <html><body>
+        <script type="module" src="/assets/multi_accept_parent.ts"></script>
+      </body></html>
+      """)
+
+      {:ok, _} =
+        Frame.goto(frame.guid, url: base_url("/multi_accept_dep_page.html"), timeout: 10_000)
+
+      {:ok, initial} =
+        eval_poll(frame, "document.getElementById('multi-accepted-dep')?.textContent")
+
+      assert initial == "a-one:b-one"
+
+      {:ok, watcher} = start_watcher()
+
+      update_fixture("multi_dep_a.ts", &String.replace(&1, "a-one", "a-two"))
+
+      assert {:ok, "a-two:b-one"} =
+               eval_until(
+                 frame,
+                 "document.getElementById('multi-accepted-dep')?.textContent",
+                 "a-two:b-one"
+               )
+
+      assert {:ok, true} =
+               eval_until(
+                 frame,
+                 "window.__voltMultiDep.events.includes('accepted:a-two:b-one')",
+                 true
+               )
+
+      {:ok, reloads} = eval_poll(frame, "window.__voltMultiDep.reloads")
+      assert reloads == 1
+
+      GenServer.stop(watcher)
+    end
+
     test "non-accepted module updates trigger a full reload", %{frame: frame} do
       write_fixture("full_reload.ts", """
       const count = Number(sessionStorage.getItem('voltReloadCount') ?? '0') + 1
