@@ -11,7 +11,7 @@
 
 ### Changed
 
-- Upgraded `oxc` to 0.15.0 and `quickbeam` to 0.10.15.
+- Upgraded `oxc` to 0.15.1 and `quickbeam` to 0.10.15.
 - `mix volt.js.check` now supports `--type-aware` and `--type-check` for TypeScript-aware linting through `tsgolint`.
 - Type-aware checks now analyze Vue and Svelte component scripts via plugin-provided virtual modules while leaving templates on the normal syntax lint path.
 - Production builds now tree-shake JavaScript by default, with `tree_shaking: false` and `mix volt.build --no-tree-shaking` available to preserve unused exports.
