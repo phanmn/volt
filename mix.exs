@@ -32,7 +32,8 @@ defmodule Volt.MixProject do
 
   defp deps do
     [
-      {:reach, "~> 2.0"},
+      {:reach, "~> 2.6", only: [:dev, :test], runtime: false},
+      {:glob_ex, "~> 0.1"},
       {:oxc, "~> 0.15.0"},
       {:vize, "~> 0.11.1"},
       {:oxide_ex, "~> 0.2.1"},
@@ -63,7 +64,7 @@ defmodule Volt.MixProject do
         "volt.js.check",
         "credo --strict",
         "ex_dna --min-mass 20",
-        "reach.check --dead-code --smells --strict",
+        "reach.check --arch --dead-code --smells --strict",
         "dialyzer"
       ],
       setup: ["deps.get"],

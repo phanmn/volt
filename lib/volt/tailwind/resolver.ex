@@ -11,7 +11,7 @@ defmodule Volt.Tailwind.Resolver do
   def resolve_stylesheet_path!(id, base, runtime_node_modules) do
     base = normalize_base(base)
 
-    if NPM.Resolution.PackageResolver.relative?(id) or absolute?(id) do
+    if NPM.Resolution.PackageResolver.relative?(id) or absolute_specifier?(id) do
       resolve_path!(base, id, @stylesheet_extensions, @stylesheet_index_files)
     else
       resolve_bare_path!(
@@ -28,7 +28,7 @@ defmodule Volt.Tailwind.Resolver do
   def resolve_module_path!(id, base, kind, runtime_node_modules) do
     base = normalize_base(base)
 
-    if NPM.Resolution.PackageResolver.relative?(id) or absolute?(id) do
+    if NPM.Resolution.PackageResolver.relative?(id) or absolute_specifier?(id) do
       resolve_path!(base, id, @module_extensions, @module_index_files)
     else
       resolve_bare_path!(
@@ -46,9 +46,7 @@ defmodule Volt.Tailwind.Resolver do
     do: NPM.Resolution.PackageResolver.node_builtin?(specifier)
 
   def relative_specifier?(specifier), do: NPM.Resolution.PackageResolver.relative?(specifier)
-  def absolute_specifier?(specifier), do: absolute?(specifier)
-
-  defp absolute?(id), do: Volt.Builder.Resolver.absolute?(id)
+  def absolute_specifier?(specifier), do: String.starts_with?(specifier, "/")
 
   defp resolve_bare_path!(id, base, extensions, index_files, kind, runtime_node_modules) do
     {package_name, subpath} = NPM.Resolution.PackageResolver.split_specifier(id)
@@ -113,7 +111,7 @@ defmodule Volt.Tailwind.Resolver do
   end
 
   defp resolve_path!(base, id, extensions, index_files) do
-    target = if absolute?(id), do: Path.expand(id), else: Path.expand(id, base)
+    target = if absolute_specifier?(id), do: Path.expand(id), else: Path.expand(id, base)
 
     case try_resolve(target, extensions, index_files) do
       {:ok, path} ->
