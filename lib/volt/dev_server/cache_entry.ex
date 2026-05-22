@@ -6,4 +6,12 @@ defmodule Volt.DevServer.CacheEntry do
             css: nil,
             hashes: nil,
             content_type: "application/javascript"
+
+  @type t :: %__MODULE__{
+          code: String.t(),
+          sourcemap: String.t() | nil,
+          css: String.t() | nil,
+          hashes: Volt.Pipeline.Result.Hashes.t() | nil,
+          content_type: String.t()
+        }
 end

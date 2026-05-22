@@ -29,4 +29,5 @@ function compileSvelte(source: string, input: Record<string, unknown> | string =
   }
 }
 
-globalThis.compileSvelte = compileSvelte
+;(globalThis as typeof globalThis & { compileSvelte: typeof compileSvelte }).compileSvelte =
+  compileSvelte

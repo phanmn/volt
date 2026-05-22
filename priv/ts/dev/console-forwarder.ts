@@ -1,12 +1,6 @@
 const endpoint = '/@volt/console'
 const levels = ['log', 'info', 'warn', 'error', 'debug'] as const
 
-declare global {
-  interface Window {
-    __voltConsoleForwarderInstalled?: boolean
-  }
-}
-
 type ConsoleLevel = (typeof levels)[number]
 
 if (!window.__voltConsoleForwarderInstalled) {

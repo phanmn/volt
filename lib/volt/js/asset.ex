@@ -37,10 +37,13 @@ defmodule Volt.JS.Asset do
   @doc "Compile a TypeScript support asset after binding OXC `$placeholder` literals."
   @spec compiled_template!(String.t(), keyword() | map()) :: String.t()
   def compiled_template!(filename, bindings) do
-    filename
-    |> template_ast!()
-    |> OXC.bind(literal_bindings(bindings))
-    |> OXC.codegen!()
+    code =
+      filename
+      |> template_ast!()
+      |> OXC.bind(literal_bindings(bindings))
+      |> OXC.codegen!()
+
+    rewrite_runtime_imports(code)
   end
 
   @spec path_for(String.t()) :: String.t()
@@ -62,6 +65,16 @@ defmodule Volt.JS.Asset do
 
   defp literal_bindings(bindings) do
     Enum.map(bindings, fn {key, value} -> {key, {:literal, value}} end)
+  end
+
+  defp rewrite_runtime_imports(code) do
+    case OXC.rewrite_specifiers(code, "volt-template.js", fn
+           "./hmr-client" -> {:rewrite, "/@volt/client.js"}
+           _specifier -> :keep
+         end) do
+      {:ok, rewritten} -> rewritten
+      {:error, _errors} -> code
+    end
   end
 
   # OXC.transform returns a plain string with sourcemap: false,

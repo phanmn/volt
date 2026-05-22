@@ -1,7 +1,4 @@
-import {
-  removeStyle as __volt_removeStyle,
-  updateStyle as __volt_updateStyle
-} from '/@volt/client.js'
+import { removeStyle as __volt_removeStyle, updateStyle as __volt_updateStyle } from './hmr-client'
 
 const __volt_id = $id
 const __volt_css = $css

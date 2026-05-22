@@ -8,13 +8,7 @@ defmodule Volt.Cache do
 
   @table :volt_cache
 
-  @type entry :: %{
-          code: String.t(),
-          sourcemap: String.t() | nil,
-          css: String.t() | nil,
-          hashes: Volt.Pipeline.Result.Hashes.t() | nil,
-          content_type: String.t()
-        }
+  @type entry :: Volt.DevServer.CacheEntry.t()
 
   @type cache_entry :: %{mtime: integer(), entry: entry()}
 

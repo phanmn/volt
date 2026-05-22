@@ -93,4 +93,5 @@ async function compileSolid(
   }
 }
 
-globalThis.compileSolid = compileSolid
+;(globalThis as typeof globalThis & { compileSolid: typeof compileSolid }).compileSolid =
+  compileSolid
