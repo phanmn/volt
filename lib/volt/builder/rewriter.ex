@@ -142,7 +142,7 @@ defmodule Volt.Builder.Rewriter do
   end
 
   defp preload_helper do
-    Volt.JS.Asset.compiled!("preload-helper.ts") <> "\n"
+    Volt.JS.Asset.compiled!("runtime/preload.ts") <> "\n"
   end
 
   defp collect_external_chunk_imports(code, module_to_chunk, current_chunk_id) do

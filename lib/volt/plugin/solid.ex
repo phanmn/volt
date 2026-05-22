@@ -146,7 +146,7 @@ defmodule Volt.Plugin.Solid do
         name: @runtime_name,
         packages: @runtime_packages,
         apis: [:browser, :node],
-        entry: {:volt_asset, "solid-runtime.ts"},
+        entry: {:volt_asset, "frameworks/solid.ts"},
         bundle: true,
         max_stack_size: 32 * 1024 * 1024
       )

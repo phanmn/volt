@@ -80,7 +80,7 @@ defmodule Volt.DevServer do
   def call(%Conn{request_path: "/@volt/client.js"} = conn, _config) do
     conn
     |> Conn.put_resp_content_type("application/javascript")
-    |> Conn.send_resp(200, Volt.JS.Asset.compiled!("hmr-client.ts"))
+    |> Conn.send_resp(200, Volt.JS.Asset.compiled!("dev/hmr-client.ts"))
     |> Conn.halt()
   end
 
@@ -418,7 +418,7 @@ defmodule Volt.DevServer do
 
   defp css_update_module(mod_url, css, exports) do
     [
-      Volt.JS.Asset.compiled_template!("css-update-module.ts", id: mod_url, css: css),
+      Volt.JS.Asset.compiled_template!("dev/css-update.ts", id: mod_url, css: css),
       "\n",
       exports
     ]
@@ -517,7 +517,7 @@ defmodule Volt.DevServer do
   defp maybe_inject_hmr_preamble(code, _relative, _content_type), do: code
 
   defp hmr_preamble(mod_url) do
-    Volt.JS.Asset.compiled_template!("hmr-preamble.ts", mod_url: mod_url)
+    Volt.JS.Asset.compiled_template!("dev/hmr-preamble.ts", mod_url: mod_url)
   end
 
   # ── Vendor pre-bundling ───────────────────────────────────────────
@@ -586,10 +586,10 @@ defmodule Volt.DevServer do
         e -> inspect(e)
       end)
 
-    overlay = Volt.JS.Asset.compiled!("error-overlay.ts")
+    overlay = Volt.JS.Asset.compiled!("dev/error-overlay.ts")
 
     invocation =
-      Volt.JS.Asset.compiled_template!("error-overlay-invocation.ts", message: msg)
+      Volt.JS.Asset.compiled_template!("dev/error-overlay-invocation.ts", message: msg)
 
     overlay <> "\n" <> invocation
   end
