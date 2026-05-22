@@ -121,8 +121,13 @@ defmodule Volt.Builder.Rewriter do
                 deps when is_list(deps) and deps != [] ->
                   import_expression = binary_part(code, start, finish - start)
 
-                  replacement =
-                    "__voltPreload(() => #{import_expression}, #{Jason.encode!(deps)})"
+                  replacement = [
+                    "__voltPreload(() => ",
+                    import_expression,
+                    ", ",
+                    Jason.encode!(deps),
+                    ")"
+                  ]
 
                   {node, [Volt.JS.Patch.new(start, finish, replacement) | patches]}
 

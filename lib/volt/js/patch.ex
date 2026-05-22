@@ -3,7 +3,7 @@ defmodule Volt.JS.Patch do
 
   defstruct [:start, :end, :change]
 
-  @type t :: %__MODULE__{start: non_neg_integer(), end: non_neg_integer(), change: String.t()}
+  @type t :: %__MODULE__{start: non_neg_integer(), end: non_neg_integer(), change: iodata()}
 
   def new(start_pos, end_pos, change) do
     %__MODULE__{start: start_pos, end: end_pos, change: change}

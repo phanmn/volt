@@ -101,7 +101,14 @@ defmodule Volt.JS.Transforms.DynamicImports do
 
     patches =
       Enum.map(rewrites, fn rewrite ->
-        replacement = "__volt_dynamic_import_#{rewrite.index}(#{rewrite.template})"
+        replacement = [
+          "__volt_dynamic_import_",
+          Integer.to_string(rewrite.index),
+          "(",
+          rewrite.template,
+          ")"
+        ]
+
         Volt.JS.Patch.new(rewrite.start, rewrite.end, replacement)
       end)
 

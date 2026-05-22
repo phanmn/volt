@@ -44,7 +44,6 @@ defmodule Volt.JS.PrebundleEntry do
         names = names |> Enum.map(&export_name!/1) |> Enum.intersperse(", ")
 
         ["export { ", names, " } from \"__specifier__\";"]
-        |> IO.iodata_to_binary()
         |> OXC.parse!("prebundle-export-named.js")
         |> Volt.JS.AST.replace_literal("__specifier__", specifier)
         |> OXC.codegen!()
@@ -55,10 +54,9 @@ defmodule Volt.JS.PrebundleEntry do
     end)
   end
 
-  defp append_lines([], lines), do: IO.iodata_to_binary([join_lines(lines), "\n"])
+  defp append_lines([], lines), do: [join_lines(lines), "\n"]
 
-  defp append_lines(prefix, lines),
-    do: IO.iodata_to_binary([prefix, "\n", join_lines(lines), "\n"])
+  defp append_lines(prefix, lines), do: [prefix, "\n", join_lines(lines), "\n"]
 
   defp join_lines(lines), do: Enum.intersperse(lines, "\n")
 

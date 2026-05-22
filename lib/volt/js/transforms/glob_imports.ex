@@ -172,7 +172,7 @@ defmodule Volt.JS.Transforms.GlobImports do
     preamble =
       eager_preamble
       |> Enum.flat_map(fn {lines, _} -> lines end)
-      |> Enum.join("\n")
+      |> Enum.intersperse("\n")
 
     eager_patches =
       eager_calls
@@ -187,7 +187,7 @@ defmodule Volt.JS.Transforms.GlobImports do
 
     patched = Patch.apply(source, eager_patches ++ lazy_patches)
 
-    if preamble == "" do
+    if preamble == [] do
       patched
     else
       IO.iodata_to_binary([preamble, "\n", patched])
@@ -266,7 +266,7 @@ defmodule Volt.JS.Transforms.GlobImports do
           ]
       end
 
-    IO.iodata_to_binary([Jason.encode!(file.key), ": ", value])
+    [Jason.encode!(file.key), ": ", value]
   end
 
   defp eager_entry(file, identifier, call) do
@@ -278,7 +278,7 @@ defmodule Volt.JS.Transforms.GlobImports do
         key -> [identifier, ".", key]
       end
 
-    IO.iodata_to_binary([Jason.encode!(file.key), ": ", value])
+    [Jason.encode!(file.key), ": ", value]
   end
 
   defp import_path(file, %{query: ""}), do: file
