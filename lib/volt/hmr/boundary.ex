@@ -44,7 +44,7 @@ defmodule Volt.HMR.Boundary do
         graph_boundary
 
       true ->
-        walk_up(changed_path, read_source, MapSet.new([changed_path]))
+        walk_up(changed_path, changed_path, read_source, MapSet.new([changed_path]))
     end
   end
 
@@ -77,6 +77,56 @@ defmodule Volt.HMR.Boundary do
 
   defp accept_call?(_node), do: false
 
+  defp dependency_accepting?(source, importer_path, changed_path) do
+    source
+    |> dependency_accept_specifiers()
+    |> Enum.any?(&specifier_matches_changed?(&1, importer_path, changed_path))
+  end
+
+  defp dependency_accept_specifiers(source) do
+    case OXC.parse(source, "hmr-boundary.js") do
+      {:ok, ast} -> ast_dependency_accept_specifiers(ast)
+      {:error, _} -> []
+    end
+  end
+
+  defp ast_dependency_accept_specifiers(ast) do
+    {_ast, specifiers} =
+      OXC.postwalk(ast, [], fn
+        node, specifiers -> {node, specifiers ++ dependency_accept_specifiers_from_node(node)}
+      end)
+
+    specifiers
+  end
+
+  defp dependency_accept_specifiers_from_node(node) when is_map(node) do
+    case Volt.JS.AST.call_member_arguments(
+           node,
+           {:meta_property, "import", "meta", "hot"},
+           "accept"
+         ) do
+      {:ok, [first | _]} -> accept_dependency_specifiers(first)
+      _ -> []
+    end
+  end
+
+  defp dependency_accept_specifiers_from_node(_node), do: []
+
+  defp accept_dependency_specifiers(%{type: :literal, value: specifier})
+       when is_binary(specifier),
+       do: [specifier]
+
+  defp accept_dependency_specifiers(%{type: :array_expression, elements: elements}) do
+    Enum.flat_map(elements, &accept_dependency_specifiers/1)
+  end
+
+  defp accept_dependency_specifiers(_node), do: []
+
+  defp specifier_matches_changed?(specifier, importer_path, changed_path) do
+    resolved = Path.expand(Path.join(Path.dirname(importer_path), specifier))
+    resolved == changed_path or Path.rootname(resolved) == Path.rootname(changed_path)
+  end
+
   defp find_graph_boundary(changed_path, read_source) do
     changed_path
     |> Volt.HMR.ModuleGraph.get_by_file()
@@ -85,14 +135,19 @@ defmodule Volt.HMR.Boundary do
         nil
 
       nodes ->
-        find_graph_boundary_in_nodes(nodes, read_source, MapSet.new(Enum.map(nodes, & &1.id)))
+        find_graph_boundary_in_nodes(
+          nodes,
+          changed_path,
+          read_source,
+          MapSet.new(Enum.map(nodes, & &1.id))
+        )
     end
   end
 
-  defp find_graph_boundary_in_nodes(nodes, read_source, visited) do
+  defp find_graph_boundary_in_nodes(nodes, changed_path, read_source, visited) do
     Enum.find_value(nodes, :full_reload, fn node ->
       cond do
-        graph_self_accepting?(node, read_source) ->
+        graph_accepts_update?(node, changed_path, read_source) ->
           {:ok, node.file}
 
         MapSet.size(node.importers) == 0 ->
@@ -102,7 +157,11 @@ defmodule Volt.HMR.Boundary do
           node.importers
           |> Enum.flat_map(&List.wrap(Volt.HMR.ModuleGraph.get_by_id(&1)))
           |> Enum.reject(&MapSet.member?(visited, &1.id))
-          |> find_graph_boundary_in_nodes(read_source, MapSet.union(visited, node.importers))
+          |> find_graph_boundary_in_nodes(
+            changed_path,
+            read_source,
+            MapSet.union(visited, node.importers)
+          )
           |> case do
             :full_reload -> nil
             found -> found
@@ -111,37 +170,41 @@ defmodule Volt.HMR.Boundary do
     end)
   end
 
-  defp graph_self_accepting?(node, read_source) do
+  defp graph_accepts_update?(node, changed_path, read_source) do
     case read_source.(node.file) do
-      source when is_binary(source) -> self_accepting?(source)
-      _ -> node.self_accepting
+      source when is_binary(source) ->
+        self_accepting?(source) or dependency_accepting?(source, node.file, changed_path)
+
+      _ ->
+        node.self_accepting
     end
   end
 
-  defp walk_up(path, read_source, visited) do
+  defp walk_up(path, changed_path, read_source, visited) do
     case find_importers(path) do
       [] -> :full_reload
-      parents -> find_boundary_in_parents(parents, read_source, visited)
+      parents -> find_boundary_in_parents(parents, changed_path, read_source, visited)
     end
   end
 
-  defp find_boundary_in_parents(parents, read_source, visited) do
+  defp find_boundary_in_parents(parents, changed_path, read_source, visited) do
     Enum.find_value(parents, :full_reload, fn parent ->
       if MapSet.member?(visited, parent) do
         nil
       else
-        visit_parent(parent, read_source, MapSet.put(visited, parent))
+        visit_parent(parent, changed_path, read_source, MapSet.put(visited, parent))
       end
     end)
   end
 
-  defp visit_parent(parent, read_source, visited) do
+  defp visit_parent(parent, changed_path, read_source, visited) do
     source = read_source.(parent)
 
-    if source != nil and self_accepting?(source) do
+    if source != nil and
+         (self_accepting?(source) or dependency_accepting?(source, parent, changed_path)) do
       {:ok, parent}
     else
-      case walk_up(parent, read_source, visited) do
+      case walk_up(parent, changed_path, read_source, visited) do
         {:ok, _} = found -> found
         :full_reload -> nil
       end

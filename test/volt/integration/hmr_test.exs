@@ -254,6 +254,66 @@ defmodule Volt.Integration.HMRTest do
       GenServer.stop(watcher)
     end
 
+    test "parent modules accept dependency updates without reloading", %{frame: frame} do
+      write_fixture("accepted_dep.ts", """
+      export const value = 'child-one'
+      """)
+
+      write_fixture("accept_parent.ts", """
+      import { value } from './accepted_dep'
+
+      const store = (window.__voltAcceptedDep ??= { events: [] })
+      store.reloads = (store.reloads ?? 0) + 1
+
+      let el = document.getElementById('accepted-dep')
+      if (!el) {
+        el = document.createElement('div')
+        el.id = 'accepted-dep'
+        document.body.appendChild(el)
+      }
+      el.textContent = value
+
+      import.meta.hot?.accept('./accepted_dep', (mod) => {
+        store.events.push(`accepted:${mod.value}`)
+        el.textContent = mod.value
+      })
+      """)
+
+      write_fixture("accept_dep_page.html", """
+      <!DOCTYPE html>
+      <html><body>
+        <script type="module" src="/assets/accept_parent.ts"></script>
+      </body></html>
+      """)
+
+      {:ok, _} = Frame.goto(frame.guid, url: base_url("/accept_dep_page.html"), timeout: 10_000)
+      {:ok, initial} = eval_poll(frame, "document.getElementById('accepted-dep')?.textContent")
+      assert initial == "child-one"
+
+      {:ok, watcher} = start_watcher()
+
+      update_fixture("accepted_dep.ts", &String.replace(&1, "child-one", "child-two"))
+
+      assert {:ok, "child-two"} =
+               eval_until(
+                 frame,
+                 "document.getElementById('accepted-dep')?.textContent",
+                 "child-two"
+               )
+
+      assert {:ok, true} =
+               eval_until(
+                 frame,
+                 "window.__voltAcceptedDep.events.includes('accepted:child-two')",
+                 true
+               )
+
+      {:ok, reloads} = eval_poll(frame, "window.__voltAcceptedDep.reloads")
+      assert reloads == 1
+
+      GenServer.stop(watcher)
+    end
+
     test "non-accepted module updates trigger a full reload", %{frame: frame} do
       write_fixture("full_reload.ts", """
       const count = Number(sessionStorage.getItem('voltReloadCount') ?? '0') + 1

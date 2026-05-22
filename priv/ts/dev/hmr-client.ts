@@ -103,7 +103,9 @@ function connect() {
 
     switch (type) {
       case 'update':
-        handleUpdate(payload as { path: string; changes: string[]; timestamp?: number })
+        handleUpdate(
+          payload as { path: string; changes: string[]; boundary?: string; timestamp?: number }
+        )
         break
       case 'error':
         showOverlay(payload.reason)
@@ -139,58 +141,93 @@ async function handleUpdate(payload: {
   }
 
   if (changes.includes('hmr') && boundary) {
-    await applyHMRUpdate(boundary, timestamp ?? Date.now())
+    await applyHMRUpdate(boundary, path, timestamp ?? Date.now())
     return
   }
 
   location.reload()
 }
 
-async function applyHMRUpdate(boundary: string, timestamp: number) {
-  // Find the hot module by matching the boundary path suffix against registered URLs.
-  // The server sends a relative path (e.g. "App.tsx") while modules are registered
-  // with full URL paths (e.g. "/assets/App.tsx").
-  let modUrl = boundary
-  let mod = hotModules.get(boundary)
+async function applyHMRUpdate(boundary: string, changedPath: string, timestamp: number) {
+  const boundaryMatch = findHotModule(boundary)
 
-  if (!mod) {
-    for (const [url, m] of hotModules) {
-      if (url.endsWith('/' + boundary) || url === boundary) {
-        mod = m
-        modUrl = url
-        break
-      }
-    }
-  }
-
-  if (!mod) {
+  if (!boundaryMatch) {
     location.reload()
     return
   }
 
-  const savedCallbacks = [...mod.callbacks]
+  const [boundaryUrl, boundaryModule] = boundaryMatch
+  const changedUrl = findHotModule(changedPath)?.[0] ?? resolveAcceptedUrl(boundaryUrl, changedPath)
+  const targetModule = hotModules.get(changedUrl) ?? boundaryModule
+  const savedCallbacks = [...boundaryModule.callbacks]
 
   const newData: Record<string, unknown> = {}
-  for (const cb of mod.disposeCallbacks) {
+  for (const cb of targetModule.disposeCallbacks) {
     cb(newData)
   }
-  dataMap.set(modUrl, newData)
+  dataMap.set(changedUrl, newData)
 
   try {
-    const url = `${modUrl}${modUrl.includes('?') ? '&' : '?'}t=${timestamp}`
-    const newModule = await import(/* @vite-ignore */ url)
+    const changedModule = await importVersion(changedUrl, timestamp)
 
     for (const cb of savedCallbacks) {
-      if (cb.fn) {
-        cb.fn(cb.kind === 'multi' ? [newModule] : newModule)
+      if (cb.kind === 'self' && changedUrl === boundaryUrl) {
+        cb.fn(changedModule)
+      } else if (cb.kind === 'single' && acceptsChanged(cb, boundaryUrl, changedUrl)) {
+        cb.fn(changedModule)
+      } else if (cb.kind === 'multi' && acceptsChanged(cb, boundaryUrl, changedUrl)) {
+        cb.fn(
+          await Promise.all(
+            cb.deps.map((dep) => importVersion(resolveAcceptedUrl(boundaryUrl, dep), timestamp))
+          )
+        )
       }
     }
 
-    console.log(`[Volt] HMR update: ${modUrl}`)
+    console.log(`[Volt] HMR update: ${changedUrl}`)
   } catch (err) {
-    console.error(`[Volt] HMR update failed for ${modUrl}`, err)
+    console.error(`[Volt] HMR update failed for ${changedUrl}`, err)
     location.reload()
   }
+}
+
+function findHotModule(path: string): [string, HotModule] | undefined {
+  const exact = hotModules.get(path)
+
+  if (exact) {
+    return [path, exact]
+  }
+
+  for (const entry of hotModules) {
+    const [url] = entry
+    if (url.endsWith('/' + path) || url === path) {
+      return entry
+    }
+  }
+}
+
+function acceptsChanged(callback: HotCallback, ownerUrl: string, changedUrl: string) {
+  return callback.deps.some((dep) => sameModuleUrl(resolveAcceptedUrl(ownerUrl, dep), changedUrl))
+}
+
+function resolveAcceptedUrl(ownerUrl: string, specifier: string) {
+  if (specifier.startsWith('/')) {
+    return specifier
+  }
+
+  return new URL(specifier, new URL(ownerUrl, location.origin)).pathname
+}
+
+function sameModuleUrl(left: string, right: string) {
+  return left === right || stripExtension(left) === stripExtension(right)
+}
+
+function stripExtension(url: string) {
+  return url.replace(/\.[^/.?]+(?=\?|$)/, '')
+}
+
+function importVersion(url: string, timestamp: number) {
+  return import(/* @vite-ignore */ `${url}${url.includes('?') ? '&' : '?'}t=${timestamp}`)
 }
 
 export function updateStyle(id: string, css: string) {
