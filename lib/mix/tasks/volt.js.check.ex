@@ -44,20 +44,42 @@ defmodule Mix.Tasks.Volt.Js.Check do
   defp check_formatting(files) do
     opts = Volt.JS.Format.load_config()
 
-    unformatted =
-      Enum.filter(files, fn file ->
+    {unformatted, errors} =
+      Enum.reduce(files, {[], []}, fn file, {unformatted, errors} ->
         source = File.read!(file)
-        formatted = OXC.Format.run!(source, file, opts)
-        formatted != source
+
+        case OXC.Format.run(source, file, opts) do
+          {:ok, formatted} when formatted == source ->
+            {unformatted, errors}
+
+          {:ok, _formatted} ->
+            {[file | unformatted], errors}
+
+          {:error, format_errors} ->
+            {unformatted, [{file, format_errors} | errors]}
+        end
       end)
 
-    if unformatted == [] do
-      Mix.shell().info(IO.ANSI.format([:green, "✓ All #{length(files)} files formatted"]))
-      true
-    else
-      Mix.shell().error("#{length(unformatted)} file(s) need formatting:")
-      Enum.each(unformatted, &Mix.shell().error("  #{&1}"))
-      false
+    cond do
+      errors != [] ->
+        Mix.shell().error("#{length(errors)} file(s) could not be formatted:")
+
+        Enum.each(Enum.reverse(errors), fn {file, format_errors} ->
+          Mix.shell().error(
+            "  #{file}: #{format_errors |> List.wrap() |> Enum.map_join(", ", &lint_error_message/1)}"
+          )
+        end)
+
+        false
+
+      unformatted == [] ->
+        Mix.shell().info(IO.ANSI.format([:green, "✓ All #{length(files)} files formatted"]))
+        true
+
+      true ->
+        Mix.shell().error("#{length(unformatted)} file(s) need formatting:")
+        unformatted |> Enum.reverse() |> Enum.each(&Mix.shell().error("  #{&1}"))
+        false
     end
   end
 
@@ -101,7 +123,7 @@ defmodule Mix.Tasks.Volt.Js.Check do
              custom_rules: custom_rules
            ) do
         {:ok, diagnostics} -> Enum.map(diagnostics, &Map.put(&1, :file, file))
-        {:error, _errors} -> []
+        {:error, errors} -> Enum.map(errors, &lint_error(&1, file))
       end
     end)
   end
@@ -187,9 +209,15 @@ defmodule Mix.Tasks.Volt.Js.Check do
     |> Enum.reject(fn {_key, value} -> is_nil(value) end)
   end
 
-  defp lint_error(message) do
-    %{severity: :deny, file: "volt.js.check", message: message, rule: "oxc/type-aware"}
+  defp lint_error(message), do: lint_error(message, "volt.js.check")
+
+  defp lint_error(message, file) do
+    %{severity: :deny, file: file, message: lint_error_message(message), rule: "oxc/lint"}
   end
+
+  defp lint_error_message(%{message: message}), do: message
+  defp lint_error_message(message) when is_binary(message), do: message
+  defp lint_error_message(message), do: inspect(message)
 
   defp print_lint_diags(diags) do
     errors = Enum.count(diags, &(&1.severity == :deny))

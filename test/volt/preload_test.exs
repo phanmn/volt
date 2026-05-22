@@ -50,12 +50,34 @@ defmodule Volt.PreloadTest do
       dir = Path.expand("fixtures/preload", __DIR__)
       File.mkdir_p!(dir)
       path = Path.join(dir, "manifest.json")
-      File.write!(path, :json.encode(%{"app.js" => "app-abc.js"}))
+      File.write!(path, Jason.encode!(%{"app.js" => "app-abc.js"}))
 
       on_exit(fn -> File.rm_rf!(dir) end)
 
       result = Volt.Preload.tags(path)
       assert result =~ "app-abc.js"
+    end
+
+    test "escapes href attribute values" do
+      manifest = %{"bad.js" => ~s|bad" onclick="alert(1).js|}
+
+      result = Volt.Preload.tags(manifest)
+
+      assert result =~ "&quot;"
+      refute result =~ ~s(href="/assets/bad" onclick=)
+    end
+
+    test "does not recurse forever on cyclic imports" do
+      manifest = %{
+        "app.js" => %{"file" => "app.js", "imports" => ["a.js"]},
+        "a.js" => %{"file" => "a.js", "imports" => ["b.js"]},
+        "b.js" => %{"file" => "b.js", "imports" => ["a.js"]}
+      }
+
+      result = Volt.Preload.tags(manifest, entry: "app.js")
+
+      assert result =~ "a.js"
+      assert result =~ "b.js"
     end
   end
 end

@@ -32,7 +32,11 @@ defmodule Volt.Plugin.Svelte do
   def prebundle_entry(_specifier), do: nil
 
   @impl true
-  def resolve("svelte" <> _ = specifier, _importer) do
+  def resolve("svelte", importer), do: resolve_svelte("svelte", importer)
+  def resolve("svelte/" <> _ = specifier, importer), do: resolve_svelte(specifier, importer)
+  def resolve(_, _), do: nil
+
+  defp resolve_svelte(specifier, _importer) do
     install = Volt.JS.Runtime.Installer.install!(@runtime_packages)
 
     case NPM.Resolution.PackageResolver.resolve(specifier, install.install_dir,
@@ -44,8 +48,6 @@ defmodule Volt.Plugin.Svelte do
       :error -> nil
     end
   end
-
-  def resolve(_, _), do: nil
 
   @impl true
   def compile(path, source, opts), do: compile(path, source, opts, [])

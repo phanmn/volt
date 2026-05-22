@@ -2,7 +2,8 @@
 
 interface HotCallback {
   deps: string[]
-  fn: (modules: unknown[]) => void
+  kind: 'self' | 'single' | 'multi'
+  fn: (module: unknown) => void
 }
 
 interface HotModule {
@@ -22,6 +23,7 @@ export function createHotContext(ownerPath: string) {
     existing.callbacks = []
     existing.disposeCallbacks = []
     existing.acceptSelf = false
+    existing.data = dataMap.get(ownerPath) ?? {}
   }
 
   const mod: HotModule = existing ?? {
@@ -43,17 +45,19 @@ export function createHotContext(ownerPath: string) {
       if (typeof deps === 'function' || deps === undefined) {
         mod.acceptSelf = true
         if (typeof deps === 'function') {
-          mod.callbacks.push({ deps: [ownerPath], fn: deps as (m: unknown[]) => void })
+          mod.callbacks.push({ deps: [ownerPath], kind: 'self', fn: deps as (m: unknown) => void })
         }
       } else if (typeof deps === 'string') {
         mod.callbacks.push({
           deps: [deps],
-          fn: callback as (m: unknown[]) => void
+          kind: 'single',
+          fn: callback as (m: unknown) => void
         })
       } else if (Array.isArray(deps)) {
         mod.callbacks.push({
           deps: deps as string[],
-          fn: callback as (m: unknown[]) => void
+          kind: 'multi',
+          fn: callback as (m: unknown) => void
         })
       }
     },
@@ -178,7 +182,7 @@ async function applyHMRUpdate(boundary: string, timestamp: number) {
 
     for (const cb of savedCallbacks) {
       if (cb.fn) {
-        cb.fn([newModule])
+        cb.fn(cb.kind === 'multi' ? [newModule] : newModule)
       }
     }
 

@@ -39,7 +39,7 @@ defimpl Jason.Encoder, for: Volt.Plugin.Solid.CompilerOptions do
       "solidOptions" => solid_options(options)
     }
 
-    case stringify_keys(options.typescript_options) do
+    case Volt.Plugin.Helpers.stringify_keys(options.typescript_options) do
       map when map_size(map) == 0 -> fields
       map -> Map.put(fields, "typescriptOptions", map)
     end
@@ -48,11 +48,7 @@ defimpl Jason.Encoder, for: Volt.Plugin.Solid.CompilerOptions do
   defp solid_options(options) do
     options.solid_options
     |> Volt.Plugin.Solid.CompilerOptions.SolidOptions.json_fields()
-    |> Map.merge(stringify_keys(options.plugin_solid_options))
-    |> Map.merge(stringify_keys(options.build_solid_options))
-  end
-
-  defp stringify_keys(map) when is_map(map) do
-    Map.new(map, fn {key, value} -> {to_string(key), value} end)
+    |> Map.merge(Volt.Plugin.Helpers.stringify_keys(options.plugin_solid_options))
+    |> Map.merge(Volt.Plugin.Helpers.stringify_keys(options.build_solid_options))
   end
 end

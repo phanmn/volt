@@ -30,6 +30,18 @@ defmodule Volt.JsCheckTest do
     :ok
   end
 
+  test "reports parser errors in syntax lint mode" do
+    File.write!(Path.join(@tmp_dir, "broken.ts"), "const = ;\n")
+
+    output =
+      capture_io(:stderr, fn ->
+        catch_exit(Mix.Tasks.Volt.Js.Check.run([]))
+      end)
+
+    assert output =~ "error"
+    assert output =~ "broken.ts"
+  end
+
   test "type-aware check reports tsgolint diagnostics" do
     File.write!(Path.join(@tmp_dir, "typed.ts"), "export const value = Promise.resolve(1)\n")
     tsgolint = fake_tsgolint!(@tmp_dir)

@@ -51,11 +51,7 @@ defimpl Jason.Encoder, for: Volt.Plugin.Svelte.CompilerOptions do
       "dev" => options.dev,
       "css" => options.css
     }
-    |> Map.merge(stringify_keys(options.plugin_options))
-    |> Map.merge(stringify_keys(options.build_options))
-  end
-
-  defp stringify_keys(map) when is_map(map) do
-    Map.new(map, fn {key, value} -> {to_string(key), value} end)
+    |> Map.merge(Volt.Plugin.Helpers.stringify_keys(options.plugin_options))
+    |> Map.merge(Volt.Plugin.Helpers.stringify_keys(options.build_options))
   end
 end

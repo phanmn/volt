@@ -66,7 +66,8 @@ defmodule Volt.Plugin.React do
          "hydrateRoot",
          {"version", "reactDomVersion"}
        ]),
-       Export.named_from("react/jsx-runtime", ["jsx", "jsxs"])
+       Export.named_from("react/jsx-runtime", ["jsx", "jsxs"]),
+       Export.named_from("react/jsx-dev-runtime", ["jsxDEV"])
      ]}
   end
 

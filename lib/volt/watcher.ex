@@ -31,7 +31,7 @@ defmodule Volt.Watcher do
   @debounce_ms 50
   @tailwind_debounce_ms 100
 
-  @write_events [:created, :modified, :closed]
+  @write_events [:created, :modified, :closed, :deleted, :removed, :renamed]
 
   defstruct [
     :root,
@@ -203,12 +203,15 @@ defmodule Volt.Watcher do
             broadcast(:error, %{path: relative, reason: reason})
         end
 
-      {:error, :enoent} ->
+      {:error, reason} when reason in [:enoent, :eacces, :eperm] ->
         Volt.HMR.ImportGraph.remove(path)
         Volt.HMR.GlobGraph.remove(path)
         Volt.HMR.ModuleGraph.remove_file(path)
         broadcast(:remove, %{path: relative})
         broadcast_glob_dependents(path, state.root)
+
+      {:error, reason} ->
+        broadcast(:error, %{path: relative, reason: inspect(reason)})
     end
   end
 

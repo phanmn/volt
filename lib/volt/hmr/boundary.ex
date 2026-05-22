@@ -62,7 +62,17 @@ defmodule Volt.HMR.Boundary do
     result =
       Volt.JS.AST.call_member_arguments(node, {:meta_property, "import", "meta", "hot"}, "accept")
 
-    match?({:ok, _args}, result)
+    case result do
+      {:ok, []} ->
+        true
+
+      {:ok, [%{type: type} | _]}
+      when type in [:arrow_function_expression, :function_expression] ->
+        true
+
+      _ ->
+        false
+    end
   end
 
   defp accept_call?(_node), do: false
@@ -102,11 +112,10 @@ defmodule Volt.HMR.Boundary do
   end
 
   defp graph_self_accepting?(node, read_source) do
-    node.self_accepting or
-      case read_source.(node.file) do
-        source when is_binary(source) -> self_accepting?(source)
-        _ -> false
-      end
+    case read_source.(node.file) do
+      source when is_binary(source) -> self_accepting?(source)
+      _ -> node.self_accepting
+    end
   end
 
   defp walk_up(path, read_source, visited) do

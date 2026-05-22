@@ -22,8 +22,16 @@ defmodule Volt.HMR.Socket do
 
   @impl true
   def handle_info({:volt_hmr, type, payload}, state) do
-    msg = Jason.encode!(%Volt.HMR.Message{type: type, payload: payload})
-    {:push, {:text, msg}, state}
+    message = %Volt.HMR.Message{type: type, payload: payload}
+
+    case Jason.encode(message) do
+      {:ok, msg} ->
+        {:push, {:text, msg}, state}
+
+      {:error, reason} ->
+        Logger.warning("[Volt.HMR] Failed to encode #{inspect(type)} payload: #{inspect(reason)}")
+        {:ok, state}
+    end
   end
 
   def handle_info(_msg, state) do

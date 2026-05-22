@@ -1,13 +1,19 @@
 defmodule Volt.ConfigTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   setup do
+    original_env = Application.get_all_env(:volt)
+
+    :volt
+    |> Application.get_all_env()
+    |> Enum.each(fn {key, _value} -> Application.delete_env(:volt, key) end)
+
     on_exit(fn ->
-      Application.delete_env(:volt, :tree_shaking)
-      Application.delete_env(:volt, :env_prefix)
-      Application.delete_env(:volt, :asset_url_prefix)
-      Application.delete_env(:volt, :my_app)
-      Application.delete_env(:volt, :my_app_web)
+      :volt
+      |> Application.get_all_env()
+      |> Enum.each(fn {key, _value} -> Application.delete_env(:volt, key) end)
+
+      Enum.each(original_env, fn {key, value} -> Application.put_env(:volt, key, value) end)
     end)
 
     :ok

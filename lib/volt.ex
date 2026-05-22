@@ -71,7 +71,7 @@ defmodule Volt do
       manifest_path = Path.join(manifest_dir, "manifest.json")
 
       with {:ok, json} <- File.read(manifest_path),
-           manifest when is_map(manifest) <- :json.decode(json),
+           {:ok, manifest} when is_map(manifest) <- Jason.decode(json),
            %{"file" => file} <- Map.get(manifest, manifest_key) do
         {:ok, file, manifest_prefix}
       else

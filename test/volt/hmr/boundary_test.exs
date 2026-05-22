@@ -12,6 +12,15 @@ defmodule Volt.HMR.BoundaryTest do
              """)
     end
 
+    test "detects import.meta.hot.accept(callback)" do
+      assert Boundary.self_accepting?("import.meta.hot.accept((mod) => console.log(mod))")
+    end
+
+    test "rejects dependency accept calls" do
+      refute Boundary.self_accepting?(~s|import.meta.hot.accept("./dep", () => {})|)
+      refute Boundary.self_accepting?(~s|import.meta.hot.accept(["./dep"], () => {})|)
+    end
+
     test "rejects code without accept" do
       refute Boundary.self_accepting?("const x = 1")
     end
@@ -79,6 +88,20 @@ defmodule Volt.HMR.BoundaryTest do
 
       assert {:ok, "/app/App.tsx"} =
                Boundary.find_boundary("/app/Button.tsx", read)
+    end
+
+    test "prefers current source over stale graph self-accepting flag" do
+      Volt.HMR.ModuleGraph.update_module(
+        "/assets/App.tsx",
+        "/assets/App.tsx",
+        "/app/App.tsx",
+        [],
+        self_accepting: true
+      )
+
+      read = fn "/app/App.tsx" -> "export default function App() {}" end
+
+      assert :full_reload = Boundary.find_boundary("/app/App.tsx", read)
     end
 
     test "falls back to raw import graph" do

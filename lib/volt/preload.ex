@@ -23,8 +23,10 @@ defmodule Volt.Preload do
   def tags(manifest, opts \\ [])
 
   def tags(path, opts) when is_binary(path) do
-    manifest = path |> File.read!() |> :json.decode()
-    tags(manifest, opts)
+    path
+    |> File.read!()
+    |> Jason.decode!()
+    |> tags(opts)
   end
 
   def tags(manifest, opts) when is_map(manifest) do
@@ -33,7 +35,7 @@ defmodule Volt.Preload do
     manifest
     |> preload_files(Keyword.get(opts, :entry))
     |> Enum.map(fn filename ->
-      [~s(<link rel="modulepreload" href="), Volt.URL.join(prefix, filename), ~s(">)]
+      [~s(<link rel="modulepreload" href="), escape_attr(Volt.URL.join(prefix, filename)), ~s(">)]
     end)
     |> Enum.intersperse("\n")
     |> IO.iodata_to_binary()
@@ -55,11 +57,25 @@ defmodule Volt.Preload do
     end
   end
 
-  defp imported_files(manifest, chunk) do
+  defp imported_files(manifest, chunk), do: imported_files(manifest, chunk, MapSet.new())
+
+  defp imported_files(manifest, chunk, seen) do
     chunk
     |> Map.get("imports", [])
-    |> Enum.flat_map(fn file -> [file | imported_files(manifest, manifest[file] || %{})] end)
+    |> Enum.reject(&MapSet.member?(seen, &1))
+    |> Enum.flat_map(fn file ->
+      [file | imported_files(manifest, manifest[file] || %{}, MapSet.put(seen, file))]
+    end)
     |> js_files()
+  end
+
+  defp escape_attr(value) do
+    value
+    |> String.replace("&", "&amp;")
+    |> String.replace("\"", "&quot;")
+    |> String.replace("'", "&#39;")
+    |> String.replace("<", "&lt;")
+    |> String.replace(">", "&gt;")
   end
 
   defp js_files(files) do

@@ -275,7 +275,7 @@ defmodule Volt.JS.Transforms.GlobImports do
         nil -> identifier
         "*" -> identifier
         "default" -> identifier
-        key -> [identifier, ".", key]
+        _key -> identifier
       end
 
     [Jason.encode!(file.key), ": ", value]
