@@ -108,7 +108,7 @@ defmodule Volt.Builder.Writer do
     manifest = %{
       "#{name}.js" =>
         "#{name}.js"
-        |> Volt.Builder.ManifestEntry.js(js_filename)
+        |> Volt.Builder.ManifestEntry.js(js_filename, entry: true)
         |> add_js_assets(assets)
     }
 

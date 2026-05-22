@@ -220,14 +220,18 @@ defmodule Volt.Builder do
   end
 
   defp build_worker_results(workers, ctx, build_ctx) do
-    workers
-    |> Enum.flat_map(fn {_importer, spec_map} -> Map.to_list(spec_map) end)
-    |> Enum.uniq_by(fn {_specifier, resolved_path} -> resolved_path end)
-    |> Enum.reduce_while({:ok, %{}}, fn {_specifier, resolved_path}, {:ok, acc} ->
+    worker_specs =
+      workers
+      |> Enum.flat_map(fn {_importer, spec_map} -> Map.to_list(spec_map) end)
+      |> Enum.uniq_by(fn {_specifier, resolved_path} -> resolved_path end)
+
+    duplicate_worker_basenames = duplicate_worker_basenames(worker_specs)
+
+    Enum.reduce_while(worker_specs, {:ok, %{}}, fn {_specifier, resolved_path}, {:ok, acc} ->
       if Map.has_key?(acc, resolved_path) do
         {:cont, {:ok, acc}}
       else
-        worker_name = resolved_path |> Path.basename() |> Path.rootname()
+        worker_name = worker_output_name(resolved_path, duplicate_worker_basenames)
 
         case build_entry(
                resolved_path,
@@ -247,6 +251,26 @@ defmodule Volt.Builder do
         end
       end
     end)
+  end
+
+  defp duplicate_worker_basenames(worker_specs) do
+    worker_specs
+    |> Enum.map(fn {_specifier, resolved_path} ->
+      resolved_path |> Path.basename() |> Path.rootname()
+    end)
+    |> Enum.frequencies()
+    |> Map.filter(fn {_name, count} -> count > 1 end)
+    |> MapSet.new(fn {name, _count} -> name end)
+  end
+
+  defp worker_output_name(resolved_path, duplicate_basenames) do
+    name = resolved_path |> Path.basename() |> Path.rootname()
+
+    if MapSet.member?(duplicate_basenames, name) do
+      "#{name}-#{Volt.Format.content_hash(resolved_path)}"
+    else
+      name
+    end
   end
 
   # ── Module compilation ──────────────────────────────────────────────

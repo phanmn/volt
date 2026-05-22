@@ -433,6 +433,51 @@ defmodule Volt.BuilderTest do
       refute js =~ "jsx-runtime"
     end
 
+    test "rewrites workers by importer path instead of basename" do
+      File.mkdir_p!(Path.join(@fixture_dir, "src/a"))
+      File.mkdir_p!(Path.join(@fixture_dir, "src/b"))
+
+      File.write!(Path.join(@fixture_dir, "src/a/worker.ts"), "self.postMessage('worker-a')")
+      File.write!(Path.join(@fixture_dir, "src/b/worker.ts"), "self.postMessage('worker-b')")
+
+      File.write!(Path.join(@fixture_dir, "src/a/mod.ts"), """
+      new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })
+      """)
+
+      File.write!(Path.join(@fixture_dir, "src/b/mod.ts"), """
+      new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })
+      """)
+
+      File.write!(Path.join(@fixture_dir, "src/worker_collision_app.ts"), """
+      export const loadA = () => import('./a/mod')
+      export const loadB = () => import('./b/mod')
+      """)
+
+      {:ok, result} =
+        Volt.Builder.build(
+          entry: Path.join(@fixture_dir, "src/worker_collision_app.ts"),
+          outdir: @outdir,
+          name: "worker-collision",
+          format: :esm,
+          hash: false,
+          minify: false,
+          sourcemap: false
+        )
+
+      worker_files = Path.wildcard(Path.join(@outdir, "worker-*.js"))
+      worker_a = Enum.find(worker_files, &(File.read!(&1) =~ "worker-a")) |> Path.basename()
+      worker_b = Enum.find(worker_files, &(File.read!(&1) =~ "worker-b")) |> Path.basename()
+
+      chunk_sources =
+        result.chunks
+        |> Enum.reject(&(&1.type == :entry))
+        |> Enum.map(fn chunk -> chunk.path |> File.read!() end)
+
+      assert Enum.any?(chunk_sources, &(&1 =~ worker_a and &1 =~ "new Worker"))
+      assert Enum.any?(chunk_sources, &(&1 =~ worker_b and &1 =~ "new Worker"))
+      assert worker_a != worker_b
+    end
+
     test "builds worker entry as a standalone bundle" do
       File.write!(Path.join(@fixture_dir, "src/worker.ts"), "self.postMessage('ready')")
 
@@ -601,8 +646,10 @@ defmodule Volt.BuilderTest do
 
       manifest = Path.join(@outdir, "manifest.json") |> File.read!() |> :json.decode()
       assert manifest["dynamic-entry.js"]["file"] == "dynamic-entry.js"
+      assert manifest["dynamic-entry.js"]["isEntry"]
       assert manifest["dynamic-entry.js"]["dynamicImports"] == ["dynamic-entry-lazy.js"]
       assert manifest["dynamic-entry-lazy.js"]["file"] == "dynamic-entry-lazy.js"
+      refute manifest["dynamic-entry-lazy.js"]["isEntry"]
     end
 
     test "code splitting records async chunk css in manifest and preloads it" do
@@ -708,6 +755,83 @@ defmodule Volt.BuilderTest do
       assert entry_js =~ lazy_css
       assert File.read!(Path.join(@outdir, common_css)) =~ "common"
       assert File.read!(Path.join(@outdir, lazy_css)) =~ "lazy-a"
+    end
+
+    test "code splitting keeps dynamic facade when a module is also statically imported" do
+      File.write!(Path.join(@fixture_dir, "src/facade.ts"), "export const value = 'facade-value'")
+
+      File.write!(Path.join(@fixture_dir, "src/facade_entry.ts"), """
+      import { value } from './facade'
+      document.body.dataset.eager = value
+      import('./facade').then((mod) => {
+        document.body.dataset.lazy = mod.value
+      })
+      """)
+
+      {:ok, result} =
+        Volt.Builder.build(
+          entry: Path.join(@fixture_dir, "src/facade_entry.ts"),
+          outdir: @outdir,
+          name: "facade-entry",
+          format: :esm,
+          hash: false,
+          minify: false,
+          sourcemap: false
+        )
+
+      entry_js = File.read!(result.js.path)
+      async_js = File.read!(Path.join(@outdir, "facade-entry-facade.js"))
+
+      assert entry_js =~ ~r/import\s*\{\s*value\s*\}\s*from\s*["']\.\/facade-entry-facade\.js["']/
+      assert entry_js =~ ~r/import\(["']\.\/facade-entry-facade\.js["']\)/
+      assert async_js =~ "facade-value"
+
+      manifest = Path.join(@outdir, "manifest.json") |> File.read!() |> :json.decode()
+      assert manifest["facade-entry.js"]["isEntry"]
+      assert manifest["facade-entry-facade.js"]["isEntry"] == false
+      assert manifest["facade-entry.js"]["imports"] == ["facade-entry-facade.js"]
+      assert manifest["facade-entry.js"]["dynamicImports"] == ["facade-entry-facade.js"]
+    end
+
+    test "code splitting rewrites chunk imports by exact virtual specifier" do
+      File.mkdir_p!(Path.join(@fixture_dir, "src/one/collide"))
+      File.mkdir_p!(Path.join(@fixture_dir, "src/two/collide"))
+
+      File.write!(
+        Path.join(@fixture_dir, "src/one/collide/index.ts"),
+        "export const value = 'one-collide'"
+      )
+
+      File.write!(
+        Path.join(@fixture_dir, "src/two/collide/index.ts"),
+        "export const value = 'two-collide'"
+      )
+
+      File.write!(Path.join(@fixture_dir, "src/collision_entry.ts"), """
+      export const loadOne = () => import('./one/collide')
+      export const loadTwo = () => import('./two/collide')
+      """)
+
+      {:ok, result} =
+        Volt.Builder.build(
+          entry: Path.join(@fixture_dir, "src/collision_entry.ts"),
+          outdir: @outdir,
+          name: "collision-entry",
+          format: :esm,
+          hash: false,
+          minify: false,
+          sourcemap: false
+        )
+
+      entry_js = File.read!(result.js.path)
+      chunk_files = result.chunks |> Enum.map(&Path.basename(&1.path)) |> Enum.sort()
+      one_file = Enum.find(chunk_files, &(File.read!(Path.join(@outdir, &1)) =~ "one-collide"))
+      two_file = Enum.find(chunk_files, &(File.read!(Path.join(@outdir, &1)) =~ "two-collide"))
+
+      assert entry_js =~ one_file
+      assert entry_js =~ two_file
+      assert File.read!(Path.join(@outdir, one_file)) =~ "one-collide"
+      assert File.read!(Path.join(@outdir, two_file)) =~ "two-collide"
     end
 
     test "code splitting rewrites minified dynamic import chunk URLs" do

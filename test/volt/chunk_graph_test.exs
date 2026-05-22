@@ -173,6 +173,24 @@ defmodule Volt.ChunkGraphTest do
       graph = ChunkGraph.build("/app/main.ts", modules, dep_map)
       assert graph.module_to_chunk["/app/lazy.ts"] != "entry"
     end
+
+    test "keeps dynamic entry facade even when the entry also imports it statically" do
+      modules = [
+        {"/app/main.ts", "main.ts", ""},
+        {"/app/feature.ts", "feature.ts", ""}
+      ]
+
+      dep_map = %{
+        "/app/main.ts" => %{static: ["/app/feature.ts"], dynamic: ["/app/feature.ts"]},
+        "/app/feature.ts" => %{static: [], dynamic: []}
+      }
+
+      graph = ChunkGraph.build("/app/main.ts", modules, dep_map)
+
+      assert graph.module_to_chunk["/app/feature.ts"] != "common"
+      assert graph.module_to_chunk["/app/feature.ts"] != "entry"
+      assert "/app/feature.ts" in graph.chunks[graph.module_to_chunk["/app/feature.ts"]].modules
+    end
   end
 
   describe "manual chunks" do

@@ -70,7 +70,12 @@ defmodule Volt.ChunkGraph do
     entry_modules = reachable_static(entry_path, dep_map, module_set)
     async_chunks = discover_async_chunks(entry_modules, dep_map, module_set)
 
-    shared = shared_modules([entry_modules | Enum.map(async_chunks, &elem(&1, 2))])
+    dynamic_entry_set = async_chunks |> Enum.map(&elem(&1, 0)) |> MapSet.new()
+
+    shared =
+      [entry_modules | Enum.map(async_chunks, &elem(&1, 2))]
+      |> shared_modules()
+      |> Enum.reject(&MapSet.member?(dynamic_entry_set, &1))
 
     {entry_modules, common_chunk} =
       if shared == [] do
@@ -139,7 +144,9 @@ defmodule Volt.ChunkGraph do
       end)
 
     manual_chunks = Keyword.get(opts, :manual_chunks, %{})
-    {chunks, module_to_chunk} = apply_manual_chunks(chunks, module_to_chunk, manual_chunks, order)
+
+    {chunks, module_to_chunk} =
+      apply_manual_chunks(chunks, module_to_chunk, manual_chunks, order, dynamic_entry_set)
 
     module_to_chunk =
       Enum.reduce(Map.values(chunks), module_to_chunk, fn chunk, acc ->
@@ -185,12 +192,12 @@ defmodule Volt.ChunkGraph do
     end)
   end
 
-  defp apply_manual_chunks(chunks, module_to_chunk, manual_chunks, _order)
+  defp apply_manual_chunks(chunks, module_to_chunk, manual_chunks, _order, _dynamic_entry_set)
        when map_size(manual_chunks) == 0 do
     {chunks, module_to_chunk}
   end
 
-  defp apply_manual_chunks(chunks, module_to_chunk, manual_chunks, order) do
+  defp apply_manual_chunks(chunks, module_to_chunk, manual_chunks, order, dynamic_entry_set) do
     all_modules =
       chunks
       |> Map.values()
@@ -198,9 +205,13 @@ defmodule Volt.ChunkGraph do
 
     assignments =
       Enum.reduce(all_modules, %{}, fn mod_path, acc ->
-        case find_manual_chunk(mod_path, manual_chunks) do
-          nil -> acc
-          chunk_name -> Map.update(acc, chunk_name, [mod_path], &[mod_path | &1])
+        if MapSet.member?(dynamic_entry_set, mod_path) do
+          acc
+        else
+          case find_manual_chunk(mod_path, manual_chunks) do
+            nil -> acc
+            chunk_name -> Map.update(acc, chunk_name, [mod_path], &[mod_path | &1])
+          end
         end
       end)
 

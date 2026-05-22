@@ -10,6 +10,9 @@ defmodule Volt.Builder.ManifestEntry do
             css: [],
             assets: []
 
-  def js(src, file), do: %__MODULE__{src: src, file: file}
+  def js(src, file, opts \\ []) do
+    %__MODULE__{src: src, file: file, isEntry: Keyword.get(opts, :entry, false)}
+  end
+
   def css(src, file, assets), do: %__MODULE__{src: src, file: file, assets: assets}
 end

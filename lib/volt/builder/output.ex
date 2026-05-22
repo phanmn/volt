@@ -25,7 +25,7 @@ defmodule Volt.Builder.Output do
         js_code = Rewriter.inject_external_preamble(js_code, js_files, ctx)
 
         js_code =
-          Rewriter.rewrite_worker_urls(js_code, Rewriter.entry_worker_map(js_files, ctx), name)
+          Rewriter.rewrite_worker_urls(js_code, Rewriter.all_worker_map(ctx), name)
 
         js_code =
           Volt.PluginRunner.render_chunk(ctx.plugins, js_code, %{name: name, type: :entry})
@@ -72,7 +72,15 @@ defmodule Volt.Builder.Output do
     module_labels = Map.new(modules, fn {path, label, _source} -> {path, label} end)
 
     with {:ok, chunk_bundles} <-
-           build_chunk_bundles(graph.chunks, js_map, module_labels, bundle_opts, ctx, graph) do
+           build_chunk_bundles(
+             graph.chunks,
+             js_map,
+             module_labels,
+             bundle_opts,
+             ctx,
+             graph,
+             dep_map
+           ) do
       css_opts = Keyword.put(bundle_opts, :asset_url_prefix, asset_url_prefix)
 
       with {:ok, css_results} <-
@@ -86,7 +94,8 @@ defmodule Volt.Builder.Output do
             css_results,
             ctx,
             name,
-            hash
+            hash,
+            dep_map
           )
 
         js_results =
@@ -151,7 +160,8 @@ defmodule Volt.Builder.Output do
          css_results,
          ctx,
          name,
-         hash
+         hash,
+         dep_map
        ) do
     initial_url_map = chunk_url_map(chunk_bundles, graph.chunks, name, hash)
 
@@ -164,6 +174,7 @@ defmodule Volt.Builder.Output do
       ctx,
       name,
       hash,
+      dep_map,
       initial_url_map,
       0
     )
@@ -178,11 +189,21 @@ defmodule Volt.Builder.Output do
          ctx,
          name,
          hash,
+         dep_map,
          url_map,
          iteration
        ) do
     processed =
-      process_chunks(chunk_bundles, graph, js_map, module_labels, css_results, ctx, url_map)
+      process_chunks(
+        chunk_bundles,
+        graph,
+        js_map,
+        module_labels,
+        css_results,
+        ctx,
+        url_map,
+        dep_map
+      )
 
     next_url_map = chunk_url_map(processed, graph.chunks, name, hash)
 
@@ -198,6 +219,7 @@ defmodule Volt.Builder.Output do
         ctx,
         name,
         hash,
+        dep_map,
         next_url_map,
         iteration + 1
       )
@@ -211,21 +233,23 @@ defmodule Volt.Builder.Output do
          module_labels,
          css_results,
          ctx,
-         chunk_url_map
+         chunk_url_map,
+         dep_map
        ) do
     preload_map = dynamic_preload_map(graph.chunks, chunk_url_map, css_results)
 
     Map.new(chunk_bundles, fn {chunk_id, {code, sourcemap}} ->
       chunk = graph.chunks[chunk_id]
       chunk_js = select_chunk_files(chunk.modules, js_map, module_labels)
+      chunk_import_map = chunk_import_map(chunk, graph, module_labels, dep_map)
       code = Rewriter.inject_external_preamble(code, chunk_js, ctx)
-      code = Rewriter.rewrite_chunk_imports(code, graph.module_to_chunk, chunk_url_map)
+      code = Rewriter.rewrite_chunk_imports(code, chunk_import_map, chunk_url_map)
       code = Rewriter.rewrite_dynamic_preloads(code, preload_map)
 
       code =
         Rewriter.rewrite_worker_urls(
           code,
-          Rewriter.entry_worker_map(chunk_js, ctx),
+          Rewriter.worker_map_for_modules(chunk.modules, ctx),
           chunk_id
         )
 
@@ -288,7 +312,7 @@ defmodule Volt.Builder.Output do
   defp chunk_output_name(chunk, name), do: "#{name}-#{chunk.id}"
 
   defp chunk_manifest_entry(src, filename, chunk, chunk_url_map) do
-    entry = Volt.Builder.ManifestEntry.js(src, filename)
+    entry = Volt.Builder.ManifestEntry.js(src, filename, entry: chunk.type == :entry)
 
     %{
       entry
@@ -317,7 +341,36 @@ defmodule Volt.Builder.Output do
     Enum.flat_map(chunk_ids, fn chunk_id -> List.wrap(chunk_url_map[chunk_id]) end)
   end
 
-  defp build_chunk_bundles(chunks, js_map, module_labels, bundle_opts, ctx, graph) do
+  defp chunk_import_map(chunk, graph, module_labels, dep_map) do
+    chunk.modules
+    |> Enum.flat_map(fn importer ->
+      module_chunk_imports(importer, chunk.id, graph, module_labels, dep_map)
+    end)
+    |> Map.new()
+  end
+
+  defp module_chunk_imports(importer, current_chunk_id, graph, module_labels, dep_map) do
+    importer_label = module_labels[importer]
+    deps = Map.get(dep_map, importer, %Volt.Builder.Dependencies{})
+
+    (deps.static ++ deps.dynamic)
+    |> Enum.flat_map(fn dep ->
+      with chunk_id when is_binary(chunk_id) <- Map.get(graph.module_to_chunk, dep),
+           false <- chunk_id == current_chunk_id,
+           dep_label when is_binary(dep_label) <- module_labels[dep] do
+        [{"./" <> relative_label(importer_label, dep_label), chunk_id}]
+      else
+        _ -> []
+      end
+    end)
+  end
+
+  defp relative_label(from_label, to_label) do
+    from_dir = Path.dirname(from_label)
+    Path.relative_to(to_label, from_dir)
+  end
+
+  defp build_chunk_bundles(chunks, js_map, module_labels, bundle_opts, ctx, graph, dep_map) do
     Enum.reduce_while(chunks, {:ok, %{}}, fn {chunk_id, chunk}, {:ok, acc} ->
       chunk_js = select_chunk_files(chunk.modules, js_map, module_labels)
 
@@ -327,7 +380,11 @@ defmodule Volt.Builder.Output do
         chunk_js = Rewriter.rewrite_external_imports(chunk_js, ctx)
         {chunk_js, dynamic_import_placeholder} = Rewriter.protect_dynamic_imports(chunk_js)
 
-        external = Rewriter.external_chunk_imports(chunk_js, graph.module_to_chunk, chunk_id)
+        external =
+          Rewriter.external_chunk_imports(
+            chunk_js,
+            chunk_import_map(chunk, graph, module_labels, dep_map)
+          )
 
         bundle_opts =
           bundle_opts
