@@ -33,6 +33,16 @@ defmodule Volt.DevServerTest do
     conn(:get, path) |> Volt.DevServer.call(opts)
   end
 
+  describe "HMR endpoints" do
+    test "serves HMR client JS" do
+      conn = call_dev_server("/@volt/client.js")
+
+      assert conn.status == 200
+      assert conn.resp_body =~ "WebSocket"
+      assert get_resp_header(conn, "content-type") |> hd() =~ "javascript"
+    end
+  end
+
   describe "public directory" do
     test "serves public files from the root" do
       public_dir = Path.join(@fixture_dir, "public")

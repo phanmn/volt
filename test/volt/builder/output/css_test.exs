@@ -1,4 +1,4 @@
-defmodule Volt.Builder.CSSTest do
+defmodule Volt.Builder.Output.CSSTest do
   use ExUnit.Case, async: false
 
   @fixture_dir Path.expand("../fixtures/builder_css", __DIR__)
