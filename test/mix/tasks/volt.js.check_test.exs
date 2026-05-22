@@ -60,6 +60,28 @@ defmodule Volt.JsCheckTest do
     assert output =~ "typescript/no-floating-promises"
   end
 
+  test "type-aware check forwards only typescript rules to tsgolint" do
+    File.write!(Path.join(@tmp_dir, "typed.ts"), "export const value = 1\n")
+    tsgolint = fake_tsgolint_capture!(@tmp_dir)
+
+    Application.put_env(:volt, :lint,
+      tsgolint: tsgolint,
+      rules: %{
+        "correctness" => :deny,
+        "suspicious" => :deny,
+        "no-console" => :warn,
+        "typescript/no-floating-promises" => :warn
+      }
+    )
+
+    capture_io(fn ->
+      Mix.Tasks.Volt.Js.Check.run(["--type-aware"])
+    end)
+
+    payload = @tmp_dir |> Path.join("payload.json") |> File.read!() |> Jason.decode!()
+    assert [%{"rules" => [%{"name" => "no-floating-promises"}]}] = payload["configs"]
+  end
+
   test "type-aware check submits framework single-file component scripts as virtual files" do
     File.write!(Path.join(@tmp_dir, "app.ts"), "import './Component.vue'\n")
 

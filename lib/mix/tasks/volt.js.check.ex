@@ -104,7 +104,7 @@ defmodule Mix.Tasks.Volt.Js.Check do
     rules = Keyword.get(config, :rules, %{})
 
     if opts[:type_aware] do
-      type_aware_lint(files, config, rules, opts)
+      type_aware_lint(files, config, type_aware_rules(rules), opts)
     else
       ast_lint(files, config, rules)
     end
@@ -201,6 +201,12 @@ defmodule Mix.Tasks.Volt.Js.Check do
       {:ok, file} -> %{diagnostic | file: file}
       :error -> diagnostic
     end
+  end
+
+  defp type_aware_rules(rules) do
+    Map.filter(rules, fn {rule, _config} ->
+      String.starts_with?(to_string(rule), "typescript/")
+    end)
   end
 
   defp type_aware_options(config) do

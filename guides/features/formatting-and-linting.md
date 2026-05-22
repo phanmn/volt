@@ -85,7 +85,12 @@ Configure the executable when it is not on `PATH`:
 ```elixir
 config :volt, :lint,
   tsgolint: "./node_modules/.bin/tsgolint",
-  rules: %{"typescript/no-floating-promises" => :deny}
+  rules: %{
+    "correctness" => :deny,
+    "typescript/no-floating-promises" => :deny
+  }
 ```
+
+Oxlint category rules such as `"correctness"` and syntax-only rules such as `"no-console"` apply to the normal lint path and are not forwarded to `tsgolint`. Type-aware rules follow Oxlint's `"typescript/*"` naming convention and are forwarded to `tsgolint` when `--type-aware` is enabled.
 
 Exits with non-zero status on issues.

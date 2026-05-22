@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- `mix volt.js.check --type-aware` now forwards only `typescript/*` rules to `tsgolint`, matching Oxlint's type-aware rule namespace and avoiding crashes when normal oxlint category rules such as `"correctness"` are configured.
+
 ## 0.13.0
 
 ### Added
