@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.13.0
 
 ### Added
 
@@ -16,12 +16,15 @@
 - Type-aware checks now analyze Vue and Svelte component scripts via plugin-provided virtual modules while leaving templates on the normal syntax lint path.
 - Production builds now tree-shake JavaScript by default, with `tree_shaking: false` and `mix volt.build --no-tree-shaking` available to preserve unused exports.
 - Code-split dynamic imports now preload dependency chunks and chunk-local CSS when doing so avoids loading waterfalls.
+- Code-split production builds now preserve dynamic import facades, rewrite chunk imports by exact resolved specifier, and avoid worker filename collisions.
 - HMR boundary lookup now uses a served module graph, with a dedicated glob graph for `import.meta.glob()` invalidation.
+- HMR updates now support self-accepting modules, dependency accept callbacks, multi-dependency accept callbacks, disposal data, CSS import updates, and full-reload fallback more closely to Vite's behavior.
 - Production builds now write the final merged manifest once after all entries are built.
 - Production JavaScript asset URL imports now emit hashed files and include them in manifest asset metadata.
 - Worker build failures now fail the parent build instead of being ignored.
 - JavaScript runtime installs now validate package signatures for reused install directories, and named runtimes reject option mismatches.
 - `glob_ex` is now a direct dependency for HMR glob invalidation.
+- Volt now dogfoods type-aware JavaScript checks in `mix lint`.
 
 ### Breaking changes
 
