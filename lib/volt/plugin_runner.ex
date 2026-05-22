@@ -62,6 +62,17 @@ defmodule Volt.PluginRunner do
     end)
   end
 
+  @doc "Return virtual JavaScript-like modules embedded in a plugin-owned source file."
+  @spec embedded_modules([module() | {module(), keyword()}], String.t(), String.t(), keyword()) ::
+          [{String.t(), String.t()}]
+  def embedded_modules(plugins, path, source, opts) do
+    plugins
+    |> plugins()
+    |> Enum.flat_map(fn plugin ->
+      call_optional(plugin, :embedded_modules, [path, source, opts], []) || []
+    end)
+  end
+
   @doc "Run transform hooks in sequence, piping code through each."
   @spec transform([module() | {module(), keyword()}], String.t(), String.t()) :: String.t()
   def transform(plugins, code, path) do

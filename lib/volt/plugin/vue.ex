@@ -58,24 +58,35 @@ defmodule Volt.Plugin.Vue do
     end
   end
 
-  defp imports(source) do
+  @impl true
+  def embedded_modules(path, source, _opts) do
+    if Path.extname(path) == ".vue" do
+      scripts(source)
+    end
+  end
+
+  defp imports(source), do: source |> scripts() |> Enum.flat_map(&script_imports/1)
+
+  defp scripts(source) do
     case Vize.parse_sfc(source) do
       {:ok, descriptor} ->
         [descriptor.script, descriptor.script_setup]
         |> Enum.reject(&is_nil/1)
-        |> Enum.flat_map(&script_imports/1)
+        |> Enum.map(fn block -> {script_extension(block[:lang]), block.content} end)
 
       {:error, _} ->
         []
     end
   end
 
-  defp script_imports(block) do
-    lang = block[:lang] || "js"
-
-    case OXC.imports(block.content, "script.#{lang}") do
+  defp script_imports({extension, content}) do
+    case OXC.imports(content, "script#{extension}") do
       {:ok, imports} -> imports
       {:error, _} -> []
     end
   end
+
+  defp script_extension("ts"), do: ".ts"
+  defp script_extension("tsx"), do: ".tsx"
+  defp script_extension(_lang), do: ".js"
 end

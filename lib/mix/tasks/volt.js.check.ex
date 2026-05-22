@@ -3,6 +3,8 @@ defmodule Mix.Tasks.Volt.Js.Check do
 
   @shortdoc "Lint and format-check Volt TypeScript assets"
 
+  @type_aware_extensions ~w(.ts .tsx .js .jsx .mts .mjs .cts .cjs)
+
   @moduledoc """
   Check formatting and lint Volt's JavaScript and TypeScript assets via NIF.
 
@@ -105,15 +107,18 @@ defmodule Mix.Tasks.Volt.Js.Check do
   end
 
   defp type_aware_lint(files, config, rules, opts) do
+    {files, source_overrides, source_files} = type_aware_inputs(files, config)
+
     lint_opts =
       [
         type_aware: true,
         type_check: opts[:type_check] == true,
-        rules: rules
+        rules: rules,
+        source_overrides: Map.merge(source_overrides, Keyword.get(config, :source_overrides, %{}))
       ] ++ type_aware_options(config)
 
     case OXC.Lint.run(files, lint_opts) do
-      {:ok, diagnostics} -> diagnostics
+      {:ok, diagnostics} -> Enum.map(diagnostics, &restore_sfc_file(&1, source_files))
       {:error, errors} -> Enum.map(errors, &lint_error/1)
     end
   end
@@ -132,9 +137,53 @@ defmodule Mix.Tasks.Volt.Js.Check do
     opts
   end
 
+  defp type_aware_inputs(files, config) do
+    plugins = Keyword.get(config, :plugins, [])
+
+    Enum.reduce(files, {[], %{}, %{}}, fn file, {files, overrides, source_files} ->
+      if type_aware_file?(file) do
+        {[file | files], overrides, source_files}
+      else
+        file
+        |> embedded_modules(plugins)
+        |> Stream.with_index()
+        |> Enum.reduce({files, overrides, source_files}, fn {{extension, source}, index}, acc ->
+          add_embedded_module(acc, file, source, extension, index)
+        end)
+      end
+    end)
+    |> then(fn {files, overrides, source_files} ->
+      {Enum.reverse(files), overrides, source_files}
+    end)
+  end
+
+  defp type_aware_file?(file), do: Path.extname(file) in @type_aware_extensions
+
+  defp embedded_modules(file, plugins) do
+    Volt.PluginRunner.embedded_modules(plugins, file, File.read!(file), [])
+  end
+
+  defp add_embedded_module({files, overrides, source_files}, file, source, extension, index) do
+    virtual_file = "#{file}.script#{index}#{extension}"
+    expanded = Path.expand(virtual_file)
+
+    {
+      [virtual_file | files],
+      Map.put(overrides, expanded, source),
+      Map.put(source_files, expanded, file)
+    }
+  end
+
+  defp restore_sfc_file(diagnostic, source_files) do
+    case Map.fetch(source_files, diagnostic.file) do
+      {:ok, file} -> %{diagnostic | file: file}
+      :error -> diagnostic
+    end
+  end
+
   defp type_aware_options(config) do
     config
-    |> Keyword.take([:tsgolint, :source_overrides, :fix, :fix_suggestions, :cwd])
+    |> Keyword.take([:tsgolint, :fix, :fix_suggestions, :cwd])
     |> Enum.reject(fn {_key, value} -> is_nil(value) end)
   end
 

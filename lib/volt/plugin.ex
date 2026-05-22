@@ -48,6 +48,10 @@ defmodule Volt.Plugin do
   @callback extract_imports(path :: String.t(), source :: String.t(), opts :: keyword()) ::
               {:ok, Volt.JS.ImportExtractor.Result.t()} | {:error, term()} | nil
 
+  @doc "Return virtual JavaScript-like modules embedded in a plugin-owned source file."
+  @callback embedded_modules(path :: String.t(), source :: String.t(), opts :: keyword()) ::
+              [{extension :: String.t(), source :: String.t()}] | nil
+
   @doc "Transform compiled JavaScript before serving or bundling."
   @callback transform(code :: String.t(), path :: String.t()) :: {:ok, String.t()} | nil
 
@@ -96,6 +100,7 @@ defmodule Volt.Plugin do
                       load: 1,
                       compile: 3,
                       extract_imports: 3,
+                      embedded_modules: 3,
                       transform: 2,
                       define: 1,
                       prebundle_alias: 1,

@@ -301,6 +301,7 @@ All hooks are optional. Return `nil` to pass to the next plugin.
 | `load/1` | Load file content for a resolved path |
 | `compile/3` | Compile source into browser-ready JS + optional CSS |
 | `extract_imports/3` | Extract import specifiers from source |
+| `embedded_modules/3` | Expose JavaScript-like modules embedded in a custom source format |
 | `transform/2` | Transform compiled JS before serving or bundling |
 | `define/1` | Compile-time variable replacements |
 | `render_chunk/2` | Transform final output chunks |
@@ -329,6 +330,18 @@ end
 
 def extract_imports(_path, _source, _opts), do: nil
 ```
+
+`embedded_modules/3` exposes JavaScript-like modules inside custom file formats. Volt uses this for type-aware linting so tools such as `tsgolint` can analyze embedded scripts without receiving the original component file directly:
+
+```elixir
+def embedded_modules(path, source, _opts) do
+  if Path.extname(path) == ".widget" do
+    [{".ts", extract_script(source)}]
+  end
+end
+```
+
+The first tuple element is the virtual file extension (`".js"`, `".ts"`, or `".tsx"`), and the second is the embedded source. Diagnostics are reported against the original file.
 
 ### Advanced framework runtime integration
 

@@ -65,6 +65,15 @@ defmodule Volt.Plugin.Svelte do
     end
   end
 
+  @impl true
+  def embedded_modules(path, source, opts), do: embedded_modules(path, source, opts, [])
+
+  def embedded_modules(path, source, _opts, _plugin_opts) do
+    if Path.extname(path) == ".svelte" do
+      script_blocks(source)
+    end
+  end
+
   def runtime_packages, do: @runtime_packages
 
   defp do_compile(path, source, opts, plugin_opts) do
@@ -112,13 +121,13 @@ defmodule Volt.Plugin.Svelte do
 
     scripts
     |> Enum.with_index()
-    |> Enum.reduce_while({:ok, %Volt.JS.ImportExtractor.Result{}}, fn {script, index},
+    |> Enum.reduce_while({:ok, %Volt.JS.ImportExtractor.Result{}}, fn {{extension, script}, index},
                                                                       {:ok, acc} ->
       filename =
         path
         |> Path.basename()
         |> Volt.JS.Extensions.apply_loader(loaders)
-        |> Kernel.<>(".script#{index}.ts")
+        |> Kernel.<>(".script#{index}#{extension}")
 
       case OXC.collect_imports(script, filename) do
         {:ok, imports} ->
@@ -143,12 +152,24 @@ defmodule Volt.Plugin.Svelte do
       {:ok, document} ->
         document
         |> Floki.find("script")
-        |> Enum.map(&node_text/1)
+        |> Enum.map(fn node -> {script_extension(script_lang(node)), node_text(node)} end)
 
       {:error, _reason} ->
         []
     end
   end
+
+  defp script_lang({_tag, attrs, _children}) do
+    attrs
+    |> Enum.find_value(fn
+      {"lang", lang} -> lang
+      _attr -> nil
+    end)
+  end
+
+  defp script_extension("ts"), do: ".ts"
+  defp script_extension("tsx"), do: ".tsx"
+  defp script_extension(_lang), do: ".js"
 
   defp node_text({_tag, _attrs, children}), do: Enum.map_join(children, &node_text/1)
   defp node_text(text) when is_binary(text), do: text

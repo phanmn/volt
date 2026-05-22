@@ -37,6 +37,8 @@ config :volt, :format,
   semi: false,
   single_quote: true
 
-config :volt, :lint, plugins: [:typescript, :vue]
+config :volt, :lint,
+  plugins: [:typescript, :vue],
+  tsgolint: System.find_executable("tsgolint")
 
 import_config "#{config_env()}.exs"

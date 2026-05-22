@@ -7,11 +7,13 @@
 - `env_prefix` config for choosing which `.env` variables are exposed through `import.meta.env`, including Vite-compatible prefixes like `"VITE_"`.
 - `asset_url_prefix` config and `mix volt.build --asset-url-prefix` for changing production JavaScript and CSS asset URLs without changing Phoenix output paths.
 - Production chunk manifests now include richer chunk metadata: `imports`, `dynamicImports`, chunk-local `css`, and emitted `assets`.
+- Plugin `embedded_modules/3` hook for exposing JavaScript-like scripts embedded in custom file formats.
 
 ### Changed
 
 - Upgraded `oxc` to 0.15.0 and `quickbeam` to 0.10.15.
 - `mix volt.js.check` now supports `--type-aware` and `--type-check` for TypeScript-aware linting through `tsgolint`.
+- Type-aware checks now analyze Vue and Svelte component scripts via plugin-provided virtual modules while leaving templates on the normal syntax lint path.
 - Production builds now tree-shake JavaScript by default, with `tree_shaking: false` and `mix volt.build --no-tree-shaking` available to preserve unused exports.
 - Code-split dynamic imports now preload dependency chunks and chunk-local CSS when doing so avoids loading waterfalls.
 - HMR boundary lookup now uses a served module graph, with a dedicated glob graph for `import.meta.glob()` invalidation.
@@ -19,6 +21,7 @@
 - Production JavaScript asset URL imports now emit hashed files and include them in manifest asset metadata.
 - Worker build failures now fail the parent build instead of being ignored.
 - JavaScript runtime installs now validate package signatures for reused install directories, and named runtimes reject option mismatches.
+- `glob_ex` is now a direct dependency for HMR glob invalidation.
 
 ### Breaking changes
 

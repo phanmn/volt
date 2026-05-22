@@ -10,6 +10,7 @@ defmodule Volt.JsCheckTest do
     on_exit(fn -> File.rm_rf!(@tmp_dir) end)
     original_root = Application.get_env(:volt, :root)
     original_lint = Application.get_env(:volt, :lint)
+    original_sources = Application.get_env(:volt, :sources)
     Application.put_env(:volt, :root, @tmp_dir)
 
     on_exit(fn ->
@@ -20,6 +21,10 @@ defmodule Volt.JsCheckTest do
       if original_lint,
         do: Application.put_env(:volt, :lint, original_lint),
         else: Application.delete_env(:volt, :lint)
+
+      if original_sources,
+        do: Application.put_env(:volt, :sources, original_sources),
+        else: Application.delete_env(:volt, :sources)
     end)
 
     :ok
@@ -43,12 +48,62 @@ defmodule Volt.JsCheckTest do
     assert output =~ "typescript/no-floating-promises"
   end
 
+  test "type-aware check submits framework single-file component scripts as virtual files" do
+    File.write!(Path.join(@tmp_dir, "app.ts"), "import './Component.vue'\n")
+
+    File.write!(
+      Path.join(@tmp_dir, "Component.vue"),
+      "<script setup lang=\"ts\">const vueValue: string = 'ok'</script>\n"
+    )
+
+    File.write!(
+      Path.join(@tmp_dir, "Widget.svelte"),
+      "<script lang=\"ts\">const svelteValue: string = 'ok'</script>\n"
+    )
+
+    tsgolint = fake_tsgolint_capture!(@tmp_dir)
+
+    Application.put_env(:volt, :sources, ["**/*.{js,ts,jsx,tsx,vue,svelte}"])
+    Application.put_env(:volt, :lint, tsgolint: tsgolint, rules: %{})
+
+    capture_io(fn ->
+      Mix.Tasks.Volt.Js.Check.run(["--type-aware"])
+    end)
+
+    payload = @tmp_dir |> Path.join("payload.json") |> File.read!() |> Jason.decode!()
+    assert [%{"file_paths" => file_paths}] = payload["configs"]
+    basenames = Enum.map(file_paths, &Path.basename/1)
+
+    assert "app.ts" in basenames
+    assert "Component.vue.script0.ts" in basenames
+    assert "Widget.svelte.script0.ts" in basenames
+
+    overrides = payload["source_overrides"]
+    assert overrides[Path.expand(Path.join(@tmp_dir, "Component.vue.script0.ts"))] =~ "vueValue"
+
+    assert overrides[Path.expand(Path.join(@tmp_dir, "Widget.svelte.script0.ts"))] =~
+             "svelteValue"
+  end
+
   defp fake_tsgolint!(dir) do
     path = Path.join(dir, "tsgolint")
 
     File.write!(path, """
     #!/bin/sh
     elixir -e 'json = ~s({"rule":"no-floating-promises","message":{"description":"floating promise"},"file_path":"typed.ts","range":{"pos":0,"end":5}}); IO.binwrite(<<byte_size(json)::little-32, 1, json::binary>>)'
+    """)
+
+    File.chmod!(path, 0o755)
+    path
+  end
+
+  defp fake_tsgolint_capture!(dir) do
+    path = Path.join(dir, "tsgolint-capture")
+    payload_path = Path.join(dir, "payload.json")
+
+    File.write!(path, """
+    #!/bin/sh
+    cat > #{payload_path}
     """)
 
     File.chmod!(path, 0o755)
