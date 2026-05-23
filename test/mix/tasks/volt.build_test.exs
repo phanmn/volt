@@ -108,4 +108,46 @@ defmodule Mix.Tasks.Volt.BuildTest do
     assert File.regular?(js_path)
     refute File.exists?(js_path <> ".map")
   end
+
+  test "Tailwind build uses configured hash setting", %{tmp_dir: tmp_dir} do
+    entry = Path.join(tmp_dir, "src/app.js")
+    css_path = Path.join(tmp_dir, "src/app.css")
+    outdir = Path.join(tmp_dir, "dist")
+    previous_env = Application.get_all_env(:volt)
+
+    Application.put_env(:volt, :entry, entry)
+    Application.put_env(:volt, :outdir, outdir)
+    Application.put_env(:volt, :hash, false)
+    Application.put_env(:volt, :minify, false)
+    Application.put_env(:volt, :sourcemap, false)
+    Application.put_env(:volt, :format, :iife)
+
+    Application.put_env(:volt, :tailwind,
+      css: css_path,
+      sources: [%{base: Path.join(tmp_dir, "src"), pattern: "**/*"}]
+    )
+
+    on_exit(fn ->
+      for {key, _value} <- Application.get_all_env(:volt) do
+        Application.delete_env(:volt, key)
+      end
+
+      for {key, value} <- previous_env do
+        Application.put_env(:volt, key, value)
+      end
+    end)
+
+    File.write!(entry, "console.log('app')")
+    File.write!(css_path, "@import \"tailwindcss\" source(none);\n")
+
+    Mix.Tasks.Volt.Build.run(["--tailwind"])
+
+    assert File.regular?(Path.join([outdir, "css", "app.css"]))
+    assert File.regular?(Path.join([outdir, "js", "app.js"]))
+
+    refute outdir
+           |> Path.join("css")
+           |> File.ls!()
+           |> Enum.any?(&String.match?(&1, ~r/^app-[a-f0-9]{8}\.css$/))
+  end
 end

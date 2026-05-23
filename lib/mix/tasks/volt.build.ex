@@ -79,7 +79,7 @@ defmodule Mix.Tasks.Volt.Build do
         (tailwind_config != [] and Keyword.get(parsed, :tailwind, true))
 
     if tailwind? do
-      build_tailwind(parsed, tailwind_config, outdir, minify)
+      build_tailwind(parsed, tailwind_config, outdir, minify, config.hash)
     end
 
     entries =
@@ -164,9 +164,9 @@ defmodule Mix.Tasks.Volt.Build do
     end
   end
 
-  defp build_tailwind(parsed, tailwind_config, outdir, minify) do
+  defp build_tailwind(parsed, tailwind_config, outdir, minify, config_hash) do
     cli_sources = Keyword.get_values(parsed, :tailwind_source)
-    hash = Keyword.get(parsed, :hash, true)
+    hash = Keyword.get(parsed, :hash, config_hash)
 
     sources =
       case cli_sources do

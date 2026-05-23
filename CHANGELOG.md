@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- `mix volt.build --tailwind` now honors `hash: false` from Volt config for Tailwind CSS output filenames, while keeping CLI `--hash`/`--no-hash` overrides.
+
 ## 0.13.1
 
 ### Fixed
