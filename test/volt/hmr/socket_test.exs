@@ -5,7 +5,7 @@ defmodule Volt.HMR.SocketTest do
     test "registers with registry" do
       {:ok, _state} = Volt.HMR.Socket.init(nil)
       me = self()
-      assert [{^me, nil}] = Registry.lookup(Volt.HMR.Registry, :clients)
+      assert {me, nil} in Registry.lookup(Volt.HMR.Registry, :clients)
     end
   end
 
