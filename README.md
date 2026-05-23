@@ -57,10 +57,11 @@ config :volt,
   ]
 ```
 
-`Volt.entry_path/1` resolves to the source file in dev and the content-hashed path in production, like `~p` for JS:
+`Volt.static_path/2` resolves Volt-managed assets to source files in dev and content-hashed paths in production:
 
 ```heex
-<script defer phx-track-static type="module" src={Volt.entry_path(@endpoint)}></script>
+<link phx-track-static rel="stylesheet" href={Volt.static_path(@endpoint, "/assets/css/app.css")} />
+<script defer phx-track-static type="module" src={Volt.static_path(@endpoint, "/assets/js/app.js")}></script>
 ```
 
 ## Production builds

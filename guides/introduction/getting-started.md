@@ -84,8 +84,8 @@ The watcher starts `mix volt.dev` automatically when `mix phx.server` runs, watc
 In your root layout, add both the CSS link and the JS script tag:
 
 ```heex
-<link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
-<script defer phx-track-static type="module" src={Volt.entry_path(MyAppWeb.Endpoint)}></script>
+<link phx-track-static rel="stylesheet" href={Volt.static_path(MyAppWeb.Endpoint, "/assets/css/app.css")} />
+<script defer phx-track-static type="module" src={Volt.static_path(MyAppWeb.Endpoint, "/assets/js/app.js")}></script>
 ```
 
 ### Mix Aliases

@@ -191,31 +191,33 @@ defmodule Mix.Tasks.Volt.Build do
 
     {us, result} =
       :timer.tc(fn ->
-        Volt.Tailwind.build(
-          sources: sources,
-          css: css_input,
-          css_base: css_base,
-          minify: minify
-        )
+        with {:ok, css} <-
+               Volt.Tailwind.build(
+                 sources: sources,
+                 css: css_input,
+                 css_base: css_base,
+                 minify: false
+               ) do
+          Volt.Builder.Writer.build_style_entry(
+            "app",
+            css,
+            Path.join(outdir, "css"),
+            hash,
+            nil,
+            minify: minify
+          )
+        end
       end)
 
     ms = div(us, 1000)
 
     case result do
-      {:ok, css} ->
-        css_outdir = Path.join(outdir, "css")
-        File.mkdir_p!(css_outdir)
-        name = "app"
+      {:ok, %{css: %{path: path, size: size}, manifest: manifest}} ->
+        css_outdir = Path.dirname(path)
+        Volt.Builder.Writer.write_manifest(css_outdir, manifest)
 
-        filename =
-          if hash,
-            do: "#{name}-#{Volt.Format.content_hash(css)}.css",
-            else: "#{name}.css"
-
-        path = Path.join(css_outdir, filename)
-        File.write!(path, css)
-
-        Mix.shell().info("  #{filename}  #{Volt.Format.format_size(byte_size(css))}")
+        Mix.shell().info("  #{Path.basename(path)}  #{Volt.Format.format_size(size)}")
+        Mix.shell().info("  manifest.json  #{map_size(manifest)} entries")
         Mix.shell().info("Built Tailwind in #{ms}ms")
 
       {:error, reason} ->

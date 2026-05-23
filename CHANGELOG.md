@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Added
+
+- `Volt.static_path/2` and `Volt.static_url/2` resolve Volt-managed static assets with Phoenix-style helper names.
+- `mix volt.build --tailwind` now writes a CSS manifest using the existing production manifest format.
+
+### Deprecated
+
+- `Volt.entry_path/2` is deprecated in favor of `Volt.static_path/2`.
+
 ### Fixed
 
 - `mix volt.build --tailwind` now honors `hash: false` from Volt config for Tailwind CSS output filenames, while keeping CLI `--hash`/`--no-hash` overrides.

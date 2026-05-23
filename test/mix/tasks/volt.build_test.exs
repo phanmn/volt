@@ -142,8 +142,11 @@ defmodule Mix.Tasks.Volt.BuildTest do
 
     Mix.Tasks.Volt.Build.run(["--tailwind"])
 
+    css_manifest = outdir |> Path.join("css/manifest.json") |> File.read!() |> Jason.decode!()
+
     assert File.regular?(Path.join([outdir, "css", "app.css"]))
     assert File.regular?(Path.join([outdir, "js", "app.js"]))
+    assert css_manifest["app.css"]["file"] == "app.css"
 
     refute outdir
            |> Path.join("css")

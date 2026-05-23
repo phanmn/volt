@@ -101,12 +101,17 @@ defmodule Volt.Integration.PhoenixExampleBuildTest do
   @example_dir Path.join(File.cwd!(), "examples/vanilla")
   @outdir Path.join(@example_dir, "priv/static/assets")
 
+  defmodule Endpoint do
+    def config(:code_reloader), do: false
+    def static_path(path), do: path
+  end
+
   setup_all do
     File.rm_rf!(Path.join(@outdir, "js"))
     File.rm_rf!(Path.join(@outdir, "css"))
 
     {output, status} =
-      System.cmd("mix", ["volt.build", "--tailwind", "--no-hash", "--no-minify"],
+      System.cmd("mix", ["volt.build", "--tailwind", "--hash", "--no-minify"],
         cd: @example_dir,
         stderr_to_stdout: true
       )
@@ -119,7 +124,7 @@ defmodule Volt.Integration.PhoenixExampleBuildTest do
   end
 
   test "produces JS bundle with Phoenix deps bundled in", %{build_status: 0} do
-    js = File.read!(Path.join(@outdir, "js/app.js"))
+    js = File.read!(js_path())
 
     assert js =~ "LiveSocket"
     assert js =~ "phoenix"
@@ -129,7 +134,7 @@ defmodule Volt.Integration.PhoenixExampleBuildTest do
   end
 
   test "includes glob imports in bundle", %{build_status: 0} do
-    js = File.read!(Path.join(@outdir, "js/app.js"))
+    js = File.read!(js_path())
 
     assert js =~ "About"
     assert js =~ "Built with Volt"
@@ -140,11 +145,19 @@ defmodule Volt.Integration.PhoenixExampleBuildTest do
     manifest = @outdir |> Path.join("js/manifest.json") |> File.read!() |> Jason.decode!()
 
     assert Map.has_key?(manifest, "app.js")
-    assert manifest["app.js"]["file"] == "app.js"
+    assert manifest["app.js"]["file"] =~ ~r/^app-[a-f0-9]{8}\.js$/
+  end
+
+  test "produces valid Tailwind manifest", %{build_status: 0} do
+    manifest = @outdir |> Path.join("css/manifest.json") |> File.read!() |> Jason.decode!()
+
+    assert Map.has_key?(manifest, "app.css")
+    assert manifest["app.css"]["file"] =~ ~r/^app-[a-f0-9]{8}\.css$/
   end
 
   test "produces Tailwind CSS with utility classes from heex templates", %{build_status: 0} do
-    css = File.read!(Path.join(@outdir, "css/app.css"))
+    manifest = @outdir |> Path.join("css/manifest.json") |> File.read!() |> Jason.decode!()
+    css = File.read!(Path.join([@outdir, "css", manifest["app.css"]["file"]]))
 
     assert css =~ "rounded-2xl"
     assert css =~ "bg-amber-600"
@@ -152,8 +165,31 @@ defmodule Volt.Integration.PhoenixExampleBuildTest do
   end
 
   test "generates sourcemap", %{build_status: 0} do
-    map = @outdir |> Path.join("js/app.js.map") |> File.read!() |> Jason.decode!()
+    manifest = @outdir |> Path.join("js/manifest.json") |> File.read!() |> Jason.decode!()
+    map_path = manifest["app.js"]["file"] <> ".map"
+    map = [@outdir, "js", map_path] |> Path.join() |> File.read!() |> Jason.decode!()
 
     assert map["version"] == 3
+  end
+
+  test "Volt.static_path resolves hashed production assets", %{build_status: 0} do
+    assert Volt.static_path(
+             Volt.Integration.PhoenixExampleBuildTest.Endpoint,
+             "/assets/js/app.js",
+             outdir: @outdir,
+             prefix: "/assets"
+           ) =~ ~r|^/assets/js/app-[a-f0-9]{8}\.js$|
+
+    assert Volt.static_path(
+             Volt.Integration.PhoenixExampleBuildTest.Endpoint,
+             "/assets/css/app.css",
+             outdir: @outdir,
+             prefix: "/assets"
+           ) =~ ~r|^/assets/css/app-[a-f0-9]{8}\.css$|
+  end
+
+  defp js_path do
+    manifest = @outdir |> Path.join("js/manifest.json") |> File.read!() |> Jason.decode!()
+    Path.join([@outdir, "js", manifest["app.js"]["file"]])
   end
 end
