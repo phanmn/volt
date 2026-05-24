@@ -17,13 +17,12 @@ defmodule Mix.Tasks.Volt.Js.Format do
   def run(_args) do
     Mix.Task.run("app.config")
 
-    opts = Volt.JS.Format.load_config()
     files = Volt.JS.Helpers.discover_format_files()
 
     if files == [] do
       Mix.shell().info("No formattable files found")
     else
-      {changed, total} = format_files(files, opts)
+      %{changed: changed, total: total} = Volt.JS.Format.format_files(files)
 
       if changed == 0 do
         Mix.shell().info("All #{total} files already formatted")
@@ -31,22 +30,5 @@ defmodule Mix.Tasks.Volt.Js.Format do
         Mix.shell().info("Formatted #{changed}/#{total} files")
       end
     end
-  end
-
-  defp format_files(files, opts) do
-    changed =
-      Enum.count(files, fn file ->
-        source = File.read!(file)
-        formatted = OXC.Format.run!(source, file, opts)
-
-        if formatted != source do
-          File.write!(file, formatted)
-          true
-        else
-          false
-        end
-      end)
-
-    {changed, length(files)}
   end
 end

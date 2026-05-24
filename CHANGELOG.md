@@ -13,6 +13,7 @@
 
 ### Fixed
 
+- `mix volt.js.check --type-aware --type-check` now fails on TypeScript compiler diagnostics such as `typescript/TS2322`.
 - `mix volt.build --tailwind` now honors `hash: false` from Volt config for Tailwind CSS output filenames, while keeping CLI `--hash`/`--no-hash` overrides.
 
 ## 0.13.1

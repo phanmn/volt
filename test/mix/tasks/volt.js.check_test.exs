@@ -60,6 +60,18 @@ defmodule Volt.JsCheckTest do
     assert output =~ "typescript/no-floating-promises"
   end
 
+  test "type-check diagnostics are promoted to errors" do
+    diagnostic = %{
+      rule: "typescript/TS2322",
+      severity: :warn,
+      file: "typed.ts",
+      message: "Type number is not assignable to type string."
+    }
+
+    assert %{severity: :deny} =
+             Volt.JS.Check.promote_type_check_diagnostic(diagnostic, type_check: true)
+  end
+
   test "type-aware check forwards only typescript rules to tsgolint" do
     File.write!(Path.join(@tmp_dir, "typed.ts"), "export const value = 1\n")
     tsgolint = fake_tsgolint_capture!(@tmp_dir)
@@ -124,7 +136,7 @@ defmodule Volt.JsCheckTest do
 
     File.write!(path, """
     #!/bin/sh
-    elixir -e 'json = ~s({"rule":"no-floating-promises","message":{"description":"floating promise"},"file_path":"typed.ts","range":{"pos":0,"end":5}}); IO.binwrite(<<byte_size(json)::little-32, 1, json::binary>>)'
+    elixir -e 'json = ~s({"rule":"no-floating-promises","message":{"description":"floating promise"},"file_path":"typed.ts","range":{"pos":0,"end":5}}); size = byte_size(json); File.write!("/dev/stdout", <<size::32-little, 1, json::binary>>)'
     """)
 
     File.chmod!(path, 0o755)

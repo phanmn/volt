@@ -39,6 +39,23 @@ defmodule Volt.JS.Format do
     end
   end
 
+  def format_files(files, opts \\ load_config()) do
+    changed =
+      Enum.count(files, fn file ->
+        source = File.read!(file)
+        formatted = OXC.Format.run!(source, file, opts)
+
+        if formatted != source do
+          File.write!(file, formatted)
+          true
+        else
+          false
+        end
+      end)
+
+    %{changed: changed, total: length(files)}
+  end
+
   defp find_json_config do
     root = File.cwd!()
 
