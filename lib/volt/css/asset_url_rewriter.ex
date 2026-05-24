@@ -8,7 +8,7 @@ defmodule Volt.CSS.AssetURLRewriter do
 
   @type rewrite_result :: {:ok, String.t()} | {:error, term()}
   @type rewrite_assets_result ::
-          {:ok, %{code: String.t(), assets: [String.t()]}} | {:error, term()}
+          {:ok, %{code: String.t(), assets: [String.t() | map()]}} | {:error, term()}
 
   @doc "Rewrite relative CSS asset URLs to hashed output URLs."
   @spec rewrite(String.t(), String.t() | nil, String.t(), keyword()) :: rewrite_result()
@@ -52,12 +52,11 @@ defmodule Volt.CSS.AssetURLRewriter do
 
     {ast, {assets, _emitted}} =
       Volt.CSS.AST.postwalk_urls(ast, {[], %{}}, fn url, node, {assets, emitted} ->
-        case build_url(url, source_path, outdir, prefix, emitted) do
-          {:ok, ^url, emitted} ->
+        case build_url(url, source_path, outdir, prefix, emitted, opts) do
+          {:ok, ^url, emitted, _asset} ->
             {node, {assets, emitted}}
 
-          {:ok, rewritten, emitted} ->
-            asset = emitted_asset(rewritten)
+          {:ok, rewritten, emitted, asset} ->
             assets = if asset in assets, do: assets, else: [asset | assets]
             {Map.put(node, "url", rewritten), {assets, emitted}}
         end
@@ -75,19 +74,19 @@ defmodule Volt.CSS.AssetURLRewriter do
     end)
   end
 
-  defp build_url(url, source_path, outdir, prefix, emitted) do
+  defp build_url(url, source_path, outdir, prefix, emitted, opts) do
     if rewrite_candidate?(url) do
       uri = URI.parse(url)
       asset_path = Path.expand(uri.path || "", Path.dirname(source_path))
 
       if Volt.Assets.asset?(asset_path) and File.regular?(asset_path) do
-        {filename, emitted} = emitted_filename(asset_path, outdir, emitted)
-        {:ok, append_suffix(Volt.URL.join(prefix, filename), uri), emitted}
+        {filename, asset, emitted} = emitted_filename(asset_path, outdir, emitted, opts)
+        {:ok, append_suffix(Volt.URL.join(prefix, filename), uri), emitted, asset}
       else
-        {:ok, url, emitted}
+        {:ok, url, emitted, nil}
       end
     else
-      {:ok, url, emitted}
+      {:ok, url, emitted, nil}
     end
   end
 
@@ -108,14 +107,15 @@ defmodule Volt.CSS.AssetURLRewriter do
     end
   end
 
-  defp emitted_filename(asset_path, outdir, emitted) do
+  defp emitted_filename(asset_path, outdir, emitted, opts) do
     case Map.fetch(emitted, asset_path) do
-      {:ok, filename} ->
-        {filename, emitted}
+      {:ok, {filename, asset}} ->
+        {filename, asset, emitted}
 
       :error ->
         {:ok, filename} = Volt.Assets.copy_hashed(asset_path, outdir)
-        {filename, Map.put(emitted, asset_path, filename)}
+        asset = Volt.Assets.manifest_asset(asset_path, filename, root: Keyword.get(opts, :root))
+        {filename, asset, Map.put(emitted, asset_path, {filename, asset})}
     end
   end
 
@@ -124,13 +124,6 @@ defmodule Volt.CSS.AssetURLRewriter do
 
     is_binary(uri.path) and uri.path != "" and is_nil(uri.scheme) and is_nil(uri.host) and
       not String.starts_with?(url, ["/", "#", "//"])
-  end
-
-  defp emitted_asset(rewritten) do
-    rewritten
-    |> URI.parse()
-    |> Map.fetch!(:path)
-    |> Path.basename()
   end
 
   defp append_suffix(path, %{query: query, fragment: fragment}) do

@@ -4,7 +4,7 @@
 
 ### Added
 
-- `Volt.static_path/2` and `Volt.static_url/2` resolve Volt-managed static assets with Phoenix-style helper names.
+- `Volt.static_path/2` and `Volt.static_url/2` resolve Volt-managed scripts, stylesheets, and emitted image/font assets with Phoenix-style helper names.
 - `mix volt.build --tailwind` now writes a CSS manifest using the existing production manifest format.
 
 ### Deprecated

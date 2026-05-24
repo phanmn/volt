@@ -15,4 +15,6 @@ defmodule Volt.Builder.ManifestEntry do
   end
 
   def css(src, file, assets), do: %__MODULE__{src: src, file: file, assets: assets}
+
+  def asset(src, file), do: %__MODULE__{src: src, file: file}
 end

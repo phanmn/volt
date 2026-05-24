@@ -48,13 +48,15 @@ defmodule Volt.Builder.Writer do
 
       File.write!(css_path, css_code)
 
-      manifest = %{
-        "#{name}.css" => %{
-          "file" => css_filename,
-          "src" => "#{name}.css",
-          "assets" => css_assets(css_filename, css_result)
+      manifest =
+        %{
+          "#{name}.css" => %{
+            "file" => css_filename,
+            "src" => "#{name}.css",
+            "assets" => css_assets(css_filename, css_result)
+          }
         }
-      }
+        |> add_asset_entries(css_result.assets)
 
       {:ok,
        %Volt.Builder.Result{
@@ -87,7 +89,8 @@ defmodule Volt.Builder.Writer do
 
   defp rewrite_css_part({source_path, css}, outdir, bundle_opts) do
     Volt.CSS.AssetURLRewriter.rewrite_with_assets(css, source_path, outdir,
-      prefix: Keyword.get(bundle_opts, :asset_url_prefix, "/assets")
+      prefix: Keyword.get(bundle_opts, :asset_url_prefix, "/assets"),
+      root: Keyword.get(bundle_opts, :root)
     )
   end
 
@@ -112,11 +115,13 @@ defmodule Volt.Builder.Writer do
         |> add_js_assets(assets)
     }
 
-    add_css_to_manifest(manifest, name, css_result)
+    manifest
+    |> add_css_to_manifest(name, css_result)
+    |> add_asset_entries(assets)
   end
 
   defp add_js_assets(entry, []), do: entry
-  defp add_js_assets(entry, assets), do: %{entry | assets: Enum.uniq(assets)}
+  defp add_js_assets(entry, assets), do: %{entry | assets: asset_files(assets)}
 
   def add_css_to_manifest(manifest, _name, nil), do: manifest
 
@@ -133,6 +138,7 @@ defmodule Volt.Builder.Writer do
         css_assets(css_filename, css_result)
       )
     )
+    |> add_asset_entries(css_result.assets)
   end
 
   def hashed_name(name, content, ext, true) do
@@ -142,7 +148,30 @@ defmodule Volt.Builder.Writer do
   def hashed_name(name, _content, ext, false), do: "#{name}#{ext}"
 
   defp css_assets(css_filename, css_result) do
-    [css_filename | Map.get(css_result, :assets, [])]
+    [css_filename | asset_files(Map.get(css_result, :assets, []))]
+  end
+
+  def asset_files(assets) do
+    assets
+    |> Enum.map(fn
+      %{file: file} -> file
+      %{"file" => file} -> file
+      file when is_binary(file) -> file
+    end)
+    |> Enum.uniq()
+  end
+
+  def add_asset_entries(manifest, assets) do
+    Enum.reduce(assets, manifest, fn
+      %{src: src, file: file}, acc ->
+        Map.put_new(acc, src, Volt.Builder.ManifestEntry.asset(src, file))
+
+      %{"src" => src, "file" => file}, acc ->
+        Map.put_new(acc, src, Volt.Builder.ManifestEntry.asset(src, file))
+
+      _file, acc ->
+        acc
+    end)
   end
 
   defp merge_assets(left, right) do

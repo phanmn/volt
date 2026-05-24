@@ -99,6 +99,7 @@ defmodule Volt.Builder.Output.CSSTest do
         Volt.Builder.build(
           entry: Path.join(@fixture_dir, "src/site.css"),
           outdir: @outdir,
+          root: Path.join(@fixture_dir, "src"),
           minify: false,
           sourcemap: false
         )
@@ -108,8 +109,10 @@ defmodule Volt.Builder.Output.CSSTest do
       refute css =~ "./logo.svg"
       assert [asset_path] = Path.wildcard(Path.join(@outdir, "logo-*.svg"))
 
+      asset_file = Path.basename(asset_path)
       manifest = Path.join(@outdir, "manifest.json") |> File.read!() |> :json.decode()
-      assert Path.basename(asset_path) in manifest["site.css"]["assets"]
+      assert asset_file in manifest["site.css"]["assets"]
+      assert manifest["logo.svg"]["file"] == asset_file
     end
 
     test "rewrites CSS imported from JavaScript asset URLs" do
@@ -127,6 +130,7 @@ defmodule Volt.Builder.Output.CSSTest do
         Volt.Builder.build(
           entry: Path.join(@fixture_dir, "src/css_asset_app.ts"),
           outdir: @outdir,
+          root: Path.join(@fixture_dir, "src"),
           minify: false,
           sourcemap: false
         )
@@ -136,8 +140,10 @@ defmodule Volt.Builder.Output.CSSTest do
       refute css =~ "./hero.png"
       assert [asset_path] = Path.wildcard(Path.join(@outdir, "hero-*.png"))
 
+      asset_file = Path.basename(asset_path)
       manifest = Path.join(@outdir, "manifest.json") |> File.read!() |> :json.decode()
-      assert Path.basename(asset_path) in manifest["css_asset_app.css"]["assets"]
+      assert asset_file in manifest["css_asset_app.css"]["assets"]
+      assert manifest["hero.png"]["file"] == asset_file
     end
 
     test "asset URL prefix config applies to production CSS asset URLs" do

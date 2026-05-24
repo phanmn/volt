@@ -102,6 +102,22 @@ defmodule VoltTest do
            ) == "/assets/css/app-deadbeef.css"
   end
 
+  test "static_path resolves asset entries from production manifests" do
+    outdir = tmp_dir("manifest-image")
+    js_outdir = Path.join(outdir, "js")
+    File.mkdir_p!(js_outdir)
+
+    File.write!(
+      Path.join(js_outdir, "manifest.json"),
+      ~s({"images/logo.svg":{"file":"logo-deadbeef.svg"}})
+    )
+
+    assert Volt.static_path(ProdEndpoint, "/assets/images/logo.svg",
+             outdir: outdir,
+             prefix: "/assets"
+           ) == "/assets/js/logo-deadbeef.svg"
+  end
+
   defp tmp_dir(name) do
     Path.join([System.tmp_dir!(), "volt-test-#{System.unique_integer([:positive])}", name])
   end

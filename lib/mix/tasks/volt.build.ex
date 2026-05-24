@@ -79,7 +79,7 @@ defmodule Mix.Tasks.Volt.Build do
         (tailwind_config != [] and Keyword.get(parsed, :tailwind, true))
 
     if tailwind? do
-      build_tailwind(parsed, tailwind_config, outdir, minify, config.hash)
+      build_tailwind(parsed, tailwind_config, outdir, minify, config.hash, config.root)
     end
 
     entries =
@@ -121,6 +121,7 @@ defmodule Mix.Tasks.Volt.Build do
       env_prefix: config.env_prefix,
       import_source: config.import_source,
       module_types: config.module_types,
+      root: config.root,
       name: parsed[:name]
     ]
 
@@ -164,7 +165,7 @@ defmodule Mix.Tasks.Volt.Build do
     end
   end
 
-  defp build_tailwind(parsed, tailwind_config, outdir, minify, config_hash) do
+  defp build_tailwind(parsed, tailwind_config, outdir, minify, config_hash, root) do
     cli_sources = Keyword.get_values(parsed, :tailwind_source)
     hash = Keyword.get(parsed, :hash, config_hash)
 
@@ -204,7 +205,8 @@ defmodule Mix.Tasks.Volt.Build do
             Path.join(outdir, "css"),
             hash,
             nil,
-            minify: minify
+            minify: minify,
+            root: root
           )
         end
       end)

@@ -89,6 +89,7 @@ defmodule Volt.Builder do
     module_types = Keyword.get(opts, :module_types, %{})
     import_source = opts |> Keyword.get(:import_source) |> to_string_or_nil()
     hash = Keyword.get(opts, :hash, true)
+    asset_root = Keyword.get(opts, :root, "assets")
     name = Keyword.get(opts, :name)
 
     env_define = Volt.Env.define(mode: mode, root: File.cwd!(), env_prefix: env_prefix)
@@ -112,7 +113,8 @@ defmodule Volt.Builder do
       target: target,
       define: all_define,
       asset_url_prefix: asset_url_prefix,
-      asset_outdir: outdir
+      asset_outdir: outdir,
+      asset_root: asset_root
     }
 
     bundle_opts =
@@ -122,7 +124,8 @@ defmodule Volt.Builder do
         target: target,
         define: all_define,
         format: format,
-        treeshake: tree_shaking
+        treeshake: tree_shaking,
+        root: asset_root
       ] ++ if(module_types != %{}, do: [module_types: module_types], else: [])
 
     build_ctx = %Volt.Builder.BuildContext{
@@ -322,7 +325,8 @@ defmodule Volt.Builder do
           inline: Map.has_key?(query_params, "inline"),
           no_inline: Map.has_key?(query_params, "no-inline"),
           prefix: ctx.asset_url_prefix,
-          outdir: ctx.asset_outdir
+          outdir: ctx.asset_outdir,
+          root: ctx.asset_root
         ]
 
         case Volt.Assets.emit_js_module(path, asset_opts) do

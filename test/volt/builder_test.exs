@@ -87,6 +87,7 @@ defmodule Volt.BuilderTest do
       assert asset =~ ~r/logo-[a-f0-9]{8}\.svg/
       assert File.regular?(Path.join(@outdir, asset))
       assert File.read!(result.js.path) =~ "/assets/#{asset}"
+      assert manifest["logo.svg"]["file"] == asset
     end
 
     test "multi-entry builds write one merged manifest" do

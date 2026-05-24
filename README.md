@@ -62,6 +62,7 @@ config :volt,
 ```heex
 <link phx-track-static rel="stylesheet" href={Volt.static_path(@endpoint, "/assets/css/app.css")} />
 <script defer phx-track-static type="module" src={Volt.static_path(@endpoint, "/assets/js/app.js")}></script>
+<img src={Volt.static_path(@endpoint, "/assets/images/logo.svg")} />
 ```
 
 ## Production builds

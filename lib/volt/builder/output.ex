@@ -140,6 +140,8 @@ defmodule Volt.Builder.Output do
             |> add_chunk_css(entry_css)
             |> add_chunk_assets(assets)
           )
+          |> Writer.add_asset_entries(assets)
+          |> Writer.add_asset_entries(css_assets(css_results))
 
         {:ok,
          %Volt.Builder.Result{
@@ -292,7 +294,9 @@ defmodule Volt.Builder.Output do
   end
 
   defp css_files(nil), do: []
-  defp css_files(css_result), do: [Path.basename(css_result.path) | css_result.assets]
+
+  defp css_files(css_result),
+    do: [Path.basename(css_result.path) | Writer.asset_files(css_result.assets)]
 
   defp write_chunk_css(css_parts, graph, outdir, name, hash, css_opts) do
     css_parts
@@ -326,13 +330,23 @@ defmodule Volt.Builder.Output do
   defp add_chunk_css(entry, css_result) do
     css_file = Path.basename(css_result.path)
 
-    %{entry | css: [css_file], assets: Enum.uniq([css_file | css_result.assets])}
+    %{
+      entry
+      | css: [css_file],
+        assets: Enum.uniq([css_file | Writer.asset_files(css_result.assets)])
+    }
   end
 
   defp add_chunk_assets(entry, []), do: entry
 
   defp add_chunk_assets(entry, assets) do
-    %{entry | assets: Enum.uniq(entry.assets ++ assets)}
+    %{entry | assets: Enum.uniq(entry.assets ++ Writer.asset_files(assets))}
+  end
+
+  defp css_assets(css_results) do
+    css_results
+    |> Map.values()
+    |> Enum.flat_map(& &1.assets)
   end
 
   defp chunk_files([], _chunk_url_map), do: []

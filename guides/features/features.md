@@ -102,9 +102,10 @@ Use `Volt.static_path/2` in your root layout to link to Volt-managed scripts and
 ```heex
 <link phx-track-static rel="stylesheet" href={Volt.static_path(MyAppWeb.Endpoint, "/assets/css/app.css")} />
 <script defer phx-track-static type="module" src={Volt.static_path(MyAppWeb.Endpoint, "/assets/js/app.js")}></script>
+<img src={Volt.static_path(MyAppWeb.Endpoint, "/assets/images/logo.svg")} />
 ```
 
-In development, JavaScript entries return the source path served by the dev server (e.g. `/assets/js/app.ts`) and other paths are returned unchanged. In production, Volt reads `manifest.json` and returns the content-hashed path (e.g. `/assets/js/app-5e6f7a8b.js` or `/assets/css/app-2aa55585.css`).
+In development, JavaScript entries return the source path served by the dev server (e.g. `/assets/js/app.ts`) and other paths are returned unchanged. In production, Volt reads `manifest.json` and returns the content-hashed path for scripts, stylesheets, and emitted image/font assets (e.g. `/assets/js/app-5e6f7a8b.js`, `/assets/css/app-2aa55585.css`, or `/assets/js/logo-a1b2c3d4.svg`).
 
 ## Multi-Entry Builds
 

@@ -42,7 +42,7 @@ defmodule Volt.CSS.AssetURLRewriterTest do
       )
 
     assert result.code =~ ~r/\/assets\/logo-[a-f0-9]{8}\.svg/
-    assert ["logo-" <> _] = result.assets
+    assert [%{file: "logo-" <> _, src: "logo.svg"}] = result.assets
     assert [_asset] = Path.wildcard(Path.join(@outdir, "logo-*.svg"))
   end
 

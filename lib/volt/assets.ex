@@ -77,9 +77,9 @@ defmodule Volt.Assets do
     end
   end
 
-  @doc "Generate a JS module for an asset and return emitted asset filenames."
+  @doc "Generate a JS module for an asset and return emitted asset metadata."
   @spec emit_js_module(String.t(), keyword()) ::
-          {:ok, %{code: String.t(), assets: [String.t()]}} | {:error, term()}
+          {:ok, %{code: String.t(), assets: [String.t() | map()]}} | {:error, term()}
   def emit_js_module(path, opts \\ []) do
     cond do
       Keyword.get(opts, :raw, false) ->
@@ -130,6 +130,15 @@ defmodule Volt.Assets do
     {:ok, filename}
   end
 
+  @doc "Build manifest metadata for an emitted asset."
+  @spec manifest_asset(String.t(), String.t(), keyword()) :: map()
+  def manifest_asset(source_path, filename, opts \\ []) do
+    %{
+      src: source_path |> asset_src(Keyword.get(opts, :root)) |> String.trim_leading("/"),
+      file: filename
+    }
+  end
+
   @doc "Get MIME type for a file extension."
   @spec mime_type(String.t()) :: String.t()
   def mime_type(path) do
@@ -160,7 +169,21 @@ defmodule Volt.Assets do
 
       outdir ->
         {:ok, filename} = copy_hashed(path, outdir)
-        {:ok, asset_module(Volt.URL.join(prefix, filename), [filename])}
+        asset = manifest_asset(path, filename, root: Keyword.get(opts, :root))
+        {:ok, asset_module(Volt.URL.join(prefix, filename), [asset])}
+    end
+  end
+
+  defp asset_src(source_path, nil), do: Path.basename(source_path)
+
+  defp asset_src(source_path, root) do
+    expanded_source = Path.expand(source_path)
+    expanded_root = Path.expand(root)
+
+    if Volt.Path.inside?(expanded_source, expanded_root) do
+      Path.relative_to(expanded_source, expanded_root)
+    else
+      Path.basename(source_path)
     end
   end
 

@@ -1,6 +1,6 @@
 # Static Assets
 
-Images, fonts, SVGs, media, WebAssembly, PDFs, and text files are handled automatically when referenced from JavaScript.
+Images, fonts, SVGs, media, WebAssembly, PDFs, and text files are handled automatically when referenced from JavaScript or CSS. Emitted assets are also written to the production manifest so server-rendered templates can resolve their hashed paths with `Volt.static_path/2`.
 
 Volt follows Vite-style asset import semantics in both dev and production:
 
@@ -68,7 +68,7 @@ Production builds rewrite relative CSS asset URLs through the same hashed asset 
 }
 ```
 
-The referenced file is copied to the output directory and the final CSS points at `/assets/logo-a1b2c3d4.svg`. The emitted asset filename is also included in the CSS manifest entry's `assets` list. This is parser-backed: Volt parses CSS with Vize's LightningCSS AST API and rewrites URL nodes, including nested usages such as `image-set(url(...))`.
+The referenced file is copied to the output directory and the final CSS points at `/assets/logo-a1b2c3d4.svg`. The emitted asset filename is included in the CSS manifest entry's `assets` list, and the original asset path gets its own manifest entry for `Volt.static_path/2`. This is parser-backed: Volt parses CSS with Vize's LightningCSS AST API and rewrites URL nodes, including nested usages such as `image-set(url(...))`.
 
 Root-absolute URLs (`/images/logo.svg`), external URLs, data URLs, missing files, and unknown extensions are left unchanged. Use those forms for assets that should stay at Phoenix/static or public-directory paths.
 
@@ -91,7 +91,13 @@ priv/static/favicon.svg -> /favicon.svg
 priv/static/robots.txt  -> /robots.txt
 ```
 
-Volt's asset pipeline is for files referenced by JavaScript when you want dependency tracking, hashing, and URL rewriting.
+Volt's asset pipeline is for files referenced by JavaScript or CSS when you want dependency tracking, hashing, and URL rewriting. Once an asset is part of the Volt graph, templates can reference it by its source-relative path:
+
+```heex
+<img src={Volt.static_path(MyAppWeb.Endpoint, "/assets/images/logo.svg")} />
+```
+
+Files that are only used from templates and are not imported by JavaScript or CSS should stay in `priv/static` and use Phoenix's `~p` or `static_path` helpers.
 
 For Vite migration compatibility, Volt also supports an optional `public_dir`. It is disabled by default. When enabled, files in that directory are served and copied without transformation:
 
