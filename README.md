@@ -11,15 +11,13 @@ mix phx.server
 
 The installer configures everything. No binaries to download, no extra processes to manage.
 
-Volt's npm integration uses `npm_ex`, which ignores package lifecycle hooks by default. Runtime package installs do not execute `preinstall`, `install`, or `postinstall` scripts, mitigating install-time credential stealers.
-
 ## Why Volt
 
 Phoenix ships with esbuild and a Tailwind CLI as separate binaries downloaded at compile time. They can't coordinate HMR or share work, and anything beyond vanilla JS requires Node.js.
 
 Volt replaces both with a single Elixir dep. `mix phx.server` starts the frontend toolchain automatically, rebuilding Tailwind in ~40ms on template changes and hot-swapping JS modules via HMR. Compilation errors show as a browser overlay. Production builds finish in under 100ms.
 
-You also get features you'd expect from Vite: code splitting, CSS Modules, `import.meta.glob()`, dynamic import variables, `.env` variables, static asset imports, import aliases, and `import.meta.hot` with state preservation.
+You also get features you'd expect from Vite: code splitting, CSS Modules, JSON imports, asset query modes, web workers, HTML entry points, `import.meta.glob()`, dynamic import variables, `.env` variables, static asset imports, import aliases, and `import.meta.hot` with state preservation.
 
 The pieces integrate because they run in one toolchain: template edits can trigger incremental Tailwind rebuilds, browser console output can flow back to your Elixir terminal, and project-specific JS/TS lint rules can be written as Elixir modules. See the [Features guide](https://hexdocs.pm/volt/features.html) for the full list.
 
@@ -97,7 +95,7 @@ Building "assets/js/app.ts"...
 Built in 15ms
 ```
 
-Tree-shaking, minification, code splitting, configurable env prefixes and asset URL prefixes, source maps, content-hashed JavaScript/CSS/assets, and manifest output. Ready for `mix phx.digest`.
+Tree-shaking, minification, code splitting, configurable env prefixes and asset URL prefixes, source maps, content-hashed JavaScript/CSS/assets, and manifest output. `Volt.Preload.tags/2` can generate modulepreload tags from the manifest, and the build is ready for `mix phx.digest`.
 
 ## Framework support
 
@@ -125,7 +123,7 @@ Project-specific lint rules can be written in Elixir with `OXC.Lint.Rule`. Type-
 
 ## Plugins
 
-Extend the build pipeline with the `Volt.Plugin` behaviour. Plugins can resolve imports, load custom file types, transform ASTs, render chunks, or call JS tooling through an embedded runtime:
+Extend the build pipeline with the `Volt.Plugin` behaviour. Plugins can turn custom file types into JavaScript and CSS, resolve virtual modules, transform parsed JavaScript and CSS ASTs, customize vendor prebundling, render final chunks, or call JS tooling through an embedded runtime:
 
 ```elixir
 defmodule MyApp.MarkdownPlugin do
@@ -133,10 +131,15 @@ defmodule MyApp.MarkdownPlugin do
 
   def name, do: "markdown"
 
-  def load(path) do
-    if String.ends_with?(path, ".md") do
-      html = path |> File.read!() |> Earmark.as_html!()
-      {:ok, "export default #{Jason.encode!(html)};\n"}
+  def compile(path, source, _opts) do
+    if String.ends_with?(path, ".card.md") do
+      html = Earmark.as_html!(source)
+
+      {:ok,
+       %Volt.Pipeline.Result{
+         code: "export default #{Jason.encode!(html)};\n",
+         css: ".markdown-card { padding: 1rem; border-radius: .75rem; }"
+       }}
     end
   end
 end
