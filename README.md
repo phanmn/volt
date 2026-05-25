@@ -2,7 +2,7 @@
 
 [![Hex.pm](https://img.shields.io/hexpm/v/volt.svg)](https://hex.pm/packages/volt) [![Documentation](https://img.shields.io/badge/documentation-gray)](https://hexdocs.pm/volt)
 
-Vite-level frontend tooling that runs inside the BEAM. One dep replaces esbuild, the Tailwind CLI, and Node.js with Rust NIFs powered by [OXC](https://oxc.rs) and [LightningCSS](https://lightningcss.dev).
+Vite-level frontend tooling that runs inside the BEAM. One dep replaces esbuild, the Tailwind CLI, and Node.js with Rust NIFs powered by [OXC](https://oxc.rs), [LightningCSS](https://lightningcss.dev), and [QuickBEAM](https://github.com/elixir-volt/quickbeam) for embedded JavaScript runtimes.
 
 ```bash
 mix igniter.install volt
@@ -31,7 +31,7 @@ Or add the dep manually:
 
 ```elixir
 def deps do
-  [{:volt, "~> 0.10"}]
+  [{:volt, "~> 0.14"}]
 end
 ```
 
@@ -123,7 +123,7 @@ Project-specific lint rules can be written in Elixir with `OXC.Lint.Rule`. Type-
 
 ## Plugins
 
-Extend the build pipeline with the `Volt.Plugin` behaviour. Plugins can turn custom file types into JavaScript and CSS, resolve virtual modules, transform parsed JavaScript and CSS ASTs, customize vendor prebundling, render final chunks, or call JS tooling through an embedded runtime:
+Extend the build pipeline with the `Volt.Plugin` behaviour. Plugins can turn custom file types into JavaScript and CSS, resolve virtual modules, transform parsed JavaScript and CSS ASTs, customize vendor prebundling, render final chunks, or call JS tooling through a QuickBEAM-powered embedded runtime:
 
 ```elixir
 defmodule MyApp.MarkdownPlugin do
