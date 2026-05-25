@@ -45,16 +45,34 @@ Standard `config/*.exs`. No `vite.config.js`, no `tailwind.config.js`:
 
 ```elixir
 config :volt,
-  entry: "assets/js/app.ts",
+  entry: ["assets/js/app.ts", "assets/js/admin.ts"],
   target: :es2020,
+  import_source: "react",
+  aliases: %{
+    "@" => "assets/src",
+    "@components" => "assets/src/components"
+  },
+  external: ~w(phoenix phoenix_html phoenix_live_view),
+  chunks: %{
+    "vendor" => ["react", "react-dom"],
+    "ui" => ["assets/src/components"]
+  },
+  env_prefix: ["VOLT_", "PUBLIC_"],
+  asset_url_prefix: "/assets",
+  public_dir: "public",
   sourcemap: :hidden,
   tailwind: [
     css: "assets/css/app.css",
     sources: [
       %{base: "lib/", pattern: "**/*.{ex,heex}"},
-      %{base: "assets/", pattern: "**/*.{js,ts,jsx,tsx}"}
+      %{base: "assets/", pattern: "**/*.{js,ts,jsx,tsx,vue,svelte}"}
     ]
-  ]
+  ],
+  plugins: [MyApp.MarkdownPlugin]
+
+config :volt, :server,
+  prefix: "/assets",
+  watch_dirs: ["lib/"]
 ```
 
 `Volt.static_path/2` resolves Volt-managed assets to source files in dev and content-hashed paths in production:
